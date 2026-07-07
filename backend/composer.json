@@ -10,7 +10,7 @@
         "inertiajs/inertia-laravel": "^3.1",
         "intervention/image": "^4.1",
         "laravel/framework": "^13.8",
-        "laravel/sanctum": "^4.3",
+        "laravel/sanctum": "^4.0",
         "laravel/scout": "^11.3",
         "laravel/tinker": "^3.0",
         "league/color-extractor": "^0.4.0",
