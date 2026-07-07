@@ -1,0 +1,27 @@
+# Normalize line endings. Shell scripts and Docker/config files that run inside
+# Linux containers MUST keep LF or they break on Windows checkouts.
+* text=auto eol=lf
+
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.php           text eol=lf
+*.json          text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.conf          text eol=lf
+*.js            text eol=lf
+*.ts            text eol=lf
+*.vue           text eol=lf
+*.css           text eol=lf
+*.md            text eol=lf
+
+# Binary assets
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.webp          binary
+*.woff          binary
+*.woff2         binary
+*.flac          binary
+*.mp3           binary
+*.m4a           binary

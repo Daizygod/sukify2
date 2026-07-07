@@ -1,0 +1,32 @@
+{
+  "token_hmac_secret_key": "change-me-centrifugo-hmac-secret",
+  "api_key": "change-me-centrifugo-api-key",
+  "admin": true,
+  "admin_password": "change-me-admin-password",
+  "admin_secret": "change-me-admin-secret",
+  "allowed_origins": ["http://localhost:5173", "http://localhost", "http://localhost:8088"],
+  "allow_subscribe_for_client": false,
+  "presence": true,
+  "join_leave": true,
+  "history_size": 20,
+  "history_ttl": "60s",
+  "force_recovery": true,
+  "namespaces": [
+    {
+      "name": "user",
+      "presence": true,
+      "join_leave": true,
+      "history_size": 10,
+      "history_ttl": "300s",
+      "allow_publish_for_subscriber": false
+    },
+    {
+      "name": "session",
+      "presence": true,
+      "join_leave": true,
+      "history_size": 30,
+      "history_ttl": "300s",
+      "allow_publish_for_subscriber": true
+    }
+  ]
+}
