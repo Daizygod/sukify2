@@ -5,7 +5,9 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\LibraryController;
 use App\Http\Controllers\Api\PlaybackSettingController;
+use App\Http\Controllers\Api\JamController;
 use App\Http\Controllers\Api\PlaylistController;
+use App\Http\Controllers\Api\RealtimeController;
 use App\Http\Controllers\Api\ReleaseController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\TrackController;
@@ -87,4 +89,15 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::post('/transitions', [TransitionController::class, 'store']);
     Route::post('/transitions/{transition}/like', [TransitionController::class, 'like']);
     Route::delete('/transitions/{transition}/like', [TransitionController::class, 'unlike']);
+
+    // Realtime (Centrifugo) — device sync + Jam tokens.
+    Route::post('/realtime/connection-token', [RealtimeController::class, 'connectionToken']);
+    Route::post('/realtime/subscription-token', [RealtimeController::class, 'subscriptionToken']);
+
+    // Jam (listening sessions).
+    Route::post('/jam/sessions', [JamController::class, 'store']);
+    Route::post('/jam/sessions/join', [JamController::class, 'join']);
+    Route::get('/jam/sessions/{session}', [JamController::class, 'show']);
+    Route::post('/jam/sessions/{session}/leave', [JamController::class, 'leave']);
+    Route::post('/jam/sessions/{session}/end', [JamController::class, 'end']);
 });

@@ -5,28 +5,31 @@
   "admin_password": "change-me-admin-password",
   "admin_secret": "change-me-admin-secret",
   "allowed_origins": ["http://localhost:5173", "http://localhost", "http://localhost:8088"],
-  "allow_subscribe_for_client": false,
-  "presence": true,
-  "join_leave": true,
-  "history_size": 20,
-  "history_ttl": "60s",
-  "force_recovery": true,
   "namespaces": [
     {
       "name": "user",
       "presence": true,
       "join_leave": true,
+      "force_push_join_leave": true,
       "history_size": 10,
       "history_ttl": "300s",
-      "allow_publish_for_subscriber": false
+      "force_recovery": true,
+      "allow_user_limited_channels": true,
+      "allow_publish_for_subscriber": true,
+      "allow_presence_for_subscriber": true,
+      "allow_history_for_subscriber": true
     },
     {
       "name": "session",
       "presence": true,
       "join_leave": true,
+      "force_push_join_leave": true,
       "history_size": 30,
       "history_ttl": "300s",
-      "allow_publish_for_subscriber": true
+      "force_recovery": true,
+      "allow_publish_for_subscriber": true,
+      "allow_presence_for_subscriber": true,
+      "allow_history_for_subscriber": true
     }
   ]
 }
