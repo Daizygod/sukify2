@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\ProcessingStatus;
+use App\Observers\TrackObserver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +20,7 @@ use Laravel\Scout\Searchable;
     'file_size_original', 'cover_override_path',
     'processing_status', 'processing_error',
 ])]
+#[ObservedBy([TrackObserver::class])]
 class Track extends Model
 {
     use HasFactory, Searchable;
