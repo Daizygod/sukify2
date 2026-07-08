@@ -65,7 +65,36 @@ All media is stored under `STORAGE_ROOT_PREFIX` inside the bucket
 (`sukify-media/covers/...`, `sukify-media/audio/...`) so the whole app's tree can be
 deleted independently of anything else in the bucket.
 
+## Admin panel
+
+Inertia + Vue + Tailwind at `http://localhost:8088/admin` (login `admin@sukify.test`
+/ `password`). Admin assets are built (not a dev server) — after changing anything
+under `backend/resources/js`, rebuild:
+
+```bash
+docker run --rm -v "$PWD/backend:/app" -w /app node:22-alpine npm run build
+```
+
+## Seeded accounts
+
+| Account | Email | Password |
+|---|---|---|
+| Admin | admin@sukify.test | password |
+| Demo user | demo@sukify.test | password |
+
 ---
 
-Built stage-by-stage — see the technical spec for scope. Currently: **Stage 1
-(infrastructure + schema) complete.**
+## Build status
+
+All 7 stages implemented and verified end-to-end:
+
+1. ✅ Docker infra + Laravel 13 + Postgres schema (16 migrations)
+2. ✅ Backend API (models, Sanctum SPA auth, controllers, resources)
+3. ✅ Audio + image pipeline (ffmpeg transcode/loudness, WebP covers, colours)
+4. ✅ Centrifugo (device-sync + Jam tokens & channels)
+5. ✅ Vue 3 SPA (Web Audio player w/ crossfade + loudness, all pages)
+6. ✅ Inertia admin (CRUD + upload→pipeline w/ live status, user bans)
+7. ✅ Visual parity pass against the reference Spotify snapshots
+
+Verified via a headless-Chromium container (host networking + screenshot
+inspection) since no Playwright MCP was attached.
