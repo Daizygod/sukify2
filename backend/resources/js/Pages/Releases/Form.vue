@@ -1,5 +1,6 @@
 <script setup>
 import { Head, useForm, Link } from '@inertiajs/vue3'
+import FileInput from '../../Components/FileInput.vue'
 
 const props = defineProps({ release: Object, artists: Array })
 
@@ -51,8 +52,16 @@ function submit() {
         </div>
       </div>
       <div>
-        <label class="block text-xs font-bold mb-1 text-neutral-400">Cover (square image → WebP renditions + colours)</label>
-        <input type="file" accept="image/*" @input="form.cover = $event.target.files[0]" class="text-sm text-neutral-400" />
+        <label class="block text-xs font-bold mb-2 text-neutral-400">Cover</label>
+        <FileInput
+          v-model="form.cover"
+          accept="image/*"
+          label="Choose cover"
+          preview
+          :current-url="release?.cover_url"
+          hint="Square image → WebP renditions + colours are generated automatically."
+        />
+        <p v-if="form.errors.cover" class="text-red-400 text-sm mt-1">{{ form.errors.cover }}</p>
       </div>
       <div class="flex gap-3 pt-2">
         <button :disabled="form.processing" class="rounded-full bg-accent text-black font-bold px-6 py-2 hover:brightness-110 disabled:opacity-60">Save</button>

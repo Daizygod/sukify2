@@ -43,7 +43,9 @@ class ReleaseController extends Controller
     public function edit(Release $release)
     {
         return Inertia::render('Releases/Form', [
-            'release' => $release->load('artist'),
+            'release' => array_merge($release->load('artist')->toArray(), [
+                'cover_url' => $release->coverUrl(300),
+            ]),
             'artists' => Artist::orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -51,7 +53,10 @@ class ReleaseController extends Controller
     public function show(Release $release)
     {
         return Inertia::render('Releases/Show', [
-            'release' => $release->load('artist'),
+            'release' => array_merge($release->load('artist')->toArray(), [
+                'cover_url' => $release->coverUrl(300),
+                'cover_status' => $release->cover_status->value,
+            ]),
             'tracks' => $release->tracks()->orderBy('track_number')->get()->map(fn ($t) => [
                 'id' => $t->id,
                 'title' => $t->title,

@@ -62,7 +62,11 @@ class Release extends Model
             return null;
         }
 
-        return Storage::disk('s3')->url("covers/{$this->id}/{$size}.{$format}");
+        // Renditions overwrite the same keys on re-upload, so bust the browser
+        // cache with a version derived from the last update.
+        $v = $this->updated_at?->timestamp ?? 0;
+
+        return Storage::disk('s3')->url("covers/{$this->id}/{$size}.{$format}")."?v={$v}";
     }
 
     /** Map of size => WebP URL for responsive srcset, or null if no cover yet. */

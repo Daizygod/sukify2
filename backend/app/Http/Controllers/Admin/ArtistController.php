@@ -37,7 +37,12 @@ class ArtistController extends Controller
 
     public function edit(Artist $artist)
     {
-        return Inertia::render('Artists/Form', ['artist' => $artist]);
+        return Inertia::render('Artists/Form', [
+            'artist' => array_merge($artist->toArray(), [
+                'avatar_url' => $artist->avatar_path ? Storage::disk('s3')->url($artist->avatar_path).'?v='.($artist->updated_at?->timestamp ?? 0) : null,
+                'banner_url' => $artist->banner_path ? Storage::disk('s3')->url($artist->banner_path).'?v='.($artist->updated_at?->timestamp ?? 0) : null,
+            ]),
+        ]);
     }
 
     public function store(Request $request)

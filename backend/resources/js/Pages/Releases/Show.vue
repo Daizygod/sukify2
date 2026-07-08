@@ -1,8 +1,10 @@
 <script setup>
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import FileInput from '../../Components/FileInput.vue'
 
 const props = defineProps({ release: Object, tracks: Array })
+const uploadKey = ref(0)
 
 // Mirror each track's status locally so polling can update it live. Re-sync
 // whenever Inertia swaps in new props (e.g. after an upload adds a row).
@@ -25,7 +27,7 @@ function upload() {
     preserveScroll: true,
     onSuccess: () => {
       form.reset()
-      if (fileInput.value) fileInput.value.value = ''
+      uploadKey.value++ // remount FileInput to clear its filename
     },
   })
 }
@@ -67,27 +69,47 @@ const badge = {
 <template>
   <Head :title="release.title" />
   <div class="flex items-center justify-between mb-6">
-    <div>
-      <Link href="/admin/releases" class="text-neutral-500 text-sm hover:underline">← Releases</Link>
-      <h1 class="text-2xl font-extrabold mt-1">{{ release.title }}</h1>
-      <p class="text-neutral-400 text-sm capitalize">{{ release.type }} · {{ release.artist?.name }}</p>
+    <div class="flex items-center gap-4">
+      <div class="w-20 h-20 rounded-lg overflow-hidden bg-neutral-800 grid place-items-center shrink-0">
+        <img v-if="release.cover_url" :src="release.cover_url" class="w-full h-full object-cover" />
+        <span v-else class="text-[10px] text-neutral-500 text-center px-1">no cover</span>
+      </div>
+      <div>
+        <Link href="/admin/releases" class="text-neutral-500 text-sm hover:underline">← Releases</Link>
+        <h1 class="text-2xl font-extrabold mt-1">{{ release.title }}</h1>
+        <p class="text-neutral-400 text-sm capitalize">
+          {{ release.type }} · {{ release.artist?.name }}
+          <span v-if="release.cover_status !== 'ready'" class="ml-2 text-amber-400">cover: {{ release.cover_status }}</span>
+        </p>
+      </div>
     </div>
     <Link :href="`/admin/releases/${release.id}/edit`" class="rounded-full border border-neutral-700 px-5 py-2 text-sm hover:border-white">Edit release</Link>
   </div>
 
   <!-- Upload -->
-  <form @submit.prevent="upload" class="flex items-end gap-3 mb-6 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
-    <div class="flex-1">
-      <label class="block text-xs font-bold mb-1 text-neutral-400">Track title</label>
-      <input v-model="form.title" class="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 outline-none focus:border-accent" />
+  <form @submit.prevent="upload" class="mb-6 bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+    <div class="text-sm font-bold mb-3">Add a track</div>
+    <div class="flex flex-col md:flex-row md:items-end gap-4">
+      <div class="flex-1">
+        <label class="block text-xs font-bold mb-1 text-neutral-400">Track title</label>
+        <input v-model="form.title" placeholder="Track title" class="w-full rounded-md bg-neutral-950 border border-neutral-700 px-3 py-2 outline-none focus:border-accent" />
+      </div>
+      <div class="flex-1">
+        <label class="block text-xs font-bold mb-2 text-neutral-400">Audio file</label>
+        <FileInput
+          :key="uploadKey"
+          v-model="form.audio"
+          accept=".mp3,.flac,.ape,.wav,.m4a,audio/*"
+          label="Choose audio"
+          hint="mp3 / flac / ape — transcoded automatically."
+        />
+      </div>
+      <button :disabled="form.processing || !form.audio || !form.title" class="rounded-full bg-accent text-black font-bold px-6 py-2 hover:brightness-110 disabled:opacity-50 whitespace-nowrap">
+        {{ form.processing ? 'Uploading…' : 'Upload' }}
+      </button>
     </div>
-    <div class="flex-1">
-      <label class="block text-xs font-bold mb-1 text-neutral-400">Audio (mp3 / flac / ape)</label>
-      <input ref="fileInput" type="file" accept=".mp3,.flac,.ape,.wav,.m4a,audio/*" @input="form.audio = $event.target.files[0]" class="text-sm text-neutral-400" />
-    </div>
-    <button :disabled="form.processing || !form.audio || !form.title" class="rounded-full bg-accent text-black font-bold px-6 py-2 hover:brightness-110 disabled:opacity-50">Upload</button>
+    <p v-if="form.errors.audio" class="text-red-400 text-sm mt-2">{{ form.errors.audio }}</p>
   </form>
-  <p v-if="form.errors.audio" class="text-red-400 text-sm mb-4">{{ form.errors.audio }}</p>
 
   <!-- Track list -->
   <div class="rounded-xl bg-neutral-900 border border-neutral-800 overflow-hidden">

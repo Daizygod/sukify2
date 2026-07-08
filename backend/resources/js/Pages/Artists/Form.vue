@@ -1,5 +1,6 @@
 <script setup>
 import { Head, useForm, Link } from '@inertiajs/vue3'
+import FileInput from '../../Components/FileInput.vue'
 
 const props = defineProps({ artist: Object })
 
@@ -36,15 +37,13 @@ function submit() {
         <textarea v-model="form.bio" rows="4" class="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 outline-none focus:border-accent"></textarea>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-bold mb-1 text-neutral-400">Avatar</label>
-          <input type="file" accept="image/*" @input="form.avatar = $event.target.files[0]" class="text-sm text-neutral-400" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold mb-1 text-neutral-400">Banner (sets page colours)</label>
-          <input type="file" accept="image/*" @input="form.banner = $event.target.files[0]" class="text-sm text-neutral-400" />
-        </div>
+      <div>
+        <label class="block text-xs font-bold mb-2 text-neutral-400">Avatar</label>
+        <FileInput v-model="form.avatar" accept="image/*" label="Choose avatar" preview :current-url="artist?.avatar_url" />
+      </div>
+      <div>
+        <label class="block text-xs font-bold mb-2 text-neutral-400">Banner</label>
+        <FileInput v-model="form.banner" accept="image/*" label="Choose banner" preview :current-url="artist?.banner_url" hint="Sets the artist page gradient colours." />
       </div>
 
       <div class="flex gap-3 pt-2">
