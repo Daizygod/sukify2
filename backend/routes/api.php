@@ -33,11 +33,11 @@ Route::get('/home', HomeController::class);
 Route::get('/search', SearchController::class);
 
 Route::get('/artists', [ArtistController::class, 'index']);
-Route::get('/artists/{artist}', [ArtistController::class, 'show']);
-Route::get('/artists/{artist}/top-tracks', [ArtistController::class, 'topTracks']);
-Route::get('/artists/{artist}/releases', [ArtistController::class, 'releases']);
+Route::get('/artists/{artist:slug}', [ArtistController::class, 'show']);
+Route::get('/artists/{artist:slug}/top-tracks', [ArtistController::class, 'topTracks']);
+Route::get('/artists/{artist:slug}/releases', [ArtistController::class, 'releases']);
 
-Route::get('/releases/{release}', [ReleaseController::class, 'show']);
+Route::get('/releases/{release:slug}', [ReleaseController::class, 'show']);
 Route::get('/tracks/{track}', [TrackController::class, 'show']);
 
 Route::get('/transitions', [TransitionController::class, 'forPair']);
@@ -74,8 +74,8 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::post('/releases/{release}/like', [ReleaseController::class, 'like']);
     Route::delete('/releases/{release}/like', [ReleaseController::class, 'unlike']);
 
-    Route::post('/artists/{artist}/follow', [ArtistController::class, 'follow']);
-    Route::delete('/artists/{artist}/follow', [ArtistController::class, 'unfollow']);
+    Route::post('/artists/{artist:slug}/follow', [ArtistController::class, 'follow']);
+    Route::delete('/artists/{artist:slug}/follow', [ArtistController::class, 'unfollow']);
 
     // Playlists (mutations).
     Route::post('/playlists', [PlaylistController::class, 'store']);

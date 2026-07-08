@@ -21,11 +21,6 @@ class Artist extends Model
         ];
     }
 
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
-    }
-
     // --- Relations ---------------------------------------------------------
 
     public function releases(): HasMany

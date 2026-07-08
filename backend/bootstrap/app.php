@@ -21,6 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'not.banned' => \App\Http\Middleware\EnsureUserIsNotBanned::class,
         ]);
+
+        // Inertia (admin panel) shares props on web requests.
+        $middleware->web(append: [
+            \App\Http\Middleware\HandleInertiaRequests::class,
+        ]);
+
+        // Unauthenticated web requests go to the admin login (API stays 401 JSON).
+        $middleware->redirectGuestsTo(fn () => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

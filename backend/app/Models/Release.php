@@ -34,11 +34,6 @@ class Release extends Model
         ];
     }
 
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
-    }
-
     // --- Relations ---------------------------------------------------------
 
     public function artist(): BelongsTo
