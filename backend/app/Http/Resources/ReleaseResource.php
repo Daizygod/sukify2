@@ -17,6 +17,7 @@ class ReleaseResource extends JsonResource
             'release_date' => $this->release_date?->toDateString(),
             'year' => $this->release_date?->year,
             'cover' => $this->coverUrls(),
+            'cover_original' => $this->originalCoverUrl(),
             'cover_status' => $this->cover_status->value,
             'colors' => [
                 'background' => $this->dominant_color_hex,

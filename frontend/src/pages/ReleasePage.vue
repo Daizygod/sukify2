@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
+import CoverLightbox from '@/components/CoverLightbox.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import Icon from '@/components/Icon.vue'
 import { formatDuration } from '@/lib/format'
@@ -14,6 +15,14 @@ const player = usePlayerStore()
 const auth = useAuthStore()
 const release = ref(null)
 const loading = ref(true)
+const lightboxOpen = ref(false)
+
+const fullCover = computed(() => {
+  if (release.value?.cover_original) return release.value.cover_original
+  const c = release.value?.cover
+  if (Array.isArray(c) && c.length) return [...c].sort((a, b) => b.size - a.size)[0].url
+  return null
+})
 
 const totalDuration = computed(() => {
   const ms = (release.value?.tracks || []).reduce((a, t) => a + (t.duration_ms || 0), 0)
@@ -53,11 +62,14 @@ async function toggleLike() {
 
 <template>
   <div v-if="release" class="release">
+    <CoverLightbox :open="lightboxOpen" :src="fullCover" :alt="release.title" @close="lightboxOpen = false" />
     <CollectionHero
       :kind="release.type[0].toUpperCase() + release.type.slice(1)"
       :title="release.title"
       :cover="release.cover"
       :bg="release.colors?.background || '#333'"
+      :zoomable="!!fullCover"
+      @zoom="lightboxOpen = true"
     >
       <template #meta>
         <strong>{{ release.artist?.name }}</strong>

@@ -9,16 +9,23 @@ defineProps({
   bg: { type: String, default: '#333333' },
   round: { type: Boolean, default: false },
   bigTitle: { type: Boolean, default: true },
+  zoomable: { type: Boolean, default: false },
 })
+const emit = defineEmits(['zoom'])
 </script>
 
 <template>
   <div class="hero" :style="{ '--hero-bg': bg }">
     <div class="hero__inner">
-      <div class="hero__cover" :class="{ 'hero__cover--round': round }">
+      <div
+        class="hero__cover"
+        :class="{ 'hero__cover--round': round, 'hero__cover--zoom': zoomable }"
+        @click="zoomable && emit('zoom')"
+      >
         <slot name="cover">
-          <CoverImage :cover="cover" :size="640" :rounded="round" :alt="title" />
+          <CoverImage :cover="cover" :size="300" :rounded="round" :alt="title" />
         </slot>
+        <div v-if="zoomable" class="hero__zoom-hint">Click to enlarge</div>
       </div>
       <div class="hero__text">
         <span v-if="kind" class="hero__kind">{{ kind }}</span>
@@ -52,6 +59,26 @@ defineProps({
 }
 .hero__cover--round {
   border-radius: 50%;
+}
+.hero__cover--zoom {
+  cursor: zoom-in;
+  position: relative;
+}
+.hero__zoom-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  border-radius: 4px;
+}
+.hero__cover--zoom:hover .hero__zoom-hint {
+  opacity: 1;
 }
 .hero__text {
   flex: 1;

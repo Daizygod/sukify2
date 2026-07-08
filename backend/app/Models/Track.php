@@ -86,18 +86,14 @@ class Track extends Model
             : null;
     }
 
-    /** Cover URLs, inheriting from the release unless overridden. */
+    /** Cover renditions ({size,url} list), inheriting from the release unless overridden. */
     public function coverUrls(): ?array
     {
         if ($this->cover_override_path) {
-            $urls = [];
-            foreach (Release::COVER_SIZES as $size) {
-                // Per-track override renditions follow the same size convention.
-                $base = "track-covers/{$this->id}";
-                $urls[$size] = Storage::disk('s3')->url("{$base}/{$size}.webp");
-            }
-
-            return $urls;
+            return array_map(fn ($size) => [
+                'size' => $size,
+                'url' => Storage::disk('s3')->url("track-covers/{$this->id}/{$size}.webp"),
+            ], Release::COVER_SIZES);
         }
 
         return $this->release?->coverUrls();

@@ -111,6 +111,7 @@ export const usePlayerStore = defineStore('player', () => {
     idleDeck().el.pause()
 
     currentTrack.value = track
+    updateMediaSession(track)
     deck.el.src = track.stream_url
     deck.el.load()
     deck.gain.gain.cancelScheduledValues(ctx.currentTime)
@@ -123,6 +124,7 @@ export const usePlayerStore = defineStore('player', () => {
     } catch (e) {
       isPlaying.value = false
     }
+    setMediaPlaybackState()
     bindEnded()
     startTicker()
   }
@@ -147,6 +149,7 @@ export const usePlayerStore = defineStore('player', () => {
       el.pause()
       isPlaying.value = false
     }
+    setMediaPlaybackState()
   }
 
   function seek(ms) {
@@ -280,6 +283,7 @@ export const usePlayerStore = defineStore('player', () => {
       active = incomingIndex
       queueIndex.value++
       currentTrack.value = nextTrack
+      updateMediaSession(nextTrack)
       crossfading = false
       logPlay(nextTrack)
       bindEnded()
@@ -322,6 +326,44 @@ export const usePlayerStore = defineStore('player', () => {
 
   function logPlay(track) {
     api.post(`/tracks/${track.id}/play`).catch(() => {})
+  }
+
+  // --- OS media integration (lock screen / notification tray / headset keys) --
+  function updateMediaSession(track) {
+    if (!('mediaSession' in navigator) || !track) return
+
+    const covers = Array.isArray(track.cover)
+      ? track.cover
+      : track.cover
+        ? Object.entries(track.cover).map(([size, url]) => ({ size: Number(size), url }))
+        : []
+    const artwork = covers
+      .filter((c) => c.url)
+      .map((c) => ({ src: c.url, sizes: `${c.size}x${c.size}`, type: 'image/webp' }))
+
+    try {
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: track.title || '',
+        artist: (track.artists || []).map((a) => a.name).join(', '),
+        album: track.release?.title || '',
+        artwork,
+      })
+      navigator.mediaSession.setActionHandler('play', () => togglePlay())
+      navigator.mediaSession.setActionHandler('pause', () => togglePlay())
+      navigator.mediaSession.setActionHandler('previoustrack', () => prev())
+      navigator.mediaSession.setActionHandler('nexttrack', () => next())
+      navigator.mediaSession.setActionHandler('seekto', (d) => {
+        if (d.seekTime != null) seek(d.seekTime * 1000)
+      })
+    } catch {
+      /* MediaSession unsupported/partial */
+    }
+  }
+
+  function setMediaPlaybackState() {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying.value ? 'playing' : 'paused'
+    }
   }
 
   async function loadSettings() {

@@ -69,19 +69,34 @@ class Release extends Model
         return Storage::disk('s3')->url("covers/{$this->id}/{$size}.{$format}")."?v={$v}";
     }
 
-    /** Map of size => WebP URL for responsive srcset, or null if no cover yet. */
+    /** URL of the untouched original upload (for the full-resolution viewer). */
+    public function originalCoverUrl(): ?string
+    {
+        if (! $this->cover_original_path) {
+            return null;
+        }
+
+        $v = $this->updated_at?->timestamp ?? 0;
+
+        return Storage::disk('s3')->url($this->cover_original_path)."?v={$v}";
+    }
+
+    /**
+     * List of { size, url } rendition candidates for a responsive srcset, or
+     * null if no cover yet. NB: a list (not a size-keyed map) on purpose —
+     * Laravel API Resources reindex numeric-keyed arrays, which would turn a
+     * {64:..,300:..} map into [0,1,2,..] and break size lookups on the client.
+     */
     public function coverUrls(): ?array
     {
         if (! $this->cover_path || $this->cover_status !== ProcessingStatus::Ready) {
             return null;
         }
 
-        $urls = [];
-        foreach (self::COVER_SIZES as $size) {
-            $urls[$size] = $this->coverUrl($size);
-        }
-
-        return $urls;
+        return array_map(fn ($size) => [
+            'size' => $size,
+            'url' => $this->coverUrl($size),
+        ], self::COVER_SIZES);
     }
 
     // --- Search ------------------------------------------------------------
