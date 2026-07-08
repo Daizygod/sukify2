@@ -7,9 +7,9 @@ import PlayerBar from '@/components/PlayerBar.vue'
 
 <template>
   <div class="app">
+    <TopBar class="app__top" />
     <Sidebar class="app__nav" />
     <main class="app__main">
-      <TopBar />
       <div class="app__scroll">
         <RouterView />
       </div>

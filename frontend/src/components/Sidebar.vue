@@ -25,15 +25,6 @@ async function createPlaylist() {
 
 <template>
   <nav class="sidebar">
-    <div class="sidebar__top">
-      <RouterLink to="/" class="sidebar__nav" :class="{ active: route.name === 'home' }">
-        <Icon name="home" :size="24" /> <span>Home</span>
-      </RouterLink>
-      <RouterLink to="/search" class="sidebar__nav" :class="{ active: String(route.name).startsWith('search') }">
-        <Icon name="search" :size="24" /> <span>Search</span>
-      </RouterLink>
-    </div>
-
     <div class="sidebar__library">
       <div class="sidebar__libhead">
         <div class="sidebar__libtitle">
@@ -45,6 +36,12 @@ async function createPlaylist() {
       </div>
 
       <template v-if="auth.isAuthenticated">
+        <div class="sidebar__pills">
+          <button class="pill pill--active">Playlists</button>
+          <button class="pill">Artists</button>
+          <button class="pill">Albums</button>
+        </div>
+
         <input v-model="filter" class="sidebar__filter" placeholder="Search in Your Library" />
 
         <div class="sidebar__list">
@@ -141,6 +138,27 @@ async function createPlaylist() {
 .sidebar__add:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
+}
+.sidebar__pills {
+  display: flex;
+  gap: 8px;
+  padding: 4px 8px 8px 4px;
+  flex-wrap: wrap;
+}
+.pill {
+  background: var(--bg-highlight);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.pill:hover {
+  background: #2a2a2a;
+}
+.pill--active {
+  background: #fff;
+  color: #000;
 }
 .sidebar__filter {
   margin: 4px 8px 8px 4px;
