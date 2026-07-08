@@ -32,7 +32,11 @@ async function load(slug) {
 }
 watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 
+const isThisPlaying = computed(
+  () => player.currentTrack?.release?.slug === release.value?.slug && player.isPlaying
+)
 function playAll() {
+  if (isThisPlaying.value) return player.togglePlay()
   if (release.value?.tracks?.length) player.playContext(release.value.tracks, 0)
 }
 async function toggleLike() {
@@ -65,7 +69,7 @@ async function toggleLike() {
 
     <div class="release__body" :style="{ '--body-bg': release.colors?.background || '#222' }">
       <div class="release__actions">
-        <button class="play-btn" @click="playAll"><Icon name="play" :size="24" /></button>
+        <button class="play-btn" @click="playAll"><Icon :name="isThisPlaying ? 'pause' : 'play'" :size="24" /></button>
         <button v-if="auth.isAuthenticated" class="release__like" :class="{ on: release.is_liked }" @click="toggleLike">
           <Icon :name="release.is_liked ? 'heartFill' : 'heart'" :size="30" />
         </button>

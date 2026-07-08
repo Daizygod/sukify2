@@ -42,8 +42,8 @@ class CoverProcessor
             $image = $this->manager->decode($sourcePath)->coverDown($size, $size);
 
             $renditions[$size] = [
-                'webp' => (string) $image->encode(new WebpEncoder(quality: 82)),
-                'jpg' => (string) $image->encode(new JpegEncoder(quality: 84)),
+                'webp' => (string) $image->encode(new WebpEncoder(quality: 90)),
+                'jpg' => (string) $image->encode(new JpegEncoder(quality: 90)),
             ];
         }
 

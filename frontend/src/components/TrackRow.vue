@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
+import LikeButton from './LikeButton.vue'
 import { formatDuration, formatCount } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
@@ -64,14 +65,14 @@ function toggleLike() {
       class="row__album"
     >{{ track.release.title }}</RouterLink>
 
-    <button
+    <LikeButton
       v-if="auth.isAuthenticated"
       class="row__like"
-      :class="{ 'row__like--on': liked }"
-      @click="toggleLike"
-    >
-      <Icon :name="liked ? 'heartFill' : 'heart'" :size="16" />
-    </button>
+      :class="{ 'row__like--visible': liked }"
+      :liked="liked"
+      :size="16"
+      @toggle="toggleLike"
+    />
 
     <div class="row__duration">{{ formatDuration(track.duration_ms) }}</div>
   </div>
@@ -156,17 +157,13 @@ function toggleLike() {
   color: #fff;
 }
 .row__like {
-  color: var(--accent);
   opacity: 0;
 }
-.row__like--on {
+.row__like--visible {
   opacity: 1;
 }
 .row:hover .row__like {
   opacity: 1;
-}
-.row__like:not(.row__like--on) {
-  color: var(--text-subdued);
 }
 .row__duration {
   text-align: right;

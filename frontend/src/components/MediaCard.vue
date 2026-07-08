@@ -9,6 +9,8 @@ defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
   round: { type: Boolean, default: false },
+  playable: { type: Boolean, default: true },
+  playing: { type: Boolean, default: false },
 })
 const emit = defineEmits(['play'])
 </script>
@@ -17,8 +19,13 @@ const emit = defineEmits(['play'])
   <RouterLink :to="to" class="card">
     <div class="card__art">
       <CoverImage :cover="cover" :size="300" :rounded="round" :alt="title" />
-      <button class="play-btn card__play" @click.prevent="emit('play')">
-        <Icon name="play" :size="20" />
+      <button
+        v-if="playable"
+        class="play-btn card__play"
+        :class="{ 'card__play--visible': playing }"
+        @click.prevent="emit('play')"
+      >
+        <Icon :name="playing ? 'pause' : 'play'" :size="20" />
       </button>
     </div>
     <div class="card__title">{{ title }}</div>
@@ -49,7 +56,8 @@ const emit = defineEmits(['play'])
   transform: translateY(8px);
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
-.card:hover .card__play {
+.card:hover .card__play,
+.card__play--visible {
   opacity: 1;
   transform: translateY(0);
 }

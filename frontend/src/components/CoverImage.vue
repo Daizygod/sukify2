@@ -12,8 +12,11 @@ const SIZES = [64, 160, 300, 640, 1000]
 
 const src = computed(() => {
   if (!props.cover) return null
-  // Pick the smallest rendition >= requested size, else the largest available.
-  const pick = SIZES.find((s) => s >= props.size) ?? SIZES[SIZES.length - 1]
+  // Account for Hi-DPI: a 300px card is ~600 physical px on a 2x display, so
+  // request a rendition large enough to stay crisp instead of upscaling.
+  const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2)
+  const target = props.size * dpr
+  const pick = SIZES.find((s) => s >= target) ?? SIZES[SIZES.length - 1]
   return props.cover[pick] || props.cover[640] || Object.values(props.cover)[0]
 })
 </script>

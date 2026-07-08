@@ -1,28 +1,29 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
+import DragBar from './DragBar.vue'
+import LikeButton from './LikeButton.vue'
 import { formatDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 
 const player = usePlayerStore()
 const library = useLibraryStore()
 const auth = useAuthStore()
+const ui = useUiStore()
 
 const track = computed(() => player.currentTrack)
 const liked = computed(() => track.value && library.isLiked(track.value.id))
 
-function seekTo(e) {
-  const rect = e.currentTarget.getBoundingClientRect()
-  const pct = (e.clientX - rect.left) / rect.width
-  player.seek(pct * player.durationMs)
+function onSeek(frac) {
+  player.seek(frac * player.durationMs)
 }
-function setVol(e) {
-  const rect = e.currentTarget.getBoundingClientRect()
-  player.setVolume((e.clientX - rect.left) / rect.width)
+function onVol(frac) {
+  player.setVolume(frac)
 }
 function cycleRepeat() {
   player.repeat = player.repeat === 'off' ? 'all' : player.repeat === 'all' ? 'one' : 'off'
@@ -43,9 +44,7 @@ function cycleRepeat() {
             </template>
           </div>
         </div>
-        <button v-if="auth.isAuthenticated" class="player__like" :class="{ on: liked }" @click="library.toggleLike(track)">
-          <Icon :name="liked ? 'heartFill' : 'heart'" :size="16" />
-        </button>
+        <LikeButton v-if="auth.isAuthenticated" :liked="liked" :size="16" @toggle="library.toggleLike(track)" />
       </template>
     </div>
 
@@ -55,7 +54,7 @@ function cycleRepeat() {
         <button class="ctl" :class="{ on: player.shuffle }" @click="player.shuffle = !player.shuffle"><Icon name="shuffle" :size="18" /></button>
         <button class="ctl" @click="player.prev()"><Icon name="prev" :size="18" /></button>
         <button class="player__play" @click="player.togglePlay()">
-          <Icon :name="player.isPlaying ? 'pause' : 'play'" :size="18" />
+          <Icon :name="player.isPlaying ? 'pause' : 'play'" :size="16" />
         </button>
         <button class="ctl" @click="player.next()"><Icon name="next" :size="18" /></button>
         <button class="ctl" :class="{ on: player.repeat !== 'off' }" @click="cycleRepeat">
@@ -65,21 +64,17 @@ function cycleRepeat() {
       </div>
       <div class="player__progress">
         <span class="player__time">{{ formatDuration(player.positionMs) }}</span>
-        <div class="bar" @click="seekTo">
-          <div class="bar__fill" :style="{ width: player.progress * 100 + '%' }"></div>
-        </div>
+        <DragBar :value="player.progress" @input="onSeek" />
         <span class="player__time">{{ formatDuration(player.durationMs) }}</span>
       </div>
     </div>
 
-    <!-- Right: volume + devices -->
+    <!-- Right: view toggle + volume -->
     <div class="player__right">
+      <button class="ctl" :class="{ on: ui.rightOpen }" title="Now playing view" @click="ui.toggleRight()"><Icon name="jam" :size="18" /></button>
       <button class="ctl" title="Connect to a device"><Icon name="devices" :size="18" /></button>
-      <button class="ctl" title="Start a Jam"><Icon name="jam" :size="18" /></button>
       <button class="ctl" @click="player.toggleMute()"><Icon name="volume" :size="18" /></button>
-      <div class="vol" @click="setVol">
-        <div class="vol__fill" :style="{ width: (player.muted ? 0 : player.volume) * 100 + '%' }"></div>
-      </div>
+      <div class="player__vol"><DragBar :value="player.muted ? 0 : player.volume" @input="onVol" /></div>
     </div>
   </footer>
 </template>
@@ -124,13 +119,6 @@ function cycleRepeat() {
   color: #fff;
   text-decoration: underline;
 }
-.player__like {
-  color: var(--text-subdued);
-  margin-left: 8px;
-}
-.player__like.on {
-  color: var(--accent);
-}
 .player__center {
   display: flex;
   flex-direction: column;
@@ -145,6 +133,8 @@ function cycleRepeat() {
 .ctl {
   color: var(--text-subdued);
   position: relative;
+  display: grid;
+  place-items: center;
 }
 .ctl:hover {
   color: #fff;
@@ -185,40 +175,14 @@ function cycleRepeat() {
   min-width: 40px;
   text-align: center;
 }
-.bar {
-  flex: 1;
-  height: 4px;
-  background: #4d4d4d;
-  border-radius: 2px;
-  cursor: pointer;
-}
-.bar__fill {
-  height: 100%;
-  background: #fff;
-  border-radius: 2px;
-}
-.bar:hover .bar__fill {
-  background: var(--accent);
-}
 .player__right {
   display: flex;
   align-items: center;
   gap: 12px;
   justify-content: flex-end;
 }
-.vol {
-  width: 92px;
-  height: 4px;
-  background: #4d4d4d;
-  border-radius: 2px;
-  cursor: pointer;
-}
-.vol__fill {
-  height: 100%;
-  background: #fff;
-  border-radius: 2px;
-}
-.vol:hover .vol__fill {
-  background: var(--accent);
+.player__vol {
+  width: 100px;
+  display: flex;
 }
 </style>

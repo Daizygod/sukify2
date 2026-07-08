@@ -113,6 +113,12 @@ img {
   min-height: 0;
 }
 
+.app__right {
+  grid-row: 2;
+  grid-column: 3;
+  min-height: 0;
+}
+
 .app__player {
   grid-row: 3;
   grid-column: 1 / -1;
