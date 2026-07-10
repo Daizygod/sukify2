@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import api, { ensureCsrf } from '@/lib/api'
 
+let fetchPromise = null
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
@@ -11,15 +13,21 @@ export const useAuthStore = defineStore('auth', {
     isAdmin: (s) => !!s.user?.is_admin,
   },
   actions: {
-    async fetchUser() {
-      try {
-        const { data } = await api.get('/me')
-        this.user = data.data
-      } catch {
-        this.user = null
-      } finally {
-        this.ready = true
+    fetchUser() {
+      // Memoized: the router guard and main.js may both await the same request.
+      if (!fetchPromise) {
+        fetchPromise = (async () => {
+          try {
+            const { data } = await api.get('/me')
+            this.user = data.data
+          } catch {
+            this.user = null
+          } finally {
+            this.ready = true
+          }
+        })()
       }
+      return fetchPromise
     },
 
     async login(credentials) {

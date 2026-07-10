@@ -3,8 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
-import LikeButton from './LikeButton.vue'
-import { formatDuration, formatCount } from '@/lib/format'
+import { formatDuration, formatNumber, formatRelativeDate } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
@@ -12,8 +11,8 @@ import { useAuthStore } from '@/stores/auth'
 const props = defineProps({
   track: { type: Object, required: true },
   index: { type: Number, default: null },
-  showCover: { type: Boolean, default: true },
-  showAlbum: { type: Boolean, default: true },
+  // 'playlist' — cover + album + date added; 'album' — bare titles; 'artist' — cover + play count.
+  variant: { type: String, default: 'playlist' },
   contextTracks: { type: Array, default: null },
 })
 
@@ -24,6 +23,7 @@ const auth = useAuthStore()
 const isCurrent = computed(() => player.currentTrack?.id === props.track.id)
 const isPlayingThis = computed(() => isCurrent.value && player.isPlaying)
 const liked = computed(() => library.isLiked(props.track.id))
+const addedAt = computed(() => props.track.added_at || props.track.liked_at)
 
 function play() {
   if (isCurrent.value) return player.togglePlay()
@@ -36,11 +36,11 @@ function toggleLike() {
 </script>
 
 <template>
-  <div class="row" :class="{ 'row--active': isCurrent }" @dblclick="play">
+  <div class="row trackgrid" :class="[`trackgrid--${variant}`, { 'row--active': isCurrent }]" @dblclick="play">
     <div class="row__index">
       <button class="row__play" @click="play">
-        <Icon v-if="isPlayingThis" name="pause" :size="16" />
-        <Icon v-else name="play" :size="16" />
+        <Icon v-if="isPlayingThis" name="pause" :size="14" />
+        <Icon v-else name="play" :size="14" />
       </button>
       <span class="row__num" :class="{ 'row__num--green': isCurrent }">
         {{ index != null ? index + 1 : '' }}
@@ -48,7 +48,7 @@ function toggleLike() {
     </div>
 
     <div class="row__main">
-      <CoverImage v-if="showCover" :cover="track.cover" :size="40" class="row__cover" />
+      <CoverImage v-if="variant !== 'album'" :cover="track.cover" :size="40" class="row__cover" />
       <div class="row__meta">
         <div class="row__title" :class="{ 'row__title--green': isCurrent }">{{ track.title }}</div>
         <div class="row__artists">
@@ -60,30 +60,36 @@ function toggleLike() {
     </div>
 
     <RouterLink
-      v-if="showAlbum && track.release"
+      v-if="variant === 'playlist' && track.release"
       :to="{ name: 'release', params: { slug: track.release.slug } }"
       class="row__album"
     >{{ track.release.title }}</RouterLink>
+    <span v-else-if="variant === 'playlist'"></span>
 
-    <LikeButton
-      v-if="auth.isAuthenticated"
-      class="row__like"
-      :class="{ 'row__like--visible': liked }"
-      :liked="liked"
-      :size="16"
-      @toggle="toggleLike"
-    />
+    <span v-if="variant === 'playlist'" class="row__date">{{ formatRelativeDate(addedAt) }}</span>
 
-    <div class="row__duration">{{ formatDuration(track.duration_ms) }}</div>
+    <span v-if="variant === 'artist'" class="row__plays">{{ formatNumber(track.plays_count) }}</span>
+
+    <div class="row__end">
+      <button
+        v-if="auth.isAuthenticated"
+        class="row__add"
+        :class="{ 'row__add--on': liked }"
+        :title="liked ? 'Добавлено в медиатеку' : 'Добавить в медиатеку'"
+        @click="toggleLike"
+      >
+        <Icon :name="liked ? 'checkCircle' : 'plusCircle'" :size="16" />
+      </button>
+      <span class="row__duration">{{ formatDuration(track.duration_ms) }}</span>
+      <button class="row__more" title="Открыть контекстное меню">
+        <Icon name="more" :size="16" />
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .row {
-  display: grid;
-  grid-template-columns: 40px 1fr 22% 40px 60px;
-  align-items: center;
-  gap: 12px;
   padding: 6px 16px;
   border-radius: 4px;
   color: var(--text-subdued);
@@ -96,10 +102,11 @@ function toggleLike() {
   position: relative;
   display: grid;
   place-items: center;
-  width: 24px;
+  width: 16px;
 }
 .row__num {
   font-variant-numeric: tabular-nums;
+  font-size: 15px;
 }
 .row__num--green {
   color: var(--accent);
@@ -123,13 +130,15 @@ function toggleLike() {
 .row__cover {
   width: 40px;
   flex: 0 0 40px;
+  border-radius: 4px;
 }
 .row__meta {
   min-width: 0;
 }
 .row__title {
   color: #fff;
-  font-weight: 400;
+  font-weight: 500;
+  font-size: 15px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -147,26 +156,62 @@ function toggleLike() {
   text-decoration: underline;
   color: #fff;
 }
-.row__album {
+.row__album,
+.row__date,
+.row__plays {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px;
 }
 .row__album:hover {
   text-decoration: underline;
   color: #fff;
 }
-.row__like {
+.row__plays {
+  font-variant-numeric: tabular-nums;
+}
+.row__end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+.row__add {
+  color: var(--text-subdued);
+  display: grid;
+  place-items: center;
   opacity: 0;
 }
-.row__like--visible {
+.row__add:hover {
+  color: #fff;
+  transform: scale(1.05);
+}
+.row__add--on {
+  color: var(--accent);
   opacity: 1;
 }
-.row:hover .row__like {
+.row__add--on:hover {
+  color: var(--accent-hover);
+}
+.row:hover .row__add {
   opacity: 1;
 }
 .row__duration {
-  text-align: right;
   font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  min-width: 40px;
+  text-align: right;
+}
+.row__more {
+  color: var(--text-subdued);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  width: 16px;
+}
+.row:hover .row__more {
+  opacity: 1;
+  color: #fff;
 }
 </style>

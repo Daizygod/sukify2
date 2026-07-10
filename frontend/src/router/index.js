@@ -19,8 +19,11 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  // vue-router starts the initial navigation on install, before main.js has
+  // finished awaiting the session — wait for it here so guards see the user.
+  if (!auth.ready) await auth.fetchUser()
   if (to.meta.auth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }

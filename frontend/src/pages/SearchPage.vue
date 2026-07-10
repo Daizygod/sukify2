@@ -52,14 +52,14 @@ if (q.value) runSearch()
       <input
         v-model="q"
         class="search__input"
-        placeholder="What do you want to play?"
+        placeholder="Что хочешь включить?"
         @input="onInput"
         autofocus
       />
     </div>
 
     <div v-if="results.tracks.length" class="search__section">
-      <h2 class="section-title">Songs</h2>
+      <h2 class="section-title">Треки</h2>
       <TrackRow
         v-for="(t, i) in results.tracks.slice(0, 5)"
         :key="t.id"
@@ -70,7 +70,7 @@ if (q.value) runSearch()
     </div>
 
     <div v-if="results.artists.length" class="search__section">
-      <h2 class="section-title">Artists</h2>
+      <h2 class="section-title">Исполнители</h2>
       <div class="grid-cards">
         <MediaCard
           v-for="a in results.artists"
@@ -78,14 +78,14 @@ if (q.value) runSearch()
           :to="{ name: 'artist', params: { slug: a.slug } }"
           :cover="a.avatar_url ? { 300: a.avatar_url } : null"
           :title="a.name"
-          subtitle="Artist"
+          subtitle="Исполнитель"
           round
         />
       </div>
     </div>
 
     <div v-if="results.releases.length" class="search__section">
-      <h2 class="section-title">Albums</h2>
+      <h2 class="section-title">Альбомы</h2>
       <div class="grid-cards">
         <MediaCard
           v-for="r in results.releases"
@@ -99,7 +99,7 @@ if (q.value) runSearch()
     </div>
 
     <div v-if="results.playlists.length" class="search__section">
-      <h2 class="section-title">Playlists</h2>
+      <h2 class="section-title">Плейлисты</h2>
       <div class="grid-cards">
         <MediaCard
           v-for="p in results.playlists"
@@ -107,13 +107,13 @@ if (q.value) runSearch()
           :to="{ name: 'playlist', params: { id: p.id } }"
           :cover="p.cover_url ? { 300: p.cover_url } : null"
           :title="p.title"
-          :subtitle="`By ${p.owner?.name || ''}`"
+          :subtitle="`Автор: ${p.owner?.name || ''}`"
         />
       </div>
     </div>
 
     <p v-if="q && !loading && !results.tracks.length && !results.artists.length && !results.releases.length" class="muted">
-      No results for “{{ q }}”.
+      По запросу «{{ q }}» ничего не найдено.
     </p>
   </div>
 </template>

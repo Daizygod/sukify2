@@ -4,7 +4,6 @@ import { RouterLink } from 'vue-router'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
 import DragBar from './DragBar.vue'
-import LikeButton from './LikeButton.vue'
 import { formatDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
@@ -44,7 +43,15 @@ function cycleRepeat() {
             </template>
           </div>
         </div>
-        <LikeButton v-if="auth.isAuthenticated" :liked="liked" :size="16" @toggle="library.toggleLike(track)" />
+        <button
+          v-if="auth.isAuthenticated"
+          class="ctl player__add"
+          :class="{ on: liked }"
+          :title="liked ? 'Добавлено в медиатеку' : 'Добавить в медиатеку'"
+          @click="library.toggleLike(track)"
+        >
+          <Icon :name="liked ? 'checkCircle' : 'plusCircle'" :size="16" />
+        </button>
       </template>
     </div>
 
@@ -71,10 +78,14 @@ function cycleRepeat() {
 
     <!-- Right: view toggle + volume -->
     <div class="player__right">
-      <button class="ctl" :class="{ on: ui.rightOpen }" title="Now playing view" @click="ui.toggleRight()"><Icon name="jam" :size="18" /></button>
-      <button class="ctl" title="Connect to a device"><Icon name="devices" :size="18" /></button>
-      <button class="ctl" @click="player.toggleMute()"><Icon name="volume" :size="18" /></button>
+      <button class="ctl" :class="{ on: ui.rightOpen }" title="Экран «Сейчас играет»" @click="ui.toggleRight()"><Icon name="nowplaying" :size="16" /></button>
+      <button class="ctl" title="Текст"><Icon name="lyrics" :size="16" /></button>
+      <button class="ctl" title="Очередь"><Icon name="queue" :size="16" /></button>
+      <button class="ctl" title="Подключение к устройству"><Icon name="devices" :size="16" /></button>
+      <button class="ctl" title="Громкость" @click="player.toggleMute()"><Icon name="volume" :size="16" /></button>
       <div class="player__vol"><DragBar :value="player.muted ? 0 : player.volume" @input="onVol" /></div>
+      <button class="ctl" title="Мини-плеер"><Icon name="miniplayer" :size="16" /></button>
+      <button class="ctl" title="Полноэкранный режим"><Icon name="fullscreen" :size="16" /></button>
     </div>
   </footer>
 </template>
@@ -178,11 +189,11 @@ function cycleRepeat() {
 .player__right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   justify-content: flex-end;
 }
 .player__vol {
-  width: 100px;
+  width: 90px;
   display: flex;
 }
 </style>

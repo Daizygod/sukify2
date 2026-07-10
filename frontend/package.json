@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/manrope": "^5.2.8",
     "axios": "^1.7.9",
     "centrifuge": "^5.3.1",
     "pinia": "^2.3.0",

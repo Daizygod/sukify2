@@ -1,7 +1,8 @@
 <script setup>
+import { computed } from 'vue'
 import CoverImage from './CoverImage.vue'
 
-defineProps({
+const props = defineProps({
   kind: { type: String, default: '' }, // "Album", "Playlist", ...
   title: { type: String, required: true },
   cover: { type: Object, default: null },
@@ -12,6 +13,15 @@ defineProps({
   zoomable: { type: Boolean, default: false },
 })
 const emit = defineEmits(['zoom'])
+
+// Spotify shrinks the hero title to keep it on one line — approximate by length.
+const titleSize = computed(() => {
+  const len = props.title?.length || 0
+  if (len <= 11) return 'clamp(40px, 7vw, 88px)'
+  if (len <= 16) return 'clamp(36px, 5.2vw, 66px)'
+  if (len <= 24) return 'clamp(32px, 4vw, 52px)'
+  return 'clamp(28px, 3vw, 40px)'
+})
 </script>
 
 <template>
@@ -29,7 +39,7 @@ const emit = defineEmits(['zoom'])
       </div>
       <div class="hero__text">
         <span v-if="kind" class="hero__kind">{{ kind }}</span>
-        <h1 class="hero__title" :class="{ 'hero__title--xl': bigTitle }">{{ title }}</h1>
+        <h1 class="hero__title" :style="bigTitle ? { fontSize: titleSize } : null">{{ title }}</h1>
         <div class="hero__meta">
           <slot name="meta">{{ meta }}</slot>
         </div>
@@ -94,9 +104,7 @@ const emit = defineEmits(['zoom'])
   letter-spacing: -0.04em;
   margin: 12px 0;
   line-height: 1.05;
-}
-.hero__title--xl {
-  font-size: clamp(40px, 7vw, 88px);
+  overflow-wrap: anywhere;
 }
 .hero__meta {
   font-size: 14px;

@@ -39,45 +39,45 @@ async function submit() {
   <div class="auth">
     <div class="auth__card">
       <div class="auth__logo">🎧 Sukify</div>
-      <h1 class="auth__title">{{ mode === 'login' ? 'Log in to Sukify' : 'Sign up for Sukify' }}</h1>
+      <h1 class="auth__title">{{ mode === 'login' ? 'Войти в Sukify' : 'Регистрация в Sukify' }}</h1>
 
       <form @submit.prevent="submit" class="auth__form">
         <label v-if="mode === 'register'">
-          <span>Name</span>
+          <span>Имя</span>
           <input v-model="form.name" required />
         </label>
         <label>
-          <span>Email</span>
+          <span>Электронная почта</span>
           <input v-model="form.email" type="email" required />
         </label>
         <label>
-          <span>Password</span>
+          <span>Пароль</span>
           <input v-model="form.password" type="password" required />
         </label>
         <label v-if="mode === 'register'">
-          <span>Confirm password</span>
+          <span>Подтверждение пароля</span>
           <input v-model="form.password_confirmation" type="password" required />
         </label>
 
         <p v-if="error" class="auth__error">{{ error }}</p>
 
         <button class="btn-primary auth__submit" :disabled="busy">
-          {{ busy ? '…' : mode === 'login' ? 'Log In' : 'Sign Up' }}
+          {{ busy ? '…' : mode === 'login' ? 'Войти' : 'Зарегистрироваться' }}
         </button>
       </form>
 
       <p class="auth__hint" v-if="mode === 'login'">
-        Demo: <code>demo@sukify.test</code> / <code>password</code>
+        Демо: <code>demo@sukify.test</code> / <code>password</code>
       </p>
 
       <div class="auth__switch">
         <template v-if="mode === 'login'">
-          Don't have an account?
-          <button @click="mode = 'register'">Sign up</button>
+          Нет аккаунта?
+          <button @click="mode = 'register'">Зарегистрироваться</button>
         </template>
         <template v-else>
-          Already have an account?
-          <button @click="mode = 'login'">Log in</button>
+          Уже есть аккаунт?
+          <button @click="mode = 'login'">Войти</button>
         </template>
       </div>
     </div>

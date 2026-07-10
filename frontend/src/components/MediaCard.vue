@@ -36,17 +36,17 @@ const emit = defineEmits(['play'])
 <style scoped>
 .card {
   display: block;
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  padding: 16px;
+  background: transparent;
+  border-radius: 6px;
+  padding: 12px;
   transition: background 0.25s ease;
 }
 .card:hover {
-  background: var(--bg-card-hover);
+  background: rgba(255, 255, 255, 0.07);
 }
 .card__art {
   position: relative;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 .card__play {
   position: absolute;

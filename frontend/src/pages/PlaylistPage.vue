@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import Icon from '@/components/Icon.vue'
+import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 
 const route = useRoute()
@@ -15,6 +16,14 @@ const items = ref([])
 const loading = ref(true)
 
 const isOwner = computed(() => playlist.value?.is_owner)
+
+// Spotify tints the playlist hero with the cover palette — reuse the first
+// track's release color, which the cover collage is built from.
+const heroBg = computed(
+  () => items.value[0]?.release?.colors?.background || '#535353'
+)
+
+const totalMs = computed(() => items.value.reduce((a, t) => a + (t.duration_ms || 0), 0))
 
 async function load(id) {
   loading.value = true
@@ -36,35 +45,44 @@ async function onReorder() {
   const ids = items.value.map((t) => t.playlist_item_id)
   await api.put(`/playlists/${playlist.value.id}/order`, { item_ids: ids })
 }
-
-async function removeItem(track) {
-  items.value = items.value.filter((t) => t.playlist_item_id !== track.playlist_item_id)
-  await api.delete(`/playlists/${playlist.value.id}/tracks/${track.playlist_item_id}`)
-}
 </script>
 
 <template>
   <div v-if="playlist" class="playlist">
     <CollectionHero
-      kind="Playlist"
+      :kind="playlist.is_public ? 'Открытый плейлист' : 'Закрытый плейлист'"
       :title="playlist.title"
       :cover="playlist.cover_url ? { 640: playlist.cover_url } : null"
-      bg="#535353"
+      :bg="heroBg"
     >
       <template #meta>
         <strong>{{ playlist.owner?.name }}</strong>
-        <span>· {{ items.length }} songs</span>
+        <span>• {{ trackCount(items.length) }},</span>
+        <span class="muted">{{ formatTotalDuration(totalMs, true) }}</span>
       </template>
     </CollectionHero>
 
-    <div class="playlist__body">
+    <div class="playlist__body" :style="{ '--body-bg': heroBg }">
       <div class="playlist__actions">
-        <button class="play-btn" @click="playAll"><Icon name="play" :size="24" /></button>
+        <div class="playlist__actions-left">
+          <button class="play-btn play-btn--lg" @click="playAll"><Icon name="play" :size="24" /></button>
+          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffle" :size="22" /></button>
+          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="26" /></button>
+          <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="more" :size="22" /></button>
+        </div>
+        <button class="playlist__view">
+          <span>Список</span>
+          <Icon name="list" :size="16" />
+        </button>
       </div>
 
       <div class="tracklist">
-        <div class="tracklist__head">
-          <div>#</div><div>Title</div><div>Album</div><div></div><div><Icon name="clock" :size="16" /></div>
+        <div class="tracktable__head trackgrid trackgrid--playlist">
+          <div>#</div>
+          <div>Название</div>
+          <div>Альбом</div>
+          <div>Дата добавления</div>
+          <div class="th--right"><Icon name="clock" :size="16" /></div>
         </div>
 
         <draggable
@@ -97,28 +115,45 @@ async function removeItem(track) {
 
 <style scoped>
 .playlist__body {
-  background: linear-gradient(180deg, rgba(83, 83, 83, 0.55) 0, #121212 260px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--body-bg) 40%, #121212) 0, #121212 260px);
   padding: 24px;
   min-height: 400px;
 }
 .playlist__actions {
-  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.playlist__actions-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.play-btn--lg {
+  width: 56px;
+  height: 56px;
+}
+.ctl-lg {
+  color: var(--text-subdued);
+  display: grid;
+  place-items: center;
+}
+.ctl-lg:hover {
+  color: #fff;
+  transform: scale(1.04);
+}
+.playlist__view {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-subdued);
+  font-size: 13px;
+}
+.playlist__view:hover {
+  color: #fff;
 }
 .pl-row {
   cursor: grab;
-}
-.tracklist__head {
-  display: grid;
-  grid-template-columns: 40px 1fr 22% 40px 60px;
-  gap: 12px;
-  padding: 4px 16px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-subdued);
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-.tracklist__head > div:last-child {
-  display: flex;
-  justify-content: flex-end;
 }
 </style>

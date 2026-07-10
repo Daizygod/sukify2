@@ -19,14 +19,14 @@ watch(() => route.params.username, (u) => u && load(u), { immediate: true })
     <div class="profile__hero">
       <div class="profile__avatar">{{ (profile.user.name || '?')[0].toUpperCase() }}</div>
       <div>
-        <span class="profile__kind">Profile</span>
+        <span class="profile__kind">Профиль</span>
         <h1 class="profile__name">{{ profile.user.name }}</h1>
-        <div class="muted">{{ profile.public_playlists_count }} public playlists</div>
+        <div class="muted">Открытых плейлистов: {{ profile.public_playlists_count }}</div>
       </div>
     </div>
 
     <div class="profile__body">
-      <h2 class="section-title">Public Playlists</h2>
+      <h2 class="section-title">Открытые плейлисты</h2>
       <div class="grid-cards">
         <MediaCard
           v-for="p in profile.playlists"
@@ -34,10 +34,10 @@ watch(() => route.params.username, (u) => u && load(u), { immediate: true })
           :to="{ name: 'playlist', params: { id: p.id } }"
           :cover="p.cover_url ? { 300: p.cover_url } : null"
           :title="p.title"
-          :subtitle="`By ${profile.user.name}`"
+          :subtitle="`Автор: ${profile.user.name}`"
         />
       </div>
-      <p v-if="!profile.playlists.length" class="muted">No public playlists yet.</p>
+      <p v-if="!profile.playlists.length" class="muted">Пока нет открытых плейлистов.</p>
     </div>
   </div>
 </template>

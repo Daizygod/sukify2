@@ -15,8 +15,8 @@ const artist = computed(() => track.value?.artists?.[0] || null)
 <template>
   <aside class="np">
     <div class="np__head">
-      <span class="np__title">{{ track ? track.title : 'Now playing' }}</span>
-      <button class="np__close" title="Close" @click="ui.toggleRight()"><Icon name="plus" :size="16" style="transform:rotate(45deg)" /></button>
+      <span class="np__title">{{ track ? track.title : 'Сейчас играет' }}</span>
+      <button class="np__close" title="Закрыть" @click="ui.toggleRight()"><Icon name="plus" :size="16" style="transform:rotate(45deg)" /></button>
     </div>
 
     <div v-if="track" class="np__body">
@@ -32,13 +32,13 @@ const artist = computed(() => track.value?.artists?.[0] || null)
       </div>
 
       <div v-if="artist" class="np__about">
-        <div class="np__about-head">About the artist</div>
+        <div class="np__about-head">Об исполнителе</div>
         <RouterLink :to="{ name: 'artist', params: { slug: artist.slug } }" class="np__about-name">{{ artist.name }}</RouterLink>
       </div>
     </div>
 
     <div v-else class="np__empty">
-      <p class="muted">Nothing playing right now.</p>
+      <p class="muted">Сейчас ничего не играет.</p>
     </div>
   </aside>
 </template>

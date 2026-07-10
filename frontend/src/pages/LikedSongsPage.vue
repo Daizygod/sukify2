@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import Icon from '@/components/Icon.vue'
+import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
 
@@ -11,6 +12,8 @@ const player = usePlayerStore()
 const auth = useAuthStore()
 const tracks = ref([])
 const loading = ref(true)
+
+const totalMs = computed(() => tracks.value.reduce((a, t) => a + (t.duration_ms || 0), 0))
 
 onMounted(async () => {
   try {
@@ -28,23 +31,36 @@ function playAll() {
 
 <template>
   <div class="liked">
-    <CollectionHero kind="Playlist" title="Liked Songs" bg="#4210a0">
+    <CollectionHero kind="Плейлист" title="Любимые треки" bg="#5039ab">
       <template #cover>
         <div class="liked__cover"><Icon name="heartFill" :size="80" /></div>
       </template>
       <template #meta>
         <strong>{{ auth.user?.name }}</strong>
-        <span>· {{ tracks.length }} songs</span>
+        <span>• {{ trackCount(tracks.length) }},</span>
+        <span class="muted">{{ formatTotalDuration(totalMs, true) }}</span>
       </template>
     </CollectionHero>
 
     <div class="liked__body">
       <div class="liked__actions">
-        <button class="play-btn" @click="playAll"><Icon name="play" :size="24" /></button>
+        <div class="liked__actions-left">
+          <button class="play-btn play-btn--lg" @click="playAll"><Icon name="play" :size="24" /></button>
+          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffle" :size="22" /></button>
+          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="26" /></button>
+        </div>
+        <button class="liked__view">
+          <span>Список</span>
+          <Icon name="list" :size="16" />
+        </button>
       </div>
       <div class="tracklist">
-        <div class="tracklist__head">
-          <div>#</div><div>Title</div><div>Album</div><div></div><div><Icon name="clock" :size="16" /></div>
+        <div class="tracktable__head trackgrid trackgrid--playlist">
+          <div>#</div>
+          <div>Название</div>
+          <div>Альбом</div>
+          <div>Дата добавления</div>
+          <div class="th--right"><Icon name="clock" :size="16" /></div>
         </div>
         <TrackRow
           v-for="(t, i) in tracks"
@@ -55,7 +71,7 @@ function playAll() {
         />
       </div>
       <p v-if="!loading && !tracks.length" class="muted" style="padding:24px">
-        Songs you like will appear here.
+        Треки, которые тебе понравились, появятся здесь.
       </p>
     </div>
   </div>
@@ -71,25 +87,42 @@ function playAll() {
   color: #fff;
 }
 .liked__body {
-  background: linear-gradient(180deg, rgba(66, 16, 160, 0.5) 0, #121212 260px);
+  background: linear-gradient(180deg, rgba(80, 57, 171, 0.5) 0, #121212 260px);
   padding: 24px;
   min-height: 400px;
 }
 .liked__actions {
-  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
-.tracklist__head {
+.liked__actions-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.play-btn--lg {
+  width: 56px;
+  height: 56px;
+}
+.ctl-lg {
+  color: var(--text-subdued);
   display: grid;
-  grid-template-columns: 40px 1fr 22% 40px 60px;
-  gap: 12px;
-  padding: 4px 16px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  place-items: center;
+}
+.ctl-lg:hover {
+  color: #fff;
+  transform: scale(1.04);
+}
+.liked__view {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-subdued);
   font-size: 13px;
-  margin-bottom: 8px;
 }
-.tracklist__head > div:last-child {
-  display: flex;
-  justify-content: flex-end;
+.liked__view:hover {
+  color: #fff;
 }
 </style>

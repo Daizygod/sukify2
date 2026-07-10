@@ -26,6 +26,7 @@ class TrackResource extends JsonResource
             'playlist_position' => $this->whenPivotLoaded('playlist_track', fn () => $this->pivot->position),
             'playlist_item_id' => $this->whenPivotLoaded('playlist_track', fn () => $this->pivot->id),
             'added_at' => $this->whenPivotLoaded('playlist_track', fn () => $this->pivot->added_at),
+            'liked_at' => $this->whenPivotLoaded('liked_tracks', fn () => $this->pivot->created_at),
             'is_liked' => $this->when(isset($this->is_liked), fn () => (bool) $this->is_liked),
         ];
     }

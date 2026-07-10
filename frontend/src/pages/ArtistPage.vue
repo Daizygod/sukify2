@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/lib/api'
 import TrackRow from '@/components/TrackRow.vue'
@@ -15,6 +15,13 @@ const auth = useAuthStore()
 const artist = ref(null)
 const topTracks = ref([])
 
+const typeLabel = computed(() => ({
+  album: 'альбом',
+  single: 'сингл',
+  ep: 'мини-альбом',
+  compilation: 'сборник',
+}))
+
 async function load(slug) {
   const [{ data: a }, { data: tt }] = await Promise.all([
     api.get(`/artists/${slug}`),
@@ -25,7 +32,11 @@ async function load(slug) {
 }
 watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 
+const isThisPlaying = computed(
+  () => topTracks.value.some((t) => t.id === player.currentTrack?.id) && player.isPlaying
+)
 function playTop() {
+  if (isThisPlaying.value) return player.togglePlay()
   if (topTracks.value.length) player.playContext(topTracks.value, 0)
 }
 async function toggleFollow() {
@@ -44,7 +55,10 @@ async function toggleFollow() {
   <div v-if="artist" class="artist">
     <div class="artist__hero" :style="{ '--a-bg': artist.colors?.background || '#333', backgroundImage: artist.banner_url ? `url(${artist.banner_url})` : null }">
       <div class="artist__hero-inner">
-        <span class="artist__verified">Artist</span>
+        <div class="artist__verified">
+          <Icon name="checkCircle" :size="22" class="artist__badge" />
+          <span>Подтверждённый исполнитель</span>
+        </div>
         <h1 class="artist__name">{{ artist.name }}</h1>
         <div class="artist__listeners">{{ formatListeners(artist.monthly_listeners) }}</div>
       </div>
@@ -52,25 +66,31 @@ async function toggleFollow() {
 
     <div class="artist__body">
       <div class="artist__actions">
-        <button class="play-btn" @click="playTop"><Icon name="play" :size="24" /></button>
+        <button class="play-btn play-btn--lg" @click="playTop"><Icon :name="isThisPlaying ? 'pause' : 'play'" :size="24" /></button>
+        <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffle" :size="22" /></button>
         <button v-if="auth.isAuthenticated" class="artist__follow" @click="toggleFollow">
-          {{ artist.is_followed ? 'Following' : 'Follow' }}
+          {{ artist.is_followed ? 'Уже подписаны' : 'Подписаться' }}
         </button>
+        <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="more" :size="22" /></button>
       </div>
 
       <section v-if="topTracks.length">
-        <h2 class="section-title">Popular</h2>
+        <h2 class="section-title">Популярные треки</h2>
         <TrackRow
           v-for="(t, i) in topTracks"
           :key="t.id"
           :track="t"
           :index="i"
+          variant="artist"
           :context-tracks="topTracks"
         />
       </section>
 
       <section v-if="artist.releases?.length" style="margin-top:36px">
-        <h2 class="section-title">Discography</h2>
+        <div class="artist__shelfhead">
+          <h2 class="section-title">Дискография</h2>
+          <span class="artist__all">Показать все</span>
+        </div>
         <div class="grid-cards">
           <MediaCard
             v-for="r in artist.releases"
@@ -78,7 +98,7 @@ async function toggleFollow() {
             :to="{ name: 'release', params: { slug: r.slug } }"
             :cover="r.cover"
             :title="r.title"
-            :subtitle="`${r.year || ''} · ${r.type}`"
+            :subtitle="`${r.year || ''} • ${typeLabel[r.type] || r.type}`"
           />
         </div>
       </section>
@@ -105,20 +125,30 @@ async function toggleFollow() {
 .artist__hero-inner {
   position: relative;
   z-index: 1;
-  padding: 24px;
+  padding: 24px 24px 28px;
 }
 .artist__verified {
-  font-size: 13px;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.artist__badge {
+  color: #4cb3ff;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #fff;
 }
 .artist__name {
   font-size: clamp(48px, 9vw, 96px);
   font-weight: 800;
   letter-spacing: -0.04em;
   margin: 8px 0 16px;
+  line-height: 1;
 }
 .artist__listeners {
-  font-size: 14px;
+  font-size: 15px;
 }
 .artist__body {
   background: linear-gradient(180deg, color-mix(in srgb, var(--a-bg, #333) 30%, #121212) 0, #121212 200px);
@@ -130,16 +160,43 @@ async function toggleFollow() {
   gap: 24px;
   margin-bottom: 24px;
 }
+.play-btn--lg {
+  width: 56px;
+  height: 56px;
+}
+.ctl-lg {
+  color: var(--text-subdued);
+  display: grid;
+  place-items: center;
+}
+.ctl-lg:hover {
+  color: #fff;
+  transform: scale(1.04);
+}
 .artist__follow {
   border: 1px solid var(--text-muted);
   color: #fff;
   border-radius: 999px;
   padding: 7px 15px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 .artist__follow:hover {
   border-color: #fff;
   transform: scale(1.02);
+}
+.artist__shelfhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.artist__all {
+  color: var(--text-subdued);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.artist__all:hover {
+  text-decoration: underline;
 }
 </style>
