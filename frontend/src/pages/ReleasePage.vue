@@ -92,8 +92,8 @@ async function toggleLike() {
     <div class="release__body" :style="{ '--body-bg': release.colors?.background || '#222' }">
       <div class="release__actions">
         <div class="release__actions-left">
-          <button class="play-btn play-btn--lg" @click="playAll"><Icon :name="isThisPlaying ? 'pause' : 'play'" :size="24" /></button>
-          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffle" :size="22" /></button>
+          <button class="play-btn play-btn--lg" @click="playAll"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
+          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffleBig" :size="32" /></button>
           <button
             v-if="auth.isAuthenticated"
             class="ctl-lg"
@@ -101,10 +101,10 @@ async function toggleLike() {
             :title="release.is_liked ? 'Удалить из медиатеки' : 'Добавить в медиатеку'"
             @click="toggleLike"
           >
-            <Icon :name="release.is_liked ? 'checkCircle' : 'plusCircle'" :size="26" />
+            <Icon :name="release.is_liked ? 'checkCircleBig' : 'plusCircleBig'" :size="32" />
           </button>
-          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="26" /></button>
-          <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="more" :size="22" /></button>
+          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="32" /></button>
+          <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="moreBig" :size="32" /></button>
         </div>
         <button class="release__view">
           <span>Список</span>

@@ -65,10 +65,10 @@ async function onReorder() {
     <div class="playlist__body" :style="{ '--body-bg': heroBg }">
       <div class="playlist__actions">
         <div class="playlist__actions-left">
-          <button class="play-btn play-btn--lg" @click="playAll"><Icon name="play" :size="24" /></button>
-          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffle" :size="22" /></button>
-          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="26" /></button>
-          <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="more" :size="22" /></button>
+          <button class="play-btn play-btn--lg" @click="playAll"><Icon name="playBig" :size="24" /></button>
+          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffleBig" :size="32" /></button>
+          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="32" /></button>
+          <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="moreBig" :size="32" /></button>
         </div>
         <button class="playlist__view">
           <span>Список</span>

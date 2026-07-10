@@ -48,7 +48,7 @@ async function createPlaylist() {
             <span>Создать</span>
           </button>
           <button class="sidebar__expand" title="Развернуть">
-            <Icon name="fullscreen" :size="16" />
+            <Icon name="expand" :size="16" />
           </button>
         </div>
       </div>
@@ -63,7 +63,7 @@ async function createPlaylist() {
         <div class="sidebar__tools">
           <div class="sidebar__searchwrap" :class="{ open: searchOpen }">
             <button class="sidebar__searchbtn" title="Поиск в медиатеке" @click="openSearch">
-              <Icon name="search" :size="16" />
+              <Icon name="searchSmall" :size="16" />
             </button>
             <input
               v-if="searchOpen"

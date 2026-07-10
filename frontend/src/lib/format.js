@@ -44,7 +44,7 @@ export function formatTotalDuration(ms, approx = false) {
   const m = Math.floor((total % 3600) / 60)
   const s = total % 60
   if (h) return approx ? `примерно ${h} ч. ${m} мин.` : `${h} ч. ${m} мин.`
-  return `${m} мин. ${s} сек.`
+  return s ? `${m} мин. ${s} сек.` : `${m} мин.`
 }
 
 /** Relative date like Spotify's "Дата добавления" column: "2 дня назад". */

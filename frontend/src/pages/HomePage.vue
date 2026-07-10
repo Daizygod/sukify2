@@ -106,7 +106,7 @@ onMounted(async () => {
           <CoverImage v-else :cover="s.cover" :size="64" class="shortcut__cover" />
           <span class="shortcut__title">{{ s.title }}</span>
           <button class="play-btn shortcut__play" @click.prevent="playShortcut(s)">
-            <Icon name="play" :size="16" />
+            <Icon name="playBig" :size="20" />
           </button>
         </RouterLink>
       </div>

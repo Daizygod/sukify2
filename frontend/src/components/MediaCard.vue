@@ -25,7 +25,7 @@ const emit = defineEmits(['play'])
         :class="{ 'card__play--visible': playing }"
         @click.prevent="emit('play')"
       >
-        <Icon :name="playing ? 'pause' : 'play'" :size="20" />
+        <Icon :name="playing ? 'pauseBig' : 'playBig'" :size="24" />
       </button>
     </div>
     <div class="card__title">{{ title }}</div>

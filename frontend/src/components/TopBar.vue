@@ -34,7 +34,7 @@ async function logout() {
 
     <div class="topbar__center">
       <RouterLink to="/" class="topbar__home" :class="{ active: route.name === 'home' }" aria-label="Главная">
-        <Icon name="home" :size="24" />
+        <Icon :name="route.name === 'home' ? 'homeFill' : 'home'" :size="24" />
       </RouterLink>
       <div class="topbar__search">
         <Icon name="search" :size="20" class="topbar__searchicon" />
@@ -49,7 +49,7 @@ async function logout() {
     <div class="topbar__right">
       <template v-if="auth.isAuthenticated">
         <button class="topbar__install">
-          <Icon name="downloadCircle" :size="16" />
+          <Icon name="install" :size="16" />
           <span>Установить приложение</span>
         </button>
         <button class="topbar__ghost" title="Что нового">

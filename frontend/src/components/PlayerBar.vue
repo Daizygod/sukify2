@@ -58,14 +58,14 @@ function cycleRepeat() {
     <!-- Center: controls -->
     <div class="player__center">
       <div class="player__controls">
-        <button class="ctl" :class="{ on: player.shuffle }" @click="player.shuffle = !player.shuffle"><Icon name="shuffle" :size="18" /></button>
-        <button class="ctl" @click="player.prev()"><Icon name="prev" :size="18" /></button>
+        <button class="ctl" :class="{ on: player.shuffle }" @click="player.shuffle = !player.shuffle"><Icon name="shuffle" :size="16" /></button>
+        <button class="ctl" @click="player.prev()"><Icon name="prev" :size="16" /></button>
         <button class="player__play" @click="player.togglePlay()">
           <Icon :name="player.isPlaying ? 'pause' : 'play'" :size="16" />
         </button>
-        <button class="ctl" @click="player.next()"><Icon name="next" :size="18" /></button>
+        <button class="ctl" @click="player.next()"><Icon name="next" :size="16" /></button>
         <button class="ctl" :class="{ on: player.repeat !== 'off' }" @click="cycleRepeat">
-          <Icon name="repeat" :size="18" />
+          <Icon name="repeat" :size="16" />
           <span v-if="player.repeat === 'one'" class="ctl__one">1</span>
         </button>
       </div>

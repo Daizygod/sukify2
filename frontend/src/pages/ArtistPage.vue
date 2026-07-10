@@ -56,7 +56,7 @@ async function toggleFollow() {
     <div class="artist__hero" :style="{ '--a-bg': artist.colors?.background || '#333', backgroundImage: artist.banner_url ? `url(${artist.banner_url})` : null }">
       <div class="artist__hero-inner">
         <div class="artist__verified">
-          <Icon name="checkCircle" :size="22" class="artist__badge" />
+          <Icon name="verified" :size="24" class="artist__badge" />
           <span>Подтверждённый исполнитель</span>
         </div>
         <h1 class="artist__name">{{ artist.name }}</h1>
@@ -66,12 +66,12 @@ async function toggleFollow() {
 
     <div class="artist__body">
       <div class="artist__actions">
-        <button class="play-btn play-btn--lg" @click="playTop"><Icon :name="isThisPlaying ? 'pause' : 'play'" :size="24" /></button>
-        <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffle" :size="22" /></button>
+        <button class="play-btn play-btn--lg" @click="playTop"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
+        <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffleBig" :size="32" /></button>
         <button v-if="auth.isAuthenticated" class="artist__follow" @click="toggleFollow">
           {{ artist.is_followed ? 'Уже подписаны' : 'Подписаться' }}
         </button>
-        <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="more" :size="22" /></button>
+        <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="moreBig" :size="32" /></button>
       </div>
 
       <section v-if="topTracks.length">
@@ -136,9 +136,8 @@ async function toggleFollow() {
 }
 .artist__badge {
   color: #4cb3ff;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px #fff;
+  /* White disc behind the seal so the cut-out check reads white. */
+  background: radial-gradient(circle, #fff 46%, transparent 47%);
 }
 .artist__name {
   font-size: clamp(48px, 9vw, 96px);
