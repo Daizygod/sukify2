@@ -86,6 +86,7 @@ async function logout() {
           <div class="topbar__avatar">{{ (auth.user.name || '?')[0].toUpperCase() }}</div>
           <div v-if="menuOpen" class="topbar__menu" @click.stop>
             <RouterLink :to="{ name: 'profile', params: { username: auth.user.username || auth.user.id } }" class="topbar__mi" @click="menuOpen=false">Профиль</RouterLink>
+            <RouterLink :to="{ name: 'history' }" class="topbar__mi" @click="menuOpen=false">История прослушивания</RouterLink>
             <RouterLink :to="{ name: 'import' }" class="topbar__mi" @click="menuOpen=false">Импорт из Spotify</RouterLink>
             <button class="topbar__mi" @click="logout">Выйти</button>
           </div>

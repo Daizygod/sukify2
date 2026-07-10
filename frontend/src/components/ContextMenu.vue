@@ -91,16 +91,9 @@ function removeFromQueue() {
 
 async function startRadio() {
   menu.close()
-  const a = artist.value
-  if (!a) return
   try {
-    const { data } = await api.get(`/artists/${a.slug}/top-tracks`)
-    const rest = data.data.filter((t) => t.id !== track.value.id)
-    for (let i = rest.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[rest[i], rest[j]] = [rest[j], rest[i]]
-    }
-    player.playContext([track.value, ...rest], 0, { name: `Радио: ${track.value.title}` })
+    const { data } = await api.get(`/tracks/${track.value.id}/radio`)
+    player.playContext([track.value, ...data.data], 0, { name: `Радио: ${track.value.title}` })
     toasts.show('Включаю радио по треку')
   } catch {
     toasts.show('Радио сейчас недоступно')

@@ -25,16 +25,15 @@ class AudioProcessor
     }
 
     /**
-     * Produce the streaming AAC (.m4a) rendition (~256 kbps) with faststart so
-     * the browser can begin playback before the whole file downloads.
+     * Produce the streaming MP3 rendition (~256 kbps CBR). MP3 decodes in every
+     * browser including open-source Chromium builds (AAC/m4a does not).
      */
     public function makeStreamRendition(string $input, string $output): string
     {
         $this->run([
             'ffmpeg', '-y', '-i', $input,
             '-vn',
-            '-c:a', 'aac', '-b:a', '256k',
-            '-movflags', '+faststart',
+            '-c:a', 'libmp3lame', '-b:a', '256k',
             $output,
         ]);
 

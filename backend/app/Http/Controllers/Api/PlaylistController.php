@@ -25,6 +25,34 @@ class PlaylistController extends Controller
         return new PlaylistResource($playlist);
     }
 
+    /** «Рекомендуем» в конце плейлиста: похожее по артистам и жанру, чего ещё нет внутри. */
+    public function recommendations(Request $request, Playlist $playlist)
+    {
+        $this->authorize('view', $playlist);
+
+        $playlist->load('tracks.artists');
+        $inside = $playlist->tracks->pluck('id');
+        $artistIds = $playlist->tracks->flatMap(fn ($t) => $t->artists->pluck('id'))->unique();
+        $genres = \App\Models\Artist::whereIn('id', $artistIds)->pluck('genre')->filter()->unique();
+
+        $recs = Track::query()
+            ->whereNotIn('id', $inside)
+            ->where(function ($q) use ($artistIds, $genres) {
+                $q->whereHas('artists', fn ($qq) => $qq->whereIn('artists.id', $artistIds));
+                if ($genres->isNotEmpty()) {
+                    $q->orWhereHas('artists', fn ($qq) => $qq->whereIn('genre', $genres));
+                }
+            })
+            ->with(['artists', 'release'])
+            ->orderByDesc('plays_count')
+            ->limit(10)
+            ->get();
+
+        $this->markLikedTracks($recs, $request->user());
+
+        return \App\Http\Resources\TrackResource::collection($recs);
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([

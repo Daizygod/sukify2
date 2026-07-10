@@ -32,6 +32,8 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 // Browse (guest-friendly).
 Route::get('/home', HomeController::class);
 Route::get('/search', SearchController::class);
+Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index']);
+Route::get('/genres/{genre}', [\App\Http\Controllers\Api\GenreController::class, 'show']);
 
 Route::get('/artists', [ArtistController::class, 'index']);
 Route::get('/artists/{artist:slug}', [ArtistController::class, 'show']);
@@ -41,6 +43,7 @@ Route::get('/artists/{artist:slug}/releases', [ArtistController::class, 'release
 Route::get('/releases/{release:slug}', [ReleaseController::class, 'show']);
 Route::get('/tracks-bulk', [TrackController::class, 'bulk']);
 Route::get('/tracks/{track}', [TrackController::class, 'show']);
+Route::get('/tracks/{track}/radio', [\App\Http\Controllers\Api\MixController::class, 'trackRadio']);
 
 Route::get('/transitions', [TransitionController::class, 'forPair']);
 Route::get('/transitions/all', [TransitionController::class, 'index']);
@@ -64,6 +67,12 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/library/liked-tracks', [LibraryController::class, 'likedTracks']);
     Route::get('/library/liked-albums', [LibraryController::class, 'likedAlbums']);
     Route::get('/library/followed-artists', [LibraryController::class, 'followedArtists']);
+    Route::get('/me/history', [LibraryController::class, 'history']);
+
+    // Auto mixes.
+    Route::get('/mixes/daily', [\App\Http\Controllers\Api\MixController::class, 'daily']);
+    Route::get('/mixes/daily/{n}', [\App\Http\Controllers\Api\MixController::class, 'show']);
+    Route::get('/playlists/{playlist}/recommendations', [PlaylistController::class, 'recommendations']);
 
     // Import liked tracks from Spotify exports.
     Route::post('/import/liked', [ImportController::class, 'likedTracks']);

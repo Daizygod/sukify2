@@ -15,6 +15,7 @@ const auth = useAuthStore()
 const recentlyPlayed = ref([])
 const popular = ref([])
 const newReleases = ref([])
+const mixes = ref([])
 const loading = ref(true)
 
 function isTrackPlaying(t) {
@@ -85,7 +86,15 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  if (auth.isAuthenticated) {
+    api.get('/mixes/daily').then(({ data }) => (mixes.value = data.data)).catch(() => {})
+  }
 })
+
+async function playMix(m) {
+  const { data } = await api.get(`/mixes/daily/${m.n}`)
+  if (data.tracks.length) player.playContext(data.tracks, 0, { name: m.title })
+}
 </script>
 
 <template>
@@ -110,6 +119,30 @@ onMounted(async () => {
           </button>
         </RouterLink>
       </div>
+
+      <section v-if="mixes.length" class="home__section">
+        <div class="shelf__head">
+          <h2 class="section-title">Создано для тебя</h2>
+        </div>
+        <div class="grid-cards">
+          <RouterLink
+            v-for="m in mixes"
+            :key="m.n"
+            :to="{ name: 'mix', params: { n: m.n } }"
+            class="mixcard"
+          >
+            <div class="mixcard__art" :style="{ background: m.color }">
+              <Icon name="nowplaying" :size="40" />
+              <span class="mixcard__tag">{{ m.genre }}</span>
+              <button class="play-btn mixcard__play" @click.prevent="playMix(m)">
+                <Icon name="playBig" :size="20" />
+              </button>
+            </div>
+            <div class="mixcard__title">{{ m.title }}</div>
+            <div class="mixcard__sub">{{ m.artists.join(', ') }} и не только</div>
+          </RouterLink>
+        </div>
+      </section>
 
       <section v-if="recentlyPlayed.length" class="home__section">
         <div class="shelf__head">
@@ -296,5 +329,58 @@ onMounted(async () => {
 }
 .grid-cards {
   margin: 0 -12px;
+}
+.mixcard {
+  display: block;
+  padding: 12px;
+  border-radius: 6px;
+}
+.mixcard:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.mixcard__art {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.mixcard__tag {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mixcard__play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.mixcard:hover .mixcard__play {
+  opacity: 1;
+  transform: translateY(0);
+}
+.mixcard__title {
+  font-weight: 700;
+  font-size: 15px;
+}
+.mixcard__sub {
+  color: var(--text-subdued);
+  font-size: 13px;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

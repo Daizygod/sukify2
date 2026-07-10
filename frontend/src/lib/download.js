@@ -10,7 +10,7 @@ export async function downloadTracks(tracks, onProgress = () => {}) {
       const a = document.createElement('a')
       const artists = (t.artists || []).map((x) => x.name).join(', ')
       a.href = url
-      a.download = `${artists ? artists + ' - ' : ''}${t.title}.m4a`
+      a.download = `${artists ? artists + ' - ' : ''}${t.title}.mp3`
       document.body.appendChild(a)
       a.click()
       a.remove()

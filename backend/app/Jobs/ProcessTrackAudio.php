@@ -61,7 +61,7 @@ class ProcessTrackAudio implements ShouldQueue
             }
 
             // 3. Streaming AAC rendition.
-            $localStream = "{$workDir}/stream.m4a";
+            $localStream = "{$workDir}/stream.mp3";
             $audio->makeStreamRendition($localOriginal, $localStream);
 
             // 4. Analyse (loudness + duration) from the original.
@@ -70,7 +70,7 @@ class ProcessTrackAudio implements ShouldQueue
 
             // 5. Upload results to their permanent home.
             $originalKey = "audio/{$track->id}/original.{$originalExt}";
-            $streamKey = "audio/{$track->id}/stream.m4a";
+            $streamKey = "audio/{$track->id}/stream.mp3";
 
             $disk->writeStream($originalKey, fopen($localOriginal, 'r'));
             $disk->writeStream($streamKey, fopen($localStream, 'r'));

@@ -22,6 +22,7 @@ class ArtistResource extends JsonResource
                 'text' => $this->text_color_hex,
             ],
             'monthly_listeners' => $this->monthly_listeners,
+            'genre' => $this->genre,
             'role' => $this->whenPivotLoaded('track_artist', fn () => $this->pivot->role),
             'is_followed' => $this->when(isset($this->is_followed), fn () => (bool) $this->is_followed),
             'releases' => ReleaseResource::collection($this->whenLoaded('releases')),

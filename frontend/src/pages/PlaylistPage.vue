@@ -38,6 +38,8 @@ const totalMs = computed(() => items.value.reduce((a, t) => a + (t.duration_ms |
 
 const { info: tinfo, load: loadTinfo, keyFor } = useTransitionInfo()
 
+const recs = ref([])
+
 async function load(id) {
   loading.value = true
   try {
@@ -48,6 +50,15 @@ async function load(id) {
   } finally {
     loading.value = false
   }
+  recs.value = []
+  api.get(`/playlists/${id}/recommendations`).then(({ data }) => (recs.value = data.data)).catch(() => {})
+}
+
+async function addRec(t) {
+  await library.addToPlaylist(playlist.value.id, t.id)
+  recs.value = recs.value.filter((r) => r.id !== t.id)
+  toasts.show(`«${t.title}» добавлен в плейлист`)
+  await load(playlist.value.id)
 }
 watch(() => route.params.id, (id) => id && load(id), { immediate: true })
 
@@ -162,6 +173,15 @@ async function removePlaylist() {
           </template>
         </template>
       </div>
+
+      <section v-if="recs.length && isOwner" class="playlist__recs">
+        <h2 class="section-title">Рекомендуем</h2>
+        <p class="muted playlist__recsub">На основе того, что уже есть в этом плейлисте</p>
+        <div v-for="t in recs" :key="t.id" class="rec">
+          <TrackRow :track="t" variant="playlist" :context-tracks="recs" context-name="Рекомендации" />
+          <button class="rec__add" @click="addRec(t)">Добавить</button>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -208,5 +228,31 @@ async function removePlaylist() {
 }
 .pl-row {
   cursor: grab;
+}
+.playlist__recs {
+  margin-top: 40px;
+}
+.playlist__recsub {
+  font-size: 13px;
+  margin: -10px 0 12px;
+}
+.rec {
+  position: relative;
+}
+.rec__add {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  translate: 0 -50%;
+  border: 1px solid var(--text-muted);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg-elevated);
+}
+.rec__add:hover {
+  border-color: #fff;
 }
 </style>

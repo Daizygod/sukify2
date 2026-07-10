@@ -195,6 +195,9 @@ img {
 .trackgrid--artist {
   grid-template-columns: 16px 4fr 2fr minmax(120px, 160px);
 }
+.trackgrid--search {
+  grid-template-columns: 16px 1fr minmax(110px, 150px);
+}
 .tracktable__head {
   padding: 0 16px 8px;
   color: var(--text-subdued);

@@ -44,7 +44,7 @@ class GenerateDemoAudio extends Command
             $dir = storage_path('app/media-work/'.uniqid('demo_', true));
             @mkdir($dir, 0775, true);
             $flac = "{$dir}/tone.flac";
-            $stream = "{$dir}/stream.m4a";
+            $stream = "{$dir}/stream.mp3";
 
             try {
                 $freq = $this->scale[$track->id % count($this->scale)];
@@ -63,7 +63,7 @@ class GenerateDemoAudio extends Command
                 $duration = $audio->probeDurationMs($flac);
 
                 $originalKey = "audio/{$track->id}/original.flac";
-                $streamKey = "audio/{$track->id}/stream.m4a";
+                $streamKey = "audio/{$track->id}/stream.mp3";
                 $disk->writeStream($originalKey, fopen($flac, 'r'));
                 $disk->writeStream($streamKey, fopen($stream, 'r'));
 

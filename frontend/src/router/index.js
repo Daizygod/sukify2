@@ -12,6 +12,9 @@ const routes = [
   { path: '/liked', name: 'liked', component: () => import('@/pages/LikedSongsPage.vue'), meta: { auth: true } },
   { path: '/section/:key', name: 'section', component: () => import('@/pages/SectionPage.vue') },
   { path: '/import', name: 'import', component: () => import('@/pages/ImportPage.vue'), meta: { auth: true } },
+  { path: '/genre/:name', name: 'genre', component: () => import('@/pages/GenrePage.vue') },
+  { path: '/mix/:n', name: 'mix', component: () => import('@/pages/MixPage.vue'), meta: { auth: true } },
+  { path: '/history', name: 'history', component: () => import('@/pages/HistoryPage.vue'), meta: { auth: true } },
   { path: '/user/:username', name: 'profile', component: () => import('@/pages/ProfilePage.vue') },
   { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { guest: true } },
 ]

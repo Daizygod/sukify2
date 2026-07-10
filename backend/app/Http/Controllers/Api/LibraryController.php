@@ -57,4 +57,34 @@ class LibraryController extends Controller
 
         return ArtistResource::collection($artists);
     }
+
+    /** История прослушивания: события по убыванию времени, с треками. */
+    public function history(Request $request)
+    {
+        $plays = \App\Models\TrackPlay::query()
+            ->where('user_id', $request->user()->id)
+            ->orderByDesc('played_at')
+            ->limit(200)
+            ->get(['track_id', 'played_at']);
+
+        $tracks = \App\Models\Track::whereIn('id', $plays->pluck('track_id')->unique())
+            ->with(['artists', 'release'])
+            ->get()
+            ->keyBy('id');
+        $this->markLikedTracks($tracks, $request->user());
+
+        $items = $plays
+            ->map(fn ($p) => [
+                'played_at' => $p->played_at,
+                'track' => $tracks->get($p->track_id),
+            ])
+            ->filter(fn ($i) => $i['track'])
+            ->values()
+            ->map(fn ($i) => [
+                'played_at' => $i['played_at'],
+                'track' => (new TrackResource($i['track']))->resolve($request),
+            ]);
+
+        return response()->json(['data' => $items]);
+    }
 }
