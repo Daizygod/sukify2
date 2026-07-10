@@ -37,7 +37,7 @@ const isThisPlaying = computed(
 )
 function playTop() {
   if (isThisPlaying.value) return player.togglePlay()
-  if (topTracks.value.length) player.playContext(topTracks.value, 0)
+  if (topTracks.value.length) player.playContext(topTracks.value, 0, { name: artist.value?.name })
 }
 async function toggleFollow() {
   if (!auth.isAuthenticated) return
@@ -83,6 +83,7 @@ async function toggleFollow() {
           :index="i"
           variant="artist"
           :context-tracks="topTracks"
+          :context-name="artist.name"
         />
       </section>
 

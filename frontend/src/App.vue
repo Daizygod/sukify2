@@ -4,7 +4,9 @@ import { RouterView } from 'vue-router'
 import Sidebar from '@/components/Sidebar.vue'
 import TopBar from '@/components/TopBar.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
-import NowPlayingPanel from '@/components/NowPlayingPanel.vue'
+import RightPanel from '@/components/RightPanel.vue'
+import ContextMenu from '@/components/ContextMenu.vue'
+import ToastHost from '@/components/ToastHost.vue'
 import { useUiStore } from '@/stores/ui'
 
 const ui = useUiStore()
@@ -59,10 +61,12 @@ function startRight(e) {
 
     <div v-if="ui.rightOpen" class="app__right">
       <div class="resizer resizer--edge-left" @pointerdown="startRight"></div>
-      <NowPlayingPanel />
+      <RightPanel />
     </div>
 
     <PlayerBar class="app__player" />
+    <ContextMenu />
+    <ToastHost />
   </div>
 </template>
 

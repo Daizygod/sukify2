@@ -15,6 +15,8 @@ export const useUiStore = defineStore('ui', {
     leftWidth: load('ui.leftWidth', 340),
     rightWidth: load('ui.rightWidth', 340),
     rightOpen: localStorage.getItem('ui.rightOpen') !== '0',
+    // What the right panel shows: 'nowplaying' | 'queue' | 'connect'
+    rightView: localStorage.getItem('ui.rightView') || 'nowplaying',
   }),
   actions: {
     setLeftWidth(px) {
@@ -25,9 +27,26 @@ export const useUiStore = defineStore('ui', {
       this.rightWidth = Math.min(Math.max(px, RIGHT_MIN), RIGHT_MAX)
       localStorage.setItem('ui.rightWidth', this.rightWidth)
     },
+    /** Player icons toggle their own view: same view closes, other view switches. */
+    openRight(view) {
+      if (this.rightOpen && this.rightView === view) {
+        this.rightOpen = false
+      } else {
+        this.rightOpen = true
+        this.rightView = view
+      }
+      this.persist()
+    },
+    closeRight() {
+      this.rightOpen = false
+      this.persist()
+    },
     toggleRight() {
-      this.rightOpen = !this.rightOpen
+      this.openRight('nowplaying')
+    },
+    persist() {
       localStorage.setItem('ui.rightOpen', this.rightOpen ? '1' : '0')
+      localStorage.setItem('ui.rightView', this.rightView)
     },
   },
 })

@@ -49,7 +49,7 @@ const isThisPlaying = computed(
 )
 function playAll() {
   if (isThisPlaying.value) return player.togglePlay()
-  if (release.value?.tracks?.length) player.playContext(release.value.tracks, 0)
+  if (release.value?.tracks?.length) player.playContext(release.value.tracks, 0, { name: release.value.title })
 }
 async function toggleLike() {
   if (!auth.isAuthenticated || !release.value) return
@@ -125,6 +125,7 @@ async function toggleLike() {
           :index="i"
           variant="album"
           :context-tracks="release.tracks"
+          :context-name="release.title"
         />
       </div>
     </div>

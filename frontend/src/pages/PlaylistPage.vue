@@ -38,7 +38,7 @@ async function load(id) {
 watch(() => route.params.id, (id) => id && load(id), { immediate: true })
 
 function playAll() {
-  if (items.value.length) player.playContext(items.value, 0)
+  if (items.value.length) player.playContext(items.value, 0, { name: playlist.value?.title })
 }
 
 async function onReorder() {
@@ -94,7 +94,7 @@ async function onReorder() {
         >
           <template #item="{ element, index }">
             <div class="pl-row">
-              <TrackRow :track="element" :index="index" :context-tracks="items" />
+              <TrackRow :track="element" :index="index" :context-tracks="items" :context-name="playlist.title" />
             </div>
           </template>
         </draggable>
@@ -106,6 +106,7 @@ async function onReorder() {
             :track="t"
             :index="i"
             :context-tracks="items"
+            :context-name="playlist.title"
           />
         </template>
       </div>

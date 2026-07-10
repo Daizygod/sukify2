@@ -7,6 +7,7 @@ import { formatDuration, formatNumber, formatRelativeDate } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
 
 const props = defineProps({
   track: { type: Object, required: true },
@@ -14,11 +15,13 @@ const props = defineProps({
   // 'playlist' — cover + album + date added; 'album' — bare titles; 'artist' — cover + play count.
   variant: { type: String, default: 'playlist' },
   contextTracks: { type: Array, default: null },
+  contextName: { type: String, default: '' },
 })
 
 const player = usePlayerStore()
 const library = useLibraryStore()
 const auth = useAuthStore()
+const menu = useMenuStore()
 
 const isCurrent = computed(() => player.currentTrack?.id === props.track.id)
 const isPlayingThis = computed(() => isCurrent.value && player.isPlaying)
@@ -27,7 +30,7 @@ const addedAt = computed(() => props.track.added_at || props.track.liked_at)
 
 function play() {
   if (isCurrent.value) return player.togglePlay()
-  player.playTrack(props.track, props.contextTracks)
+  player.playTrack(props.track, props.contextTracks, { name: props.contextName })
 }
 function toggleLike() {
   if (!auth.isAuthenticated) return
@@ -36,7 +39,12 @@ function toggleLike() {
 </script>
 
 <template>
-  <div class="row trackgrid" :class="[`trackgrid--${variant}`, { 'row--active': isCurrent }]" @dblclick="play">
+  <div
+    class="row trackgrid"
+    :class="[`trackgrid--${variant}`, { 'row--active': isCurrent }]"
+    @dblclick="play"
+    @contextmenu.prevent="menu.openMenu($event, track)"
+  >
     <div class="row__index">
       <button class="row__play" @click="play">
         <Icon v-if="isPlayingThis" name="pause" :size="14" />
@@ -81,7 +89,7 @@ function toggleLike() {
         <Icon :name="liked ? 'checkCircle' : 'plusCircle'" :size="16" />
       </button>
       <span class="row__duration">{{ formatDuration(track.duration_ms) }}</span>
-      <button class="row__more" title="Открыть контекстное меню">
+      <button class="row__more" title="Открыть контекстное меню" @click.stop="menu.openMenu($event, track)">
         <Icon name="more" :size="16" />
       </button>
     </div>

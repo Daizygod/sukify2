@@ -58,7 +58,7 @@ function cycleRepeat() {
     <!-- Center: controls -->
     <div class="player__center">
       <div class="player__controls">
-        <button class="ctl" :class="{ on: player.shuffle }" @click="player.shuffle = !player.shuffle"><Icon name="shuffle" :size="16" /></button>
+        <button class="ctl ctl--dot" :class="{ on: player.shuffle }" title="В случайном порядке" @click="player.setShuffle(!player.shuffle)"><Icon name="shuffle" :size="16" /></button>
         <button class="ctl" @click="player.prev()"><Icon name="prev" :size="16" /></button>
         <button class="player__play" @click="player.togglePlay()">
           <Icon :name="player.isPlaying ? 'pause' : 'play'" :size="16" />
@@ -78,9 +78,9 @@ function cycleRepeat() {
 
     <!-- Right: view toggle + volume -->
     <div class="player__right">
-      <button class="ctl" :class="{ on: ui.rightOpen }" title="Экран «Сейчас играет»" @click="ui.toggleRight()"><Icon name="nowplaying" :size="16" /></button>
+      <button class="ctl ctl--dot" :class="{ on: ui.rightOpen && ui.rightView === 'nowplaying' }" title="Экран «Сейчас играет»" @click="ui.openRight('nowplaying')"><Icon name="nowplaying" :size="16" /></button>
       <button class="ctl" title="Текст"><Icon name="lyrics" :size="16" /></button>
-      <button class="ctl" title="Очередь"><Icon name="queue" :size="16" /></button>
+      <button class="ctl ctl--dot" :class="{ on: ui.rightOpen && ui.rightView === 'queue' }" title="Очередь" @click="ui.openRight('queue')"><Icon name="queue" :size="16" /></button>
       <button class="ctl" title="Подключение к устройству"><Icon name="devices" :size="16" /></button>
       <button class="ctl" title="Громкость" @click="player.toggleMute()"><Icon name="volume" :size="16" /></button>
       <div class="player__vol"><DragBar :value="player.muted ? 0 : player.volume" @input="onVol" /></div>
@@ -152,6 +152,18 @@ function cycleRepeat() {
 }
 .ctl.on {
   color: var(--accent);
+}
+/* Small green dot under active toggles, as in the original player. */
+.ctl--dot.on::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  translate: -50% 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 .ctl__one {
   position: absolute;

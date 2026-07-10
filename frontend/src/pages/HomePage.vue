@@ -31,15 +31,15 @@ function playTrackCard(t, list) {
 async function playRelease(r) {
   if (isReleasePlaying(r)) return player.togglePlay()
   const { data } = await api.get(`/releases/${r.slug}`)
-  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0)
+  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0, { name: r.title })
 }
 async function playPlaylist(p) {
   const { data } = await api.get(`/playlists/${p.id}`)
-  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0)
+  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0, { name: p.title })
 }
 async function playLiked() {
   const { data } = await api.get('/library/liked-tracks')
-  if (data.data.length) player.playContext(data.data, 0)
+  if (data.data.length) player.playContext(data.data, 0, { name: 'Любимые треки' })
 }
 
 // The 2x4 shortcut grid: Liked Songs, then playlists, padded with albums.

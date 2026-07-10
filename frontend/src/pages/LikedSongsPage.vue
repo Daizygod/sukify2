@@ -25,7 +25,7 @@ onMounted(async () => {
 })
 
 function playAll() {
-  if (tracks.value.length) player.playContext(tracks.value, 0)
+  if (tracks.value.length) player.playContext(tracks.value, 0, { name: 'Любимые треки' })
 }
 </script>
 
@@ -68,6 +68,7 @@ function playAll() {
           :track="t"
           :index="i"
           :context-tracks="tracks"
+          context-name="Любимые треки"
         />
       </div>
       <p v-if="!loading && !tracks.length" class="muted" style="padding:24px">

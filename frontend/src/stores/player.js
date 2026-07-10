@@ -18,6 +18,9 @@ export const usePlayerStore = defineStore('player', () => {
   const currentTrack = ref(null)
   const queue = ref([])
   const queueIndex = ref(-1)
+  // Tracks explicitly queued by the user; they play before the context resumes.
+  const manualQueue = ref([])
+  const contextName = ref('')
   const isPlaying = ref(false)
   const positionMs = ref(0)
   const durationMs = ref(0)
@@ -86,19 +89,22 @@ export const usePlayerStore = defineStore('player', () => {
 
   // --- transport ---------------------------------------------------------
 
-  async function playContext(tracks, startIndex = 0) {
+  async function playContext(tracks, startIndex = 0, meta = {}) {
     init()
     queue.value = tracks.filter((t) => t.stream_url)
     queueIndex.value = Math.min(startIndex, queue.value.length - 1)
+    contextName.value = meta.name || ''
+    originalOrder = null
+    if (shuffle.value) reshuffleUpcoming()
     if (queueIndex.value < 0) return
     await loadAndPlay(queue.value[queueIndex.value])
   }
 
-  async function playTrack(track, contextTracks = null) {
+  async function playTrack(track, contextTracks = null, meta = {}) {
     if (contextTracks) {
-      return playContext(contextTracks, contextTracks.findIndex((t) => t.id === track.id))
+      return playContext(contextTracks, contextTracks.findIndex((t) => t.id === track.id), meta)
     }
-    return playContext([track], 0)
+    return playContext([track], 0, meta)
   }
 
   async function loadAndPlay(track, deckIndex = active) {
@@ -171,20 +177,37 @@ export const usePlayerStore = defineStore('player', () => {
     setMasterVolume()
   }
 
+  /** The track that will play after the current one, honoring the manual queue. */
+  function peekNext() {
+    if (manualQueue.value.length) return manualQueue.value[0]
+    if (queueIndex.value < queue.value.length - 1) return queue.value[queueIndex.value + 1]
+    if (repeat.value === 'all' && queue.value.length) return queue.value[0]
+    return null
+  }
+
+  /** Move the cursor onto `t` (must be the peekNext() result). */
+  function consumeNext(t) {
+    if (manualQueue.value[0] && manualQueue.value[0].__qid === t.__qid) {
+      manualQueue.value.shift()
+    } else if (queueIndex.value < queue.value.length - 1) {
+      queueIndex.value++
+    } else if (repeat.value === 'all') {
+      queueIndex.value = 0
+    }
+  }
+
   async function next() {
     if (repeat.value === 'one' && currentTrack.value) {
       return loadAndPlay(currentTrack.value)
     }
-    if (queueIndex.value < queue.value.length - 1) {
-      queueIndex.value++
-    } else if (repeat.value === 'all') {
-      queueIndex.value = 0
-    } else {
+    const t = peekNext()
+    if (!t) {
       stop()
       return
     }
+    consumeNext(t)
     crossfading = false
-    await loadAndPlay(queue.value[queueIndex.value])
+    await loadAndPlay(t)
   }
 
   async function prev() {
@@ -204,16 +227,91 @@ export const usePlayerStore = defineStore('player', () => {
     positionMs.value = 0
   }
 
-  function enqueue(track) {
-    if (track.stream_url) queue.value.push(track)
+  // --- queue management ---------------------------------------------------
+
+  let qidCounter = 0
+
+  /** «Добавить в очередь» — plays after the current track, before the context. */
+  function addToQueue(track) {
+    if (!track?.stream_url) return false
+    manualQueue.value.push({ ...track, __qid: ++qidCounter })
+    return true
+  }
+
+  function removeFromManualQueue(qid) {
+    manualQueue.value = manualQueue.value.filter((t) => t.__qid !== qid)
+  }
+
+  /** Remove the i-th upcoming context track (0 = right after current). */
+  function removeUpcoming(i) {
+    queue.value.splice(queueIndex.value + 1 + i, 1)
+  }
+
+  function clearManualQueue() {
+    manualQueue.value = []
+  }
+
+  async function playManualItem(qid) {
+    const idx = manualQueue.value.findIndex((t) => t.__qid === qid)
+    if (idx === -1) return
+    const [t] = manualQueue.value.splice(idx, 1)
+    crossfading = false
+    await loadAndPlay(t)
+  }
+
+  /** Jump to the i-th upcoming context track. */
+  async function playUpcomingItem(i) {
+    const abs = queueIndex.value + 1 + i
+    if (!queue.value[abs]) return
+    queueIndex.value = abs
+    crossfading = false
+    await loadAndPlay(queue.value[abs])
+  }
+
+  function setManualQueue(arr) {
+    manualQueue.value = arr
+  }
+
+  function setUpcoming(arr) {
+    queue.value = [...queue.value.slice(0, queueIndex.value + 1), ...arr]
+  }
+
+  // --- shuffle -------------------------------------------------------------
+
+  let originalOrder = null
+
+  function reshuffleUpcoming() {
+    if (originalOrder === null) originalOrder = [...queue.value]
+    const head = queue.value.slice(0, queueIndex.value + 1)
+    const rest = queue.value.slice(queueIndex.value + 1)
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[rest[i], rest[j]] = [rest[j], rest[i]]
+    }
+    queue.value = [...head, ...rest]
+  }
+
+  function setShuffle(on) {
+    shuffle.value = on
+    if (!queue.value.length) return
+    if (on) {
+      reshuffleUpcoming()
+    } else if (originalOrder) {
+      const cur = currentTrack.value
+      queue.value = originalOrder
+      originalOrder = null
+      const idx = queue.value.findIndex((t) => t.id === cur?.id)
+      if (idx >= 0) queueIndex.value = idx
+    }
   }
 
   // --- crossfade ---------------------------------------------------------
 
   async function maybeCrossfade() {
     if (crossfading) return
-    const nextTrack = queue.value[queueIndex.value + 1]
-    if (!nextTrack || repeat.value === 'one') return
+    if (repeat.value === 'one') return
+    const nextTrack = peekNext()
+    if (!nextTrack) return
 
     const el = activeDeck().el
     const remainingMs = (el.duration - el.currentTime) * 1000
@@ -227,6 +325,8 @@ export const usePlayerStore = defineStore('player', () => {
     if (fadeOutLen <= 0) return
 
     if (remainingMs <= fadeOutLen) {
+      // Consume the cursor up-front so the queue panel reflects the switch.
+      consumeNext(nextTrack)
       startCrossfade(nextTrack, transition, fadeOutLen)
     }
   }
@@ -277,11 +377,10 @@ export const usePlayerStore = defineStore('player', () => {
     applyCurve(curOut.gain, curOut.gain.value, 0, now, fadeOutLen / 1000, curve, true)
     applyCurve(incoming.gain, 0, targetIn, now, fadeInLen / 1000, curve, false)
 
-    // Hand over once the outgoing fade completes.
+    // Hand over once the outgoing fade completes (cursor already advanced).
     setTimeout(() => {
       curOut.el.pause()
       active = incomingIndex
-      queueIndex.value++
       currentTrack.value = nextTrack
       updateMediaSession(nextTrack)
       crossfading = false
@@ -380,14 +479,20 @@ export const usePlayerStore = defineStore('player', () => {
     durationMs.value ? Math.min(positionMs.value / durationMs.value, 1) : 0
   )
 
+  /** Upcoming tracks from the playing context (after the cursor). */
+  const upcoming = computed(() => queue.value.slice(queueIndex.value + 1))
+
   return {
     // state
-    currentTrack, queue, queueIndex, isPlaying, positionMs, durationMs,
+    currentTrack, queue, queueIndex, manualQueue, contextName, isPlaying,
+    positionMs, durationMs,
     volume, muted, repeat, shuffle, targetLufs, defaultCrossfadeSeconds, inited,
     // getters
-    progress,
+    progress, upcoming,
     // actions
     init, playContext, playTrack, togglePlay, seek, setVolume, toggleMute,
-    next, prev, stop, enqueue, loadSettings,
+    next, prev, stop, loadSettings, setShuffle,
+    addToQueue, removeFromManualQueue, removeUpcoming, clearManualQueue,
+    playManualItem, playUpcomingItem, setManualQueue, setUpcoming,
   }
 })
