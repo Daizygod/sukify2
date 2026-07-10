@@ -76,6 +76,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
 
     Route::post('/artists/{artist:slug}/follow', [ArtistController::class, 'follow']);
     Route::delete('/artists/{artist:slug}/follow', [ArtistController::class, 'unfollow']);
+    Route::get('/artists/{artist:slug}/liked', [ArtistController::class, 'liked']);
 
     // Playlists (mutations).
     Route::post('/playlists', [PlaylistController::class, 'store']);

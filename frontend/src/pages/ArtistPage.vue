@@ -5,15 +5,19 @@ import api from '@/lib/api'
 import TrackRow from '@/components/TrackRow.vue'
 import MediaCard from '@/components/MediaCard.vue'
 import Icon from '@/components/Icon.vue'
-import { formatListeners } from '@/lib/format'
+import { formatListeners, plural } from '@/lib/format'
+import { RouterLink } from 'vue-router'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
+import { useLibraryStore } from '@/stores/library'
 
 const route = useRoute()
 const player = usePlayerStore()
 const auth = useAuthStore()
+const library = useLibraryStore()
 const artist = ref(null)
 const topTracks = ref([])
+const liked = ref({ tracks: [], releases: [] })
 
 const typeLabel = computed(() => ({
   album: 'альбом',
@@ -29,6 +33,12 @@ async function load(slug) {
   ])
   artist.value = a.data
   topTracks.value = tt.data
+  liked.value = { tracks: [], releases: [] }
+  if (auth.isAuthenticated) {
+    api.get(`/artists/${slug}/liked`).then(({ data }) => {
+      liked.value = data
+    }).catch(() => {})
+  }
 }
 watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 
@@ -41,13 +51,7 @@ function playTop() {
 }
 async function toggleFollow() {
   if (!auth.isAuthenticated) return
-  if (artist.value.is_followed) {
-    artist.value.is_followed = false
-    await api.delete(`/artists/${artist.value.slug}/follow`)
-  } else {
-    artist.value.is_followed = true
-    await api.post(`/artists/${artist.value.slug}/follow`)
-  }
+  await library.toggleFollow(artist.value)
 }
 </script>
 
@@ -74,18 +78,36 @@ async function toggleFollow() {
         <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="moreBig" :size="32" /></button>
       </div>
 
-      <section v-if="topTracks.length">
-        <h2 class="section-title">Популярные треки</h2>
-        <TrackRow
-          v-for="(t, i) in topTracks"
-          :key="t.id"
-          :track="t"
-          :index="i"
-          variant="artist"
-          :context-tracks="topTracks"
-          :context-name="artist.name"
-        />
-      </section>
+      <div class="artist__cols">
+        <section v-if="topTracks.length" class="artist__popular">
+          <h2 class="section-title">Популярные треки</h2>
+          <TrackRow
+            v-for="(t, i) in topTracks"
+            :key="t.id"
+            :track="t"
+            :index="i"
+            variant="artist"
+            :context-tracks="topTracks"
+            :context-name="artist.name"
+          />
+        </section>
+
+        <section v-if="liked.tracks.length" class="artist__youliked">
+          <h2 class="section-title">Вам нравится</h2>
+          <RouterLink :to="{ name: 'artist-liked', params: { slug: artist.slug } }" class="youliked">
+            <div class="youliked__avatar">
+              <img v-if="artist.avatar_url" :src="artist.avatar_url" alt="" />
+              <div v-else class="youliked__heart"><Icon name="heartFill" :size="28" /></div>
+            </div>
+            <div class="youliked__meta">
+              <div class="youliked__counts">
+                {{ liked.tracks.length }} {{ plural(liked.tracks.length, 'трек', 'трека', 'треков') }}<template v-if="liked.releases.length"> • {{ liked.releases.length }} {{ plural(liked.releases.length, 'релиз', 'релиза', 'релизов') }}</template>
+              </div>
+              <div class="youliked__by">От: {{ artist.name }}</div>
+            </div>
+          </RouterLink>
+        </section>
+      </div>
 
       <section v-if="artist.releases?.length" style="margin-top:36px">
         <div class="artist__shelfhead">
@@ -184,6 +206,57 @@ async function toggleFollow() {
 .artist__follow:hover {
   border-color: #fff;
   transform: scale(1.02);
+}
+.artist__cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .artist__cols {
+    grid-template-columns: 1fr;
+  }
+}
+.youliked {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px;
+  border-radius: 8px;
+}
+.youliked:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.youliked__avatar {
+  width: 88px;
+  height: 88px;
+  flex: 0 0 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+.youliked__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.youliked__heart {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #450af5, #8e8ee5);
+  color: #fff;
+}
+.youliked__counts {
+  font-weight: 700;
+  font-size: 15px;
+}
+.youliked__by {
+  color: var(--text-subdued);
+  font-size: 13px;
+  margin-top: 4px;
 }
 .artist__shelfhead {
   display: flex;

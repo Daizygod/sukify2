@@ -9,10 +9,14 @@ import Icon from '@/components/Icon.vue'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
+import { useLibraryStore } from '@/stores/library'
+import { useToastStore } from '@/stores/toasts'
 
 const route = useRoute()
 const player = usePlayerStore()
 const auth = useAuthStore()
+const library = useLibraryStore()
+const toasts = useToastStore()
 const release = ref(null)
 const loading = ref(true)
 const lightboxOpen = ref(false)
@@ -53,13 +57,8 @@ function playAll() {
 }
 async function toggleLike() {
   if (!auth.isAuthenticated || !release.value) return
-  if (release.value.is_liked) {
-    release.value.is_liked = false
-    await api.delete(`/releases/${release.value.id}/like`)
-  } else {
-    release.value.is_liked = true
-    await api.post(`/releases/${release.value.id}/like`)
-  }
+  await library.toggleAlbumLike(release.value)
+  toasts.show(release.value.is_liked ? 'Добавлено в медиатеку' : 'Удалено из медиатеки')
 }
 </script>
 

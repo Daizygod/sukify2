@@ -13,12 +13,78 @@ const route = useRoute()
 const filter = ref('')
 const searchOpen = ref(false)
 const filterEl = ref(null)
+const activeTab = ref('') // '' | 'playlists' | 'artists' | 'albums'
 
-const filteredPlaylists = computed(() => {
+const TABS = [
+  { id: 'playlists', label: 'Плейлисты' },
+  { id: 'artists', label: 'Исполнители' },
+  { id: 'albums', label: 'Альбомы' },
+]
+
+const releaseKind = {
+  album: 'Альбом',
+  single: 'Сингл',
+  ep: 'Мини-альбом',
+  compilation: 'Сборник',
+}
+
+// One mixed list like the original: playlists, albums and artists together,
+// narrowed by the active pill and the text filter.
+const items = computed(() => {
+  const out = []
+  const tab = activeTab.value
+
+  if (!tab || tab === 'playlists') {
+    for (const p of library.playlists) {
+      out.push({
+        key: `pl-${p.id}`,
+        to: { name: 'playlist', params: { id: p.id } },
+        cover: p.cover_url ? { 300: p.cover_url } : null,
+        title: p.title,
+        sub: `Плейлист • ${p.owner?.name || ''}`,
+        active: route.name === 'playlist' && String(route.params.id) === String(p.id),
+      })
+    }
+  }
+  if (!tab || tab === 'albums') {
+    for (const r of library.likedAlbums) {
+      out.push({
+        key: `al-${r.id}`,
+        to: { name: 'release', params: { slug: r.slug } },
+        cover: r.cover,
+        title: r.title,
+        sub: `${releaseKind[r.type] || 'Альбом'} • ${r.artist?.name || ''}`,
+        active: route.name === 'release' && route.params.slug === r.slug,
+      })
+    }
+  }
+  if (!tab || tab === 'artists') {
+    for (const a of library.followedArtists) {
+      out.push({
+        key: `ar-${a.id}`,
+        to: { name: 'artist', params: { slug: a.slug } },
+        cover: a.avatar_url ? { 300: a.avatar_url } : null,
+        round: true,
+        title: a.name,
+        sub: 'Исполнитель',
+        active: route.name === 'artist' && route.params.slug === a.slug,
+      })
+    }
+  }
+
   const q = filter.value.trim().toLowerCase()
-  const list = library.playlists
-  return q ? list.filter((p) => p.title.toLowerCase().includes(q)) : list
+  return q ? out.filter((i) => i.title.toLowerCase().includes(q)) : out
 })
+
+const showLiked = computed(() => {
+  const tabOk = !activeTab.value || activeTab.value === 'playlists'
+  const q = filter.value.trim().toLowerCase()
+  return tabOk && (!q || 'любимые треки'.includes(q))
+})
+
+function pickTab(id) {
+  activeTab.value = activeTab.value === id ? '' : id
+}
 
 async function openSearch() {
   searchOpen.value = !searchOpen.value
@@ -55,9 +121,19 @@ async function createPlaylist() {
 
       <template v-if="auth.isAuthenticated">
         <div class="sidebar__pills">
-          <button class="pill pill--active">Плейлисты</button>
-          <button class="pill">Исполнители</button>
-          <button class="pill">Альбомы</button>
+          <template v-if="activeTab">
+            <button class="sidebar__clear" title="Убрать фильтр" @click="activeTab = ''">
+              <Icon name="plus" :size="14" style="transform: rotate(45deg)" />
+            </button>
+            <button class="pill pill--active" @click="activeTab = ''">
+              {{ TABS.find((t) => t.id === activeTab)?.label }}
+            </button>
+          </template>
+          <template v-else>
+            <button v-for="t in TABS" :key="t.id" class="pill" @click="pickTab(t.id)">
+              {{ t.label }}
+            </button>
+          </template>
         </div>
 
         <div class="sidebar__tools">
@@ -80,7 +156,7 @@ async function createPlaylist() {
         </div>
 
         <div class="sidebar__list">
-          <RouterLink to="/liked" class="libitem libitem--liked" :class="{ active: route.name === 'liked' }">
+          <RouterLink v-if="showLiked" to="/liked" class="libitem libitem--liked" :class="{ active: route.name === 'liked' }">
             <div class="libitem__cover libitem__cover--liked">
               <Icon name="heartFill" :size="20" />
             </div>
@@ -94,18 +170,20 @@ async function createPlaylist() {
           </RouterLink>
 
           <RouterLink
-            v-for="p in filteredPlaylists"
-            :key="p.id"
-            :to="{ name: 'playlist', params: { id: p.id } }"
+            v-for="item in items"
+            :key="item.key"
+            :to="item.to"
             class="libitem"
-            :class="{ active: route.name === 'playlist' && String(route.params.id) === String(p.id) }"
+            :class="{ active: item.active }"
           >
-            <CoverImage :cover="p.cover_url ? { 300: p.cover_url } : null" :size="48" class="libitem__cover" />
+            <CoverImage :cover="item.cover" :size="48" class="libitem__cover" :rounded="item.round" />
             <div class="libitem__meta">
-              <div class="libitem__title">{{ p.title }}</div>
-              <div class="libitem__sub"><span>Плейлист • {{ p.owner?.name }}</span></div>
+              <div class="libitem__title">{{ item.title }}</div>
+              <div class="libitem__sub"><span>{{ item.sub }}</span></div>
             </div>
           </RouterLink>
+
+          <p v-if="!items.length && filter" class="sidebar__nores">Ничего не найдено.</p>
         </div>
       </template>
 
@@ -182,9 +260,24 @@ async function createPlaylist() {
 }
 .sidebar__pills {
   display: flex;
+  align-items: center;
   gap: 8px;
   padding: 4px 8px 8px 4px;
   flex-wrap: wrap;
+}
+.sidebar__clear {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2a2a2a;
+  color: var(--text-subdued);
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+}
+.sidebar__clear:hover {
+  background: #333;
+  color: #fff;
 }
 .pill {
   background: #2a2a2a;
@@ -260,6 +353,11 @@ async function createPlaylist() {
   flex: 1;
   min-height: 0;
   padding-right: 4px;
+}
+.sidebar__nores {
+  color: var(--text-subdued);
+  font-size: 13px;
+  padding: 16px 8px;
 }
 .libitem {
   display: flex;

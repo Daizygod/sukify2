@@ -59,6 +59,28 @@ class ArtistController extends Controller
         return ReleaseResource::collection($releases);
     }
 
+    /** The user's liked tracks and releases narrowed to this artist. */
+    public function liked(Request $request, Artist $artist)
+    {
+        $tracks = $request->user()->likedTracks()
+            ->whereHas('artists', fn ($q) => $q->where('artists.id', $artist->id))
+            ->with(['artists', 'release'])
+            ->get();
+        $tracks->each(fn ($t) => $t->is_liked = true);
+
+        $releases = $request->user()->likedAlbums()
+            ->where('artist_id', $artist->id)
+            ->with('artist')
+            ->withCount('tracks')
+            ->get();
+        $releases->each(fn ($r) => $r->is_liked = true);
+
+        return response()->json([
+            'tracks' => TrackResource::collection($tracks)->resolve($request),
+            'releases' => ReleaseResource::collection($releases)->resolve($request),
+        ]);
+    }
+
     public function follow(Request $request, Artist $artist)
     {
         $request->user()->followedArtists()->syncWithoutDetaching([$artist->id]);
