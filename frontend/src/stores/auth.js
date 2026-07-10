@@ -34,6 +34,7 @@ export const useAuthStore = defineStore('auth', {
       await ensureCsrf()
       const { data } = await api.post('/login', credentials)
       this.user = data.data
+      await this.bootSession()
       return this.user
     },
 
@@ -41,7 +42,20 @@ export const useAuthStore = defineStore('auth', {
       await ensureCsrf()
       const { data } = await api.post('/register', payload)
       this.user = data.data
+      await this.bootSession()
       return this.user
+    },
+
+    /** Start the per-session stores (also runs on SPA login without reload). */
+    async bootSession() {
+      const [{ usePlayerStore }, { useLibraryStore }, { useDeviceStore }] = await Promise.all([
+        import('@/stores/player'),
+        import('@/stores/library'),
+        import('@/stores/devices'),
+      ])
+      usePlayerStore().loadSettings()
+      useLibraryStore().load().catch(() => {})
+      useDeviceStore().init()
     },
 
     async logout() {

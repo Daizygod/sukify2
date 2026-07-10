@@ -149,7 +149,10 @@ export const usePlayerStore = defineStore('player', () => {
     const el = activeDeck().el
     if (el.paused) {
       ctx?.resume()
-      el.play()
+      el.play().catch(() => {
+        isPlaying.value = false
+        setMediaPlaybackState()
+      })
       isPlaying.value = true
     } else {
       el.pause()
@@ -274,6 +277,25 @@ export const usePlayerStore = defineStore('player', () => {
 
   function setUpcoming(arr) {
     queue.value = [...queue.value.slice(0, queueIndex.value + 1), ...arr]
+  }
+
+  /** Restore a full playback snapshot (Connect transfer onto this device). */
+  async function hydrate({ tracks, index = 0, manual = [], positionMs = 0, playing = true, name = '' }) {
+    init()
+    queue.value = tracks.filter((t) => t.stream_url)
+    queueIndex.value = Math.min(index, queue.value.length - 1)
+    manualQueue.value = manual.map((t) => ({ ...t, __qid: ++qidCounter }))
+    contextName.value = name
+    originalOrder = null
+    const t = queue.value[queueIndex.value]
+    if (!t) return
+    await loadAndPlay(t)
+    if (positionMs > 0) seek(positionMs)
+    if (!playing) {
+      activeDeck().el.pause()
+      isPlaying.value = false
+      setMediaPlaybackState()
+    }
   }
 
   // --- shuffle -------------------------------------------------------------
@@ -491,7 +513,7 @@ export const usePlayerStore = defineStore('player', () => {
     progress, upcoming,
     // actions
     init, playContext, playTrack, togglePlay, seek, setVolume, toggleMute,
-    next, prev, stop, loadSettings, setShuffle,
+    next, prev, stop, loadSettings, setShuffle, hydrate,
     addToQueue, removeFromManualQueue, removeUpcoming, clearManualQueue,
     playManualItem, playUpcomingItem, setManualQueue, setUpcoming,
   }

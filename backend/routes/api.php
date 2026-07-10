@@ -38,6 +38,7 @@ Route::get('/artists/{artist:slug}/top-tracks', [ArtistController::class, 'topTr
 Route::get('/artists/{artist:slug}/releases', [ArtistController::class, 'releases']);
 
 Route::get('/releases/{release:slug}', [ReleaseController::class, 'show']);
+Route::get('/tracks-bulk', [TrackController::class, 'bulk']);
 Route::get('/tracks/{track}', [TrackController::class, 'show']);
 
 Route::get('/transitions', [TransitionController::class, 'forPair']);

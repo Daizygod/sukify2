@@ -22,6 +22,27 @@ class TrackController extends Controller
         return new TrackResource($track);
     }
 
+    /** Bulk fetch (device playback transfer) — returns tracks in the requested order. */
+    public function bulk(Request $request)
+    {
+        $ids = collect(explode(',', (string) $request->query('ids')))
+            ->map(fn ($v) => (int) $v)
+            ->filter()
+            ->unique()
+            ->take(500)
+            ->values();
+
+        $tracks = Track::with(['artists', 'release'])
+            ->whereIn('id', $ids)
+            ->get()
+            ->keyBy('id');
+
+        $ordered = $ids->map(fn ($id) => $tracks->get($id))->filter()->values();
+        $this->markLikedTracks($ordered, $request->user());
+
+        return TrackResource::collection($ordered);
+    }
+
     public function like(Request $request, Track $track)
     {
         $changed = $request->user()->likedTracks()->syncWithoutDetaching([$track->id]);

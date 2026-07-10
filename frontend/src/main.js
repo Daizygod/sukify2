@@ -12,6 +12,7 @@ import '@/styles/main.css'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
+import { useDeviceStore } from '@/stores/devices'
 
 async function bootstrap() {
   const app = createApp(App)
@@ -25,8 +26,10 @@ async function bootstrap() {
   if (auth.isAuthenticated) {
     const player = usePlayerStore()
     const library = useLibraryStore()
+    const devices = useDeviceStore()
     player.loadSettings()
     library.load().catch(() => {})
+    devices.init()
   }
 
   await router.isReady()

@@ -8,13 +8,17 @@ import RightPanel from '@/components/RightPanel.vue'
 import ContextMenu from '@/components/ContextMenu.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import { useUiStore } from '@/stores/ui'
+import { useDeviceStore } from '@/stores/devices'
 
 const ui = useUiStore()
+const devices = useDeviceStore()
 
 const gridStyle = computed(() => ({
   gridTemplateColumns: ui.rightOpen
     ? `${ui.leftWidth}px 1fr ${ui.rightWidth}px`
     : `${ui.leftWidth}px 1fr`,
+  // Connect bar adds a strip below the player when playback is remote.
+  '--player-height': devices.isRemote ? '112px' : '88px',
 }))
 
 function startLeft(e) {
