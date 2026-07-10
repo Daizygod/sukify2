@@ -69,6 +69,8 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/library/liked-albums', [LibraryController::class, 'likedAlbums']);
     Route::get('/library/followed-artists', [LibraryController::class, 'followedArtists']);
     Route::get('/me/history', [LibraryController::class, 'history']);
+    Route::get('/me/stats', [\App\Http\Controllers\Api\StatsController::class, 'monthly']);
+    Route::get('/me/notifications', [\App\Http\Controllers\Api\StatsController::class, 'notifications']);
     Route::get('/library/pins', [LibraryController::class, 'pins']);
     Route::post('/library/pins', [LibraryController::class, 'pin']);
     Route::delete('/library/pins', [LibraryController::class, 'unpin']);

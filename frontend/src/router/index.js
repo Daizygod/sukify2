@@ -15,6 +15,8 @@ const routes = [
   { path: '/genre/:name', name: 'genre', component: () => import('@/pages/GenrePage.vue') },
   { path: '/mix/:n', name: 'mix', component: () => import('@/pages/MixPage.vue'), meta: { auth: true } },
   { path: '/history', name: 'history', component: () => import('@/pages/HistoryPage.vue'), meta: { auth: true } },
+  { path: '/settings', name: 'settings', component: () => import('@/pages/SettingsPage.vue'), meta: { auth: true } },
+  { path: '/stats', name: 'stats', component: () => import('@/pages/StatsPage.vue'), meta: { auth: true } },
   { path: '/user/:username', name: 'profile', component: () => import('@/pages/ProfilePage.vue') },
   { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { guest: true } },
 ]

@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { RouterView } from 'vue-router'
+import { usePlayerStore } from '@/stores/player'
 import Sidebar from '@/components/Sidebar.vue'
 import TopBar from '@/components/TopBar.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
@@ -14,6 +15,50 @@ import { useDeviceStore } from '@/stores/devices'
 
 const ui = useUiStore()
 const devices = useDeviceStore()
+const player = usePlayerStore()
+
+// Глобальные горячие клавиши (не срабатывают в полях ввода).
+function onHotkey(e) {
+  const tag = e.target?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return
+
+  if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+    e.preventDefault()
+    document.querySelector('.topbar__input')?.focus()
+    return
+  }
+  switch (e.key) {
+    case ' ':
+      e.preventDefault()
+      player.togglePlay()
+      break
+    case 'ArrowRight':
+      e.preventDefault()
+      e.ctrlKey ? player.next() : player.seek(Math.min(player.positionMs + 5000, player.durationMs))
+      break
+    case 'ArrowLeft':
+      e.preventDefault()
+      e.ctrlKey ? player.prev() : player.seek(Math.max(player.positionMs - 5000, 0))
+      break
+    case 'm':
+    case 'M':
+    case 'ь':
+      player.toggleMute()
+      break
+    case 'f':
+    case 'F':
+    case 'а':
+      ui.fullscreenOpen = !ui.fullscreenOpen
+      break
+    case 't':
+    case 'T':
+    case 'е':
+      ui.lyricsOpen = !ui.lyricsOpen
+      break
+  }
+}
+onMounted(() => window.addEventListener('keydown', onHotkey))
+onUnmounted(() => window.removeEventListener('keydown', onHotkey))
 
 const gridStyle = computed(() => ({
   gridTemplateColumns: ui.rightOpen

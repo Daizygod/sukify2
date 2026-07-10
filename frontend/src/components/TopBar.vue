@@ -1,7 +1,9 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import Icon from './Icon.vue'
+import CoverImage from './CoverImage.vue'
+import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 import { useUiStore } from '@/stores/ui'
@@ -13,7 +15,30 @@ const router = useRouter()
 const route = useRoute()
 const menuOpen = ref(false)
 const bellOpen = ref(false)
+const notifications = ref([])
+const hasUnseen = ref(false)
 const q = ref(route.params.q || '')
+
+async function loadNotifications() {
+  if (!auth.isAuthenticated) return
+  try {
+    const { data } = await api.get('/me/notifications')
+    notifications.value = data.data
+    const lastSeen = localStorage.getItem('bell.seen') || ''
+    hasUnseen.value = notifications.value.some((r) => (r.release_date || '') > lastSeen)
+  } catch {
+    notifications.value = []
+  }
+}
+onMounted(loadNotifications)
+
+function toggleBell() {
+  bellOpen.value = !bellOpen.value
+  if (bellOpen.value && notifications.value.length) {
+    localStorage.setItem('bell.seen', notifications.value[0].release_date || '')
+    hasUnseen.value = false
+  }
+}
 
 async function installApp() {
   const p = window.__installPrompt
@@ -70,12 +95,27 @@ async function logout() {
           <span>Установить приложение</span>
         </button>
         <div class="topbar__bellwrap">
-          <button class="topbar__ghost" title="Что нового" @click="bellOpen = !bellOpen">
+          <button class="topbar__ghost topbar__bellbtn" :class="{ 'topbar__bellbtn--dot': hasUnseen }" title="Что нового" @click="toggleBell">
             <Icon name="bell" :size="16" />
           </button>
           <div v-if="bellOpen" class="topbar__bell" @mouseleave="bellOpen = false">
             <div class="topbar__bellhead">Что нового</div>
-            <p class="topbar__bellempty">Пока нет новых уведомлений. Здесь появятся новые релизы исполнителей, на которых ты подписан(-а).</p>
+            <template v-if="notifications.length">
+              <RouterLink
+                v-for="r in notifications"
+                :key="r.id"
+                :to="{ name: 'release', params: { slug: r.slug } }"
+                class="topbar__notif"
+                @click="bellOpen = false"
+              >
+                <CoverImage :cover="r.cover" :size="48" class="topbar__notifcover" />
+                <div class="topbar__notifmeta">
+                  <div class="topbar__notiftitle">{{ r.title }}</div>
+                  <div class="topbar__notifsub">Новый релиз • {{ r.artist?.name }}</div>
+                </div>
+              </RouterLink>
+            </template>
+            <p v-else class="topbar__bellempty">Пока нет новых уведомлений. Здесь появятся новые релизы исполнителей, на которых ты подписан(-а).</p>
           </div>
         </div>
         <button class="topbar__ghost" :class="{ 'topbar__ghost--on': ui.rightOpen && ui.rightView === 'friends' }" title="Активность друзей" @click="ui.openRight('friends')">
@@ -86,8 +126,10 @@ async function logout() {
           <div class="topbar__avatar">{{ (auth.user.name || '?')[0].toUpperCase() }}</div>
           <div v-if="menuOpen" class="topbar__menu" @click.stop>
             <RouterLink :to="{ name: 'profile', params: { username: auth.user.username || auth.user.id } }" class="topbar__mi" @click="menuOpen=false">Профиль</RouterLink>
+            <RouterLink :to="{ name: 'stats' }" class="topbar__mi" @click="menuOpen=false">Твоя статистика</RouterLink>
             <RouterLink :to="{ name: 'history' }" class="topbar__mi" @click="menuOpen=false">История прослушивания</RouterLink>
             <RouterLink :to="{ name: 'import' }" class="topbar__mi" @click="menuOpen=false">Импорт из Spotify</RouterLink>
+            <RouterLink :to="{ name: 'settings' }" class="topbar__mi" @click="menuOpen=false">Настройки</RouterLink>
             <button class="topbar__mi" @click="logout">Выйти</button>
           </div>
         </div>
@@ -253,6 +295,49 @@ async function logout() {
   color: var(--text-subdued);
   font-size: 13px;
   line-height: 1.5;
+}
+.topbar__bellbtn {
+  position: relative;
+}
+.topbar__bellbtn--dot::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3d91f4;
+}
+.topbar__notif {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 6px;
+}
+.topbar__notif:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.topbar__notifcover {
+  width: 48px;
+  flex: 0 0 48px;
+  border-radius: 4px;
+}
+.topbar__notifmeta {
+  min-width: 0;
+}
+.topbar__notiftitle {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar__notifsub {
+  color: var(--text-subdued);
+  font-size: 12px;
+  margin-top: 2px;
 }
 .topbar__link {
   color: var(--text-subdued);
