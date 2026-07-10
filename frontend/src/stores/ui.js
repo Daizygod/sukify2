@@ -18,6 +18,7 @@ export const useUiStore = defineStore('ui', {
     // What the right panel shows: 'nowplaying' | 'queue' | 'connect' | 'friends'
     rightView: localStorage.getItem('ui.rightView') || 'nowplaying',
     fullscreenOpen: false,
+    lyricsOpen: false,
     listCompact: localStorage.getItem('ui.listCompact') === '1',
   }),
   actions: {

@@ -44,6 +44,7 @@ Route::get('/releases/{release:slug}', [ReleaseController::class, 'show']);
 Route::get('/tracks-bulk', [TrackController::class, 'bulk']);
 Route::get('/tracks/{track}', [TrackController::class, 'show']);
 Route::get('/tracks/{track}/radio', [\App\Http\Controllers\Api\MixController::class, 'trackRadio']);
+Route::get('/tracks/{track}/lyrics', [\App\Http\Controllers\Api\LyricsController::class, 'show']);
 
 Route::get('/transitions', [TransitionController::class, 'forPair']);
 Route::get('/transitions/all', [TransitionController::class, 'index']);

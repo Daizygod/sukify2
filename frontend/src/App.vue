@@ -8,6 +8,7 @@ import RightPanel from '@/components/RightPanel.vue'
 import ContextMenu from '@/components/ContextMenu.vue'
 import ToastHost from '@/components/ToastHost.vue'
 import FullscreenView from '@/components/FullscreenView.vue'
+import LyricsView from '@/components/LyricsView.vue'
 import { useUiStore } from '@/stores/ui'
 import { useDeviceStore } from '@/stores/devices'
 
@@ -71,6 +72,7 @@ function startRight(e) {
 
     <PlayerBar class="app__player" />
     <FullscreenView v-if="ui.fullscreenOpen" />
+    <LyricsView v-if="ui.lyricsOpen" />
     <ContextMenu />
     <ToastHost />
   </div>
