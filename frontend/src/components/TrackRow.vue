@@ -58,7 +58,10 @@ function toggleLike() {
     <div class="row__main">
       <CoverImage v-if="variant !== 'album'" :cover="track.cover" :size="40" class="row__cover" />
       <div class="row__meta">
-        <div class="row__title" :class="{ 'row__title--green': isCurrent }">{{ track.title }}</div>
+        <div class="row__title" :class="{ 'row__title--green': isCurrent }">
+          {{ track.title }}
+          <span v-if="track.unofficial" class="row__unofficial" title="Нет на официальных площадках">эксклюзив</span>
+        </div>
         <div class="row__artists">
           <template v-for="(a, i) in track.artists" :key="a.id">
             <RouterLink :to="{ name: 'artist', params: { slug: a.slug } }" class="row__artist">{{ a.name }}</RouterLink><span v-if="i < track.artists.length - 1">, </span>
@@ -153,6 +156,19 @@ function toggleLike() {
 }
 .row__title--green {
   color: var(--accent);
+}
+.row__unofficial {
+  display: inline-block;
+  vertical-align: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-subdued);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 3px;
+  padding: 2px 5px;
+  margin-left: 6px;
 }
 .row__artists {
   white-space: nowrap;

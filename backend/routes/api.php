@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\ArtistController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HomeController;
+use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\LibraryController;
 use App\Http\Controllers\Api\PlaybackSettingController;
 use App\Http\Controllers\Api\JamController;
@@ -63,6 +64,9 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/library/liked-tracks', [LibraryController::class, 'likedTracks']);
     Route::get('/library/liked-albums', [LibraryController::class, 'likedAlbums']);
     Route::get('/library/followed-artists', [LibraryController::class, 'followedArtists']);
+
+    // Import liked tracks from Spotify exports.
+    Route::post('/import/liked', [ImportController::class, 'likedTracks']);
 
     // Playback settings.
     Route::get('/playback-settings', [PlaybackSettingController::class, 'show']);

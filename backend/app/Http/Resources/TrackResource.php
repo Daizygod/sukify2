@@ -20,6 +20,7 @@ class TrackResource extends JsonResource
             'cover' => $this->coverUrls(),
             'plays_count' => $this->plays_count,
             'likes_count' => $this->likes_count,
+            'unofficial' => (bool) $this->unofficial,
             'artists' => ArtistResource::collection($this->whenLoaded('artists')),
             'release' => new ReleaseResource($this->whenLoaded('release')),
             // Position within a playlist, when loaded through the pivot.

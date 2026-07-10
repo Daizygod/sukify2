@@ -36,6 +36,10 @@ function destroy(t) {
   if (confirm(`Delete "${t.title}"?`)) router.delete(`/admin/tracks/${t.id}`, { preserveScroll: true })
 }
 
+function toggleUnofficial(t, value) {
+  router.put(`/admin/tracks/${t.id}`, { title: t.title, unofficial: value }, { preserveScroll: true })
+}
+
 // Poll processing status for tracks that aren't finished yet.
 let timer
 async function poll() {
@@ -121,6 +125,7 @@ const badge = {
           <th class="text-left px-4 py-3 font-semibold">Status</th>
           <th class="text-right px-4 py-3 font-semibold">Duration</th>
           <th class="text-right px-4 py-3 font-semibold">LUFS</th>
+          <th class="text-center px-4 py-3 font-semibold" title="Трека нет на официальных площадках">Exclusive</th>
           <th class="px-4 py-3"></th>
         </tr>
       </thead>
@@ -134,6 +139,14 @@ const badge = {
           </td>
           <td class="px-4 py-3 text-right tabular-nums text-neutral-400">{{ fmt(t.duration_ms) }}</td>
           <td class="px-4 py-3 text-right tabular-nums text-neutral-400">{{ t.loudness_lufs ?? '—' }}</td>
+          <td class="px-4 py-3 text-center">
+            <input
+              type="checkbox"
+              :checked="t.unofficial"
+              class="accent-green-500 cursor-pointer"
+              @change="toggleUnofficial(t, $event.target.checked)"
+            />
+          </td>
           <td class="px-4 py-3 text-right">
             <button class="text-red-400 hover:underline" @click="destroy(t)">Delete</button>
           </td>

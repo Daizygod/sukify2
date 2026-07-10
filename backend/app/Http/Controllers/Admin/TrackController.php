@@ -43,8 +43,13 @@ class TrackController extends Controller
     {
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
+            'unofficial' => ['sometimes', 'boolean'],
         ]);
-        $track->update($data);
+        $track->fill(['title' => $data['title']]);
+        if (array_key_exists('unofficial', $data)) {
+            $track->unofficial = (bool) $data['unofficial'];
+        }
+        $track->save();
 
         return back()->with('success', 'Track updated.');
     }
