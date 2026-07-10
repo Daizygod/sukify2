@@ -7,22 +7,41 @@ export const useLibraryStore = defineStore('library', {
     likedAlbums: [],
     followedArtists: [],
     likedTrackIds: new Set(),
+    pins: new Set(), // "playlist:1", "album:2", "artist:3"
     loaded: false,
   }),
   actions: {
     async load() {
-      const [{ data: pl }, { data: liked }, { data: albums }, { data: artists }] =
+      const [{ data: pl }, { data: liked }, { data: albums }, { data: artists }, { data: pins }] =
         await Promise.all([
           api.get('/library/playlists'),
           api.get('/library/liked-tracks'),
           api.get('/library/liked-albums'),
           api.get('/library/followed-artists'),
+          api.get('/library/pins'),
         ])
       this.playlists = pl.data
       this.likedTrackIds = new Set(liked.data.map((t) => t.id))
       this.likedAlbums = albums.data
       this.followedArtists = artists.data
+      this.pins = new Set(pins.data.map((p) => `${p.item_type}:${p.item_id}`))
       this.loaded = true
+    },
+
+    isPinned(type, id) {
+      return this.pins.has(`${type}:${id}`)
+    },
+
+    async togglePin(type, id) {
+      const key = `${type}:${id}`
+      if (this.pins.has(key)) {
+        this.pins.delete(key)
+        await api.delete('/library/pins', { data: { item_type: type, item_id: id } })
+        return false
+      }
+      this.pins.add(key)
+      await api.post('/library/pins', { item_type: type, item_id: id })
+      return true
     },
 
     async refreshPlaylists() {

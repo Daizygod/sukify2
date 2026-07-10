@@ -62,6 +62,24 @@ async function addRec(t) {
 }
 watch(() => route.params.id, (id) => id && load(id), { immediate: true })
 
+// Открыли инвайт-ссылку /playlist/{id}?join={token} — присоединяемся.
+watch(
+  () => route.query.join,
+  async (token) => {
+    if (!token || !route.params.id) return
+    try {
+      await api.post(`/playlists/${route.params.id}/join/${token}`)
+      toasts.show('Теперь ты участник этого плейлиста!')
+      library.refreshPlaylists()
+      await load(route.params.id)
+    } catch {
+      toasts.show('Ссылка-приглашение не подошла')
+    }
+    router.replace({ query: {} })
+  },
+  { immediate: true }
+)
+
 function playAll() {
   if (items.value.length) player.playContext(items.value, 0, { name: playlist.value?.title })
 }
@@ -87,6 +105,18 @@ async function download() {
   toasts.show(`Скачано файлов: ${n}`)
 }
 
+/** Совместный режим: получить инвайт-токен и скопировать ссылку. */
+async function invitePeople() {
+  const { data } = await api.post(`/playlists/${playlist.value.id}/invite`)
+  const url = `${location.origin}/playlist/${playlist.value.id}?join=${data.invite_token}`
+  try {
+    await navigator.clipboard.writeText(url)
+    toasts.show('Ссылка-приглашение скопирована — отправь её другу')
+  } catch {
+    toasts.show(url)
+  }
+}
+
 async function removePlaylist() {
   if (!confirm(`Удалить плейлист «${playlist.value.title}»?`)) return
   await api.delete(`/playlists/${playlist.value.id}`)
@@ -99,7 +129,7 @@ async function removePlaylist() {
 <template>
   <div v-if="playlist" class="playlist">
     <CollectionHero
-      :kind="playlist.is_public ? 'Открытый плейлист' : 'Закрытый плейлист'"
+      :kind="playlist.is_collaborative ? 'Совместный плейлист' : playlist.is_public ? 'Открытый плейлист' : 'Закрытый плейлист'"
       :title="playlist.title"
       :cover="playlist.cover_url ? { 640: playlist.cover_url } : null"
       :bg="heroBg"
@@ -117,7 +147,7 @@ async function removePlaylist() {
           <button class="play-btn play-btn--lg" @click="playAll"><Icon name="playBig" :size="24" /></button>
           <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
           <button class="ctl-lg" title="Скачать" @click="download"><Icon name="downloadCircle" :size="32" /></button>
-          <HeroMenu :tracks="items" :link="shareLink" :can-delete="isOwner" @delete="removePlaylist" />
+          <HeroMenu :tracks="items" :link="shareLink" :can-delete="isOwner" :can-invite="isOwner" @delete="removePlaylist" @invite="invitePeople" />
         </div>
         <button class="playlist__view" @click="ui.toggleListCompact()">
           <span>{{ ui.listCompact ? 'Компактный' : 'Список' }}</span>

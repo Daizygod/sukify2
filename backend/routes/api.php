@@ -68,6 +68,13 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/library/liked-albums', [LibraryController::class, 'likedAlbums']);
     Route::get('/library/followed-artists', [LibraryController::class, 'followedArtists']);
     Route::get('/me/history', [LibraryController::class, 'history']);
+    Route::get('/library/pins', [LibraryController::class, 'pins']);
+    Route::post('/library/pins', [LibraryController::class, 'pin']);
+    Route::delete('/library/pins', [LibraryController::class, 'unpin']);
+
+    // Collaborative playlists.
+    Route::post('/playlists/{playlist}/invite', [PlaylistController::class, 'invite']);
+    Route::post('/playlists/{playlist}/join/{token}', [PlaylistController::class, 'join']);
 
     // Auto mixes.
     Route::get('/mixes/daily', [\App\Http\Controllers\Api\MixController::class, 'daily']);

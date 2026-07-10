@@ -48,6 +48,8 @@ const items = computed(() => {
     for (const p of library.playlists) {
       out.push({
         key: `pl-${p.id}`,
+        pinType: 'playlist',
+        pinId: p.id,
         to: { name: 'playlist', params: { id: p.id } },
         cover: p.cover_url ? { 300: p.cover_url } : null,
         title: p.title,
@@ -60,6 +62,8 @@ const items = computed(() => {
     for (const r of library.likedAlbums) {
       out.push({
         key: `al-${r.id}`,
+        pinType: 'album',
+        pinId: r.id,
         to: { name: 'release', params: { slug: r.slug } },
         cover: r.cover,
         title: r.title,
@@ -72,6 +76,8 @@ const items = computed(() => {
     for (const a of library.followedArtists) {
       out.push({
         key: `ar-${a.id}`,
+        pinType: 'artist',
+        pinId: a.id,
         to: { name: 'artist', params: { slug: a.slug } },
         cover: a.avatar_url ? { 300: a.avatar_url } : null,
         round: true,
@@ -82,13 +88,20 @@ const items = computed(() => {
     }
   }
 
+  for (const i of out) i.pinned = library.isPinned(i.pinType, i.pinId)
+
   const q = filter.value.trim().toLowerCase()
-  const filtered = q ? out.filter((i) => i.title.toLowerCase().includes(q)) : out
+  let filtered = q ? out.filter((i) => i.title.toLowerCase().includes(q)) : out
   if (sortMode.value === 'alpha') {
-    return [...filtered].sort((a, b) => a.title.localeCompare(b.title, 'ru'))
+    filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title, 'ru'))
   }
-  return filtered
+  // Закреплённые всегда сверху, как в оригинале.
+  return [...filtered.filter((i) => i.pinned), ...filtered.filter((i) => !i.pinned)]
 })
+
+async function togglePin(item) {
+  await library.togglePin(item.pinType, item.pinId)
+}
 
 const showLiked = computed(() => {
   const tabOk = !activeTab.value || activeTab.value === 'playlists'
@@ -196,11 +209,16 @@ async function createPlaylist() {
             :to="item.to"
             class="libitem"
             :class="{ active: item.active }"
+            :title="item.pinned ? 'ПКМ — открепить' : 'ПКМ — закрепить'"
+            @contextmenu.prevent="togglePin(item)"
           >
             <CoverImage :cover="item.cover" :size="48" class="libitem__cover" :rounded="item.round" />
             <div class="libitem__meta">
               <div class="libitem__title">{{ item.title }}</div>
-              <div class="libitem__sub"><span>{{ item.sub }}</span></div>
+              <div class="libitem__sub">
+                <Icon v-if="item.pinned" name="pin" :size="12" class="libitem__pin" />
+                <span>{{ item.sub }}</span>
+              </div>
             </div>
           </RouterLink>
 

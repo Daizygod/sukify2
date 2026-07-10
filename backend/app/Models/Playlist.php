@@ -36,6 +36,16 @@ class Playlist extends Model
             ->orderByPivot('position');
     }
 
+    public function collaborators(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'playlist_collaborators')->withTimestamps();
+    }
+
+    public function isCollaborator(?User $user): bool
+    {
+        return $user !== null && $this->collaborators()->whereKey($user->id)->exists();
+    }
+
     // --- Search ------------------------------------------------------------
 
     public function toSearchableArray(): array

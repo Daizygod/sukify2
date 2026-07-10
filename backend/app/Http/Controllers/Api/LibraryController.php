@@ -14,16 +14,61 @@ class LibraryController extends Controller
 {
     use ResolvesLikes;
 
-    /** Playlists owned by the user — the left sidebar list. */
+    /** Playlists owned by (or shared with) the user — the left sidebar list. */
     public function playlists(Request $request)
     {
-        $playlists = $request->user()->playlists()
+        $user = $request->user();
+
+        $own = $user->playlists()->with('owner')->withCount('tracks')->get();
+        $shared = \App\Models\Playlist::query()
+            ->whereHas('collaborators', fn ($q) => $q->whereKey($user->id))
             ->with('owner')
             ->withCount('tracks')
-            ->latest('updated_at')
             ->get();
 
+        $playlists = $own->concat($shared)->sortByDesc('updated_at')->values();
+
         return PlaylistResource::collection($playlists);
+    }
+
+    /** Закреплённые элементы медиатеки. */
+    public function pins(Request $request)
+    {
+        $pins = \App\Models\PinnedItem::where('user_id', $request->user()->id)
+            ->get(['item_type', 'item_id']);
+
+        return response()->json(['data' => $pins]);
+    }
+
+    public function pin(Request $request)
+    {
+        $data = $request->validate([
+            'item_type' => ['required', 'in:playlist,album,artist'],
+            'item_id' => ['required', 'integer'],
+        ]);
+
+        \App\Models\PinnedItem::firstOrCreate([
+            'user_id' => $request->user()->id,
+            'item_type' => $data['item_type'],
+            'item_id' => $data['item_id'],
+        ]);
+
+        return response()->json(['pinned' => true]);
+    }
+
+    public function unpin(Request $request)
+    {
+        $data = $request->validate([
+            'item_type' => ['required', 'in:playlist,album,artist'],
+            'item_id' => ['required', 'integer'],
+        ]);
+
+        \App\Models\PinnedItem::where('user_id', $request->user()->id)
+            ->where('item_type', $data['item_type'])
+            ->where('item_id', $data['item_id'])
+            ->delete();
+
+        return response()->json(['pinned' => false]);
     }
 
     /** The Liked Songs special page. */

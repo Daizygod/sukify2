@@ -25,6 +25,31 @@ class PlaylistController extends Controller
         return new PlaylistResource($playlist);
     }
 
+    /** Владелец включает совместный режим — получает инвайт-ссылку. */
+    public function invite(Request $request, Playlist $playlist)
+    {
+        abort_unless($request->user()->id === $playlist->user_id, 403);
+
+        if (! $playlist->invite_token) {
+            $playlist->invite_token = bin2hex(random_bytes(20));
+            $playlist->save();
+        }
+
+        return response()->json(['invite_token' => $playlist->invite_token]);
+    }
+
+    /** Присоединиться к совместному плейлисту по токену. */
+    public function join(Request $request, Playlist $playlist, string $token)
+    {
+        abort_unless($playlist->invite_token && hash_equals($playlist->invite_token, $token), 403);
+
+        if ($request->user()->id !== $playlist->user_id) {
+            $playlist->collaborators()->syncWithoutDetaching([$request->user()->id]);
+        }
+
+        return new PlaylistResource($playlist->load('owner'));
+    }
+
     /** «Рекомендуем» в конце плейлиста: похожее по артистам и жанру, чего ещё нет внутри. */
     public function recommendations(Request $request, Playlist $playlist)
     {

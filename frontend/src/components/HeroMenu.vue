@@ -8,8 +8,9 @@ const props = defineProps({
   tracks: { type: Array, default: () => [] },
   link: { type: String, default: '' },
   canDelete: { type: Boolean, default: false },
+  canInvite: { type: Boolean, default: false },
 })
-const emit = defineEmits(['delete'])
+const emit = defineEmits(['delete', 'invite'])
 
 const player = usePlayerStore()
 const toasts = useToastStore()
@@ -50,6 +51,10 @@ async function copyLink() {
       <button class="hm__item" @click="copyLink">
         <Icon name="share" :size="16" />
         <span>Поделиться</span>
+      </button>
+      <button v-if="canInvite" class="hm__item" @click="open = false; emit('invite')">
+        <Icon name="person" :size="16" />
+        <span>Пригласить участников</span>
       </button>
       <template v-if="canDelete">
         <div class="hm__divider"></div>
