@@ -99,6 +99,10 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::post('/releases/{release}/like', [ReleaseController::class, 'like']);
     Route::delete('/releases/{release}/like', [ReleaseController::class, 'unlike']);
 
+    Route::post('/users/{username}/follow', [\App\Http\Controllers\Api\UserFollowController::class, 'follow']);
+    Route::delete('/users/{username}/follow', [\App\Http\Controllers\Api\UserFollowController::class, 'unfollow']);
+    Route::get('/me/friends-activity', [\App\Http\Controllers\Api\UserFollowController::class, 'friendsActivity']);
+
     Route::post('/artists/{artist:slug}/follow', [ArtistController::class, 'follow']);
     Route::delete('/artists/{artist:slug}/follow', [ArtistController::class, 'unfollow']);
     Route::get('/artists/{artist:slug}/liked', [ArtistController::class, 'liked']);

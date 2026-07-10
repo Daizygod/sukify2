@@ -69,6 +69,20 @@ class User extends Authenticatable
         return $this->hasMany(TrackPlay::class);
     }
 
+    /** Пользователи, на которых подписан этот юзер. */
+    public function following(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_follows', 'follower_id', 'followee_id')
+            ->withTimestamps();
+    }
+
+    /** Подписчики этого юзера. */
+    public function followers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_follows', 'followee_id', 'follower_id')
+            ->withTimestamps();
+    }
+
     public function hostedSessions(): HasMany
     {
         return $this->hasMany(ListeningSession::class, 'host_user_id');

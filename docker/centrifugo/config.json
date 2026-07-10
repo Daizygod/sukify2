@@ -7,6 +7,13 @@
   "allowed_origins": ["http://localhost:5173", "http://localhost", "http://localhost:8088"],
   "namespaces": [
     {
+      "name": "activity",
+      "allow_subscribe_for_client": true,
+      "history_size": 1,
+      "history_ttl": "300s",
+      "allow_history_for_subscriber": true
+    },
+    {
       "name": "user",
       "presence": true,
       "join_leave": true,

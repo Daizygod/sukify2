@@ -65,17 +65,34 @@ class TrackController extends Controller
         return response()->json(['is_liked' => false]);
     }
 
-    /** Record a play (drives Home "recently played" and admin stats). */
+    /** Record a play (drives Home "recently played", stats and friend activity). */
     public function logPlay(Request $request, Track $track)
     {
+        $user = $request->user();
+
         TrackPlay::create([
             'track_id' => $track->id,
-            'user_id' => $request->user()?->id,
+            'user_id' => $user?->id,
             'played_at' => now(),
         ]);
 
         // Denormalized counter; avoids a COUNT(*) on the stats page.
         $track->increment('plays_count');
+
+        // Активность друзей: последний трек в кэше + realtime-событие.
+        if ($user) {
+            $track->loadMissing(['artists', 'release']);
+            $activity = [
+                'track_id' => $track->id,
+                'title' => $track->title,
+                'artists' => $track->artists->pluck('name')->implode(', '),
+                'release_slug' => $track->release?->slug,
+                'at' => now()->toIso8601String(),
+            ];
+            \Illuminate\Support\Facades\Cache::put("activity:user:{$user->id}", $activity, now()->addHours(8));
+            app(\App\Services\Realtime\CentrifugoService::class)
+                ->publish("activity:{$user->id}", ['type' => 'listening', 'user_id' => $user->id, ...$activity]);
+        }
 
         return response()->json(['plays_count' => $track->plays_count]);
     }
