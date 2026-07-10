@@ -43,6 +43,7 @@ Route::get('/tracks/{track}', [TrackController::class, 'show']);
 
 Route::get('/transitions', [TransitionController::class, 'forPair']);
 Route::get('/transitions/all', [TransitionController::class, 'index']);
+Route::get('/transitions/for-context', [TransitionController::class, 'forContext']);
 
 Route::get('/users/{username}', [UserProfileController::class, 'show']);
 

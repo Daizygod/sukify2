@@ -3,7 +3,9 @@ import { ref, onMounted, computed } from 'vue'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
+import TransitionSpot from '@/components/TransitionSpot.vue'
 import Icon from '@/components/Icon.vue'
+import { useTransitionInfo } from '@/lib/useTransitions'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
@@ -15,10 +17,13 @@ const loading = ref(true)
 
 const totalMs = computed(() => tracks.value.reduce((a, t) => a + (t.duration_ms || 0), 0))
 
+const { info: tinfo, load: loadTinfo, keyFor } = useTransitionInfo()
+
 onMounted(async () => {
   try {
     const { data } = await api.get('/library/liked-tracks')
     tracks.value = data.data
+    loadTinfo(tracks.value)
   } finally {
     loading.value = false
   }
@@ -62,14 +67,21 @@ function playAll() {
           <div>Дата добавления</div>
           <div class="th--right"><Icon name="clock" :size="16" /></div>
         </div>
-        <TrackRow
-          v-for="(t, i) in tracks"
-          :key="t.id"
-          :track="t"
-          :index="i"
-          :context-tracks="tracks"
-          context-name="Любимые треки"
-        />
+        <template v-for="(t, i) in tracks" :key="t.id">
+          <TrackRow
+            :track="t"
+            :index="i"
+            :context-tracks="tracks"
+            context-name="Любимые треки"
+          />
+          <TransitionSpot
+            v-if="i < tracks.length - 1"
+            :from="t"
+            :to="tracks[i + 1]"
+            :info="tinfo[keyFor(t, tracks[i + 1])]"
+            @changed="loadTinfo(tracks)"
+          />
+        </template>
       </div>
       <p v-if="!loading && !tracks.length" class="muted" style="padding:24px">
         Треки, которые тебе понравились, появятся здесь.

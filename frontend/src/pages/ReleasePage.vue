@@ -5,7 +5,9 @@ import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import CoverLightbox from '@/components/CoverLightbox.vue'
 import TrackRow from '@/components/TrackRow.vue'
+import TransitionSpot from '@/components/TransitionSpot.vue'
 import Icon from '@/components/Icon.vue'
+import { useTransitionInfo } from '@/lib/useTransitions'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
@@ -37,11 +39,14 @@ const totalMs = computed(() =>
   (release.value?.tracks || []).reduce((a, t) => a + (t.duration_ms || 0), 0)
 )
 
+const { info: tinfo, load: loadTinfo, keyFor } = useTransitionInfo()
+
 async function load(slug) {
   loading.value = true
   try {
     const { data } = await api.get(`/releases/${slug}`)
     release.value = data.data
+    loadTinfo(release.value.tracks || [])
   } finally {
     loading.value = false
   }
@@ -117,15 +122,22 @@ async function toggleLike() {
           <div>Название</div>
           <div class="th--right"><Icon name="clock" :size="16" /></div>
         </div>
-        <TrackRow
-          v-for="(t, i) in release.tracks"
-          :key="t.id"
-          :track="{ ...t, release: { slug: release.slug, title: release.title }, cover: release.cover }"
-          :index="i"
-          variant="album"
-          :context-tracks="release.tracks"
-          :context-name="release.title"
-        />
+        <template v-for="(t, i) in release.tracks" :key="t.id">
+          <TrackRow
+            :track="{ ...t, release: { slug: release.slug, title: release.title }, cover: release.cover }"
+            :index="i"
+            variant="album"
+            :context-tracks="release.tracks"
+            :context-name="release.title"
+          />
+          <TransitionSpot
+            v-if="i < release.tracks.length - 1"
+            :from="t"
+            :to="release.tracks[i + 1]"
+            :info="tinfo[keyFor(t, release.tracks[i + 1])]"
+            @changed="loadTinfo(release.tracks)"
+          />
+        </template>
       </div>
     </div>
   </div>

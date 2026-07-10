@@ -55,6 +55,50 @@ class TransitionController extends Controller
         return TransitionResource::collection($transitions);
     }
 
+    /**
+     * Best transition per pair for a whole tracklist in one round-trip.
+     * GET /api/transitions/for-context?pairs=1:2,2:3 → { "1:2": {...}|null }
+     */
+    public function forContext(Request $request)
+    {
+        $raw = (string) $request->query('pairs', '');
+        $pairs = collect(explode(',', $raw))
+            ->map(function ($p) {
+                [$from, $to] = array_pad(explode(':', $p), 2, null);
+                return [(int) $from, (int) $to];
+            })
+            ->filter(fn ($p) => $p[0] > 0 && $p[1] > 0)
+            ->take(200);
+
+        if ($pairs->isEmpty()) {
+            return response()->json(['data' => (object) []]);
+        }
+
+        $transitions = TrackTransition::query()
+            ->where(function ($q) use ($pairs) {
+                foreach ($pairs as [$from, $to]) {
+                    $q->orWhere(fn ($qq) => $qq->where('from_track_id', $from)->where('to_track_id', $to));
+                }
+            })
+            ->orderByDesc('likes_count')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy(fn ($t) => "{$t->from_track_id}:{$t->to_track_id}");
+
+        $out = [];
+        foreach ($pairs as [$from, $to]) {
+            $key = "{$from}:{$to}";
+            $best = $transitions->get($key)?->first();
+            $out[$key] = $best ? [
+                'id' => $best->id,
+                'likes_count' => $best->likes_count,
+                'count' => $transitions->get($key)->count(),
+            ] : null;
+        }
+
+        return response()->json(['data' => $out]);
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([

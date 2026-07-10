@@ -354,6 +354,12 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   const transitionCache = new Map()
+
+  /** Drop cached pair transitions (after creating/voting in the editor). */
+  function invalidateTransitions() {
+    transitionCache.clear()
+  }
+
   async function resolveTransition(from, to) {
     if (!from || !to) return null
     const key = `${from.id}:${to.id}`
@@ -513,7 +519,7 @@ export const usePlayerStore = defineStore('player', () => {
     progress, upcoming,
     // actions
     init, playContext, playTrack, togglePlay, seek, setVolume, toggleMute,
-    next, prev, stop, loadSettings, setShuffle, hydrate,
+    next, prev, stop, loadSettings, setShuffle, hydrate, invalidateTransitions,
     addToQueue, removeFromManualQueue, removeUpcoming, clearManualQueue,
     playManualItem, playUpcomingItem, setManualQueue, setUpcoming,
   }

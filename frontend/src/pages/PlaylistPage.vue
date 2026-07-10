@@ -5,7 +5,9 @@ import draggable from 'vuedraggable'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
+import TransitionSpot from '@/components/TransitionSpot.vue'
 import Icon from '@/components/Icon.vue'
+import { useTransitionInfo } from '@/lib/useTransitions'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 
@@ -25,12 +27,15 @@ const heroBg = computed(
 
 const totalMs = computed(() => items.value.reduce((a, t) => a + (t.duration_ms || 0), 0))
 
+const { info: tinfo, load: loadTinfo, keyFor } = useTransitionInfo()
+
 async function load(id) {
   loading.value = true
   try {
     const { data } = await api.get(`/playlists/${id}`)
     playlist.value = data.data
     items.value = data.data.tracks || []
+    loadTinfo(items.value)
   } finally {
     loading.value = false
   }
@@ -44,6 +49,7 @@ function playAll() {
 async function onReorder() {
   const ids = items.value.map((t) => t.playlist_item_id)
   await api.put(`/playlists/${playlist.value.id}/order`, { item_ids: ids })
+  loadTinfo(items.value)
 }
 </script>
 
@@ -95,19 +101,33 @@ async function onReorder() {
           <template #item="{ element, index }">
             <div class="pl-row">
               <TrackRow :track="element" :index="index" :context-tracks="items" :context-name="playlist.title" />
+              <TransitionSpot
+                v-if="index < items.length - 1"
+                :from="element"
+                :to="items[index + 1]"
+                :info="tinfo[keyFor(element, items[index + 1])]"
+                @changed="loadTinfo(items)"
+              />
             </div>
           </template>
         </draggable>
 
         <template v-else>
-          <TrackRow
-            v-for="(t, i) in items"
-            :key="t.playlist_item_id"
-            :track="t"
-            :index="i"
-            :context-tracks="items"
-            :context-name="playlist.title"
-          />
+          <template v-for="(t, i) in items" :key="t.playlist_item_id">
+            <TrackRow
+              :track="t"
+              :index="i"
+              :context-tracks="items"
+              :context-name="playlist.title"
+            />
+            <TransitionSpot
+              v-if="i < items.length - 1"
+              :from="t"
+              :to="items[i + 1]"
+              :info="tinfo[keyFor(t, items[i + 1])]"
+              @changed="loadTinfo(items)"
+            />
+          </template>
         </template>
       </div>
     </div>
