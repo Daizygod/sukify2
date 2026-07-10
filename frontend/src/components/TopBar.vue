@@ -3,12 +3,29 @@ import { ref, watch } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import Icon from './Icon.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toasts'
+import { useUiStore } from '@/stores/ui'
 
 const auth = useAuthStore()
+const toasts = useToastStore()
+const ui = useUiStore()
 const router = useRouter()
 const route = useRoute()
 const menuOpen = ref(false)
+const bellOpen = ref(false)
 const q = ref(route.params.q || '')
+
+async function installApp() {
+  const p = window.__installPrompt
+  if (p) {
+    p.prompt()
+    const { outcome } = await p.userChoice
+    if (outcome === 'accepted') toasts.show('Sukify устанавливается…')
+    window.__installPrompt = null
+  } else {
+    toasts.show('Открой меню браузера → «Установить приложение»')
+  }
+}
 
 let t
 watch(q, (v) => {
@@ -48,14 +65,20 @@ async function logout() {
 
     <div class="topbar__right">
       <template v-if="auth.isAuthenticated">
-        <button class="topbar__install">
+        <button class="topbar__install" @click="installApp">
           <Icon name="install" :size="16" />
           <span>Установить приложение</span>
         </button>
-        <button class="topbar__ghost" title="Что нового">
-          <Icon name="bell" :size="16" />
-        </button>
-        <button class="topbar__ghost" title="Активность друзей">
+        <div class="topbar__bellwrap">
+          <button class="topbar__ghost" title="Что нового" @click="bellOpen = !bellOpen">
+            <Icon name="bell" :size="16" />
+          </button>
+          <div v-if="bellOpen" class="topbar__bell" @mouseleave="bellOpen = false">
+            <div class="topbar__bellhead">Что нового</div>
+            <p class="topbar__bellempty">Пока нет новых уведомлений. Здесь появятся новые релизы исполнителей, на которых ты подписан(-а).</p>
+          </div>
+        </div>
+        <button class="topbar__ghost" :class="{ 'topbar__ghost--on': ui.rightOpen && ui.rightView === 'friends' }" title="Активность друзей" @click="ui.openRight('friends')">
           <Icon name="friends" :size="16" />
         </button>
         <RouterLink v-if="auth.isAdmin" to="/admin" class="topbar__link">Админ</RouterLink>
@@ -201,6 +224,33 @@ async function logout() {
 .topbar__ghost:hover {
   color: #fff;
   transform: scale(1.05);
+}
+.topbar__ghost--on {
+  color: var(--accent);
+}
+.topbar__bellwrap {
+  position: relative;
+}
+.topbar__bell {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  width: 300px;
+  background: #282828;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.4);
+  z-index: 40;
+}
+.topbar__bellhead {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.topbar__bellempty {
+  color: var(--text-subdued);
+  font-size: 13px;
+  line-height: 1.5;
 }
 .topbar__link {
   color: var(--text-subdued);

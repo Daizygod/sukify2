@@ -13,12 +13,32 @@ import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
 import { useLibraryStore } from '@/stores/library'
 import { useToastStore } from '@/stores/toasts'
+import { useUiStore } from '@/stores/ui'
+import { downloadTracks } from '@/lib/download'
+import HeroMenu from '@/components/HeroMenu.vue'
 
 const route = useRoute()
 const player = usePlayerStore()
 const auth = useAuthStore()
 const library = useLibraryStore()
 const toasts = useToastStore()
+const ui = useUiStore()
+
+function playShuffled() {
+  player.setShuffle(true)
+  playAll()
+}
+
+const shareLink = computed(() =>
+  release.value ? `${location.origin}/release/${release.value.slug}` : location.origin
+)
+
+async function download() {
+  const list = release.value?.tracks || []
+  toasts.show(`Скачиваю: ${list.length} трек(ов)…`)
+  const n = await downloadTracks(list.map((t) => ({ ...t, release })))
+  toasts.show(`Скачано файлов: ${n}`)
+}
 const release = ref(null)
 const loading = ref(true)
 const lightboxOpen = ref(false)
@@ -97,7 +117,7 @@ async function toggleLike() {
       <div class="release__actions">
         <div class="release__actions-left">
           <button class="play-btn play-btn--lg" @click="playAll"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
-          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffleBig" :size="32" /></button>
+          <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
           <button
             v-if="auth.isAuthenticated"
             class="ctl-lg"
@@ -107,16 +127,16 @@ async function toggleLike() {
           >
             <Icon :name="release.is_liked ? 'checkCircleBig' : 'plusCircleBig'" :size="32" />
           </button>
-          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="32" /></button>
-          <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="moreBig" :size="32" /></button>
+          <button class="ctl-lg" title="Скачать" @click="download"><Icon name="downloadCircle" :size="32" /></button>
+          <HeroMenu :tracks="release.tracks" :link="shareLink" />
         </div>
-        <button class="release__view">
-          <span>Список</span>
+        <button class="release__view" @click="ui.toggleListCompact()">
+          <span>{{ ui.listCompact ? 'Компактный' : 'Список' }}</span>
           <Icon name="list" :size="16" />
         </button>
       </div>
 
-      <div class="tracklist">
+      <div class="tracklist" :class="{ 'tracklist--compact': ui.listCompact }">
         <div class="tracktable__head trackgrid trackgrid--album">
           <div>#</div>
           <div>Название</div>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import draggable from 'vuedraggable'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
@@ -10,9 +10,18 @@ import Icon from '@/components/Icon.vue'
 import { useTransitionInfo } from '@/lib/useTransitions'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
+import { useUiStore } from '@/stores/ui'
+import { useToastStore } from '@/stores/toasts'
+import { useLibraryStore } from '@/stores/library'
+import { downloadTracks } from '@/lib/download'
+import HeroMenu from '@/components/HeroMenu.vue'
 
 const route = useRoute()
+const router = useRouter()
 const player = usePlayerStore()
+const ui = useUiStore()
+const toasts = useToastStore()
+const library = useLibraryStore()
 const playlist = ref(null)
 const items = ref([])
 const loading = ref(true)
@@ -51,6 +60,29 @@ async function onReorder() {
   await api.put(`/playlists/${playlist.value.id}/order`, { item_ids: ids })
   loadTinfo(items.value)
 }
+
+function playShuffled() {
+  player.setShuffle(true)
+  playAll()
+}
+
+const shareLink = computed(() =>
+  playlist.value ? `${location.origin}/playlist/${playlist.value.id}` : location.origin
+)
+
+async function download() {
+  toasts.show(`Скачиваю: ${items.value.length} трек(ов)…`)
+  const n = await downloadTracks(items.value)
+  toasts.show(`Скачано файлов: ${n}`)
+}
+
+async function removePlaylist() {
+  if (!confirm(`Удалить плейлист «${playlist.value.title}»?`)) return
+  await api.delete(`/playlists/${playlist.value.id}`)
+  await library.refreshPlaylists()
+  toasts.show('Плейлист удалён')
+  router.push('/')
+}
 </script>
 
 <template>
@@ -72,17 +104,17 @@ async function onReorder() {
       <div class="playlist__actions">
         <div class="playlist__actions-left">
           <button class="play-btn play-btn--lg" @click="playAll"><Icon name="playBig" :size="24" /></button>
-          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffleBig" :size="32" /></button>
-          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="32" /></button>
-          <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="moreBig" :size="32" /></button>
+          <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
+          <button class="ctl-lg" title="Скачать" @click="download"><Icon name="downloadCircle" :size="32" /></button>
+          <HeroMenu :tracks="items" :link="shareLink" :can-delete="isOwner" @delete="removePlaylist" />
         </div>
-        <button class="playlist__view">
-          <span>Список</span>
+        <button class="playlist__view" @click="ui.toggleListCompact()">
+          <span>{{ ui.listCompact ? 'Компактный' : 'Список' }}</span>
           <Icon name="list" :size="16" />
         </button>
       </div>
 
-      <div class="tracklist">
+      <div class="tracklist" :class="{ 'tracklist--compact': ui.listCompact }">
         <div class="tracktable__head trackgrid trackgrid--playlist">
           <div>#</div>
           <div>Название</div>

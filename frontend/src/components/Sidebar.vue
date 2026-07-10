@@ -14,6 +14,16 @@ const filter = ref('')
 const searchOpen = ref(false)
 const filterEl = ref(null)
 const activeTab = ref('') // '' | 'playlists' | 'artists' | 'albums'
+const sortMode = ref(localStorage.getItem('lib.sort') || 'recent') // recent | alpha
+const sortOpen = ref(false)
+
+const sortLabel = computed(() => (sortMode.value === 'alpha' ? 'По алфавиту' : 'Недавние'))
+
+function pickSort(mode) {
+  sortMode.value = mode
+  localStorage.setItem('lib.sort', mode)
+  sortOpen.value = false
+}
 
 const TABS = [
   { id: 'playlists', label: 'Плейлисты' },
@@ -73,7 +83,11 @@ const items = computed(() => {
   }
 
   const q = filter.value.trim().toLowerCase()
-  return q ? out.filter((i) => i.title.toLowerCase().includes(q)) : out
+  const filtered = q ? out.filter((i) => i.title.toLowerCase().includes(q)) : out
+  if (sortMode.value === 'alpha') {
+    return [...filtered].sort((a, b) => a.title.localeCompare(b.title, 'ru'))
+  }
+  return filtered
 })
 
 const showLiked = computed(() => {
@@ -149,10 +163,17 @@ async function createPlaylist() {
               placeholder="Поиск в медиатеке"
             />
           </div>
-          <button class="sidebar__sort">
-            <span>Недавние</span>
-            <Icon name="list" :size="16" />
-          </button>
+          <div class="sidebar__sortwrap">
+            <button class="sidebar__sort" @click="sortOpen = !sortOpen">
+              <span>{{ sortLabel }}</span>
+              <Icon name="list" :size="16" />
+            </button>
+            <div v-if="sortOpen" class="sidebar__sortmenu" @mouseleave="sortOpen = false">
+              <div class="sidebar__sorthead">Сортировка</div>
+              <button class="sidebar__sortitem" :class="{ on: sortMode === 'recent' }" @click="pickSort('recent')">Недавние</button>
+              <button class="sidebar__sortitem" :class="{ on: sortMode === 'alpha' }" @click="pickSort('alpha')">По алфавиту</button>
+            </div>
+          </div>
         </div>
 
         <div class="sidebar__list">
@@ -337,12 +358,49 @@ async function createPlaylist() {
 .sidebar__filter::placeholder {
   color: var(--text-muted);
 }
+.sidebar__sortwrap {
+  position: relative;
+}
 .sidebar__sort {
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--text-subdued);
   font-size: 13px;
+}
+.sidebar__sortmenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #282828;
+  border-radius: 4px;
+  min-width: 170px;
+  padding: 4px;
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.4);
+  z-index: 40;
+}
+.sidebar__sorthead {
+  color: var(--text-subdued);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 8px 12px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sidebar__sortitem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 14px;
+  border-radius: 2px;
+}
+.sidebar__sortitem:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.sidebar__sortitem.on {
+  color: var(--accent);
 }
 .sidebar__sort:hover {
   color: #fff;

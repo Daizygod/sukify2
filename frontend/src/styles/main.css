@@ -202,6 +202,21 @@ img {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 16px;
 }
+
+/* «Компактный» вид списка (переключатель «Список» на страницах). */
+.tracklist--compact .row {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+.tracklist--compact .row__cover {
+  display: none;
+}
+.tracklist--compact .row__artists {
+  display: none;
+}
+.tracklist--compact .row__title {
+  font-size: 14px;
+}
 .tracktable__head .th--right {
   display: flex;
   justify-content: flex-end;

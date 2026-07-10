@@ -114,7 +114,7 @@ onMounted(async () => {
       <section v-if="recentlyPlayed.length" class="home__section">
         <div class="shelf__head">
           <h2 class="section-title">Ты недавно слушал(-а)</h2>
-          <span class="shelf__all">Показать все</span>
+          <RouterLink :to="{ name: 'section', params: { key: 'recent' } }" class="shelf__all">Показать все</RouterLink>
         </div>
         <div class="grid-cards">
           <MediaCard
@@ -136,7 +136,7 @@ onMounted(async () => {
             <div class="shelf__eyebrow">Только для тебя{{ auth.user ? ',' : '' }}</div>
             <h2 class="section-title">{{ auth.user?.name || 'Популярно сейчас' }}</h2>
           </div>
-          <span class="shelf__all">Показать все</span>
+          <RouterLink :to="{ name: 'section', params: { key: 'popular' } }" class="shelf__all">Показать все</RouterLink>
         </div>
         <div class="grid-cards">
           <MediaCard
@@ -155,7 +155,7 @@ onMounted(async () => {
       <section v-if="newReleases.length" class="home__section">
         <div class="shelf__head">
           <h2 class="section-title">Новые релизы</h2>
-          <span class="shelf__all">Показать все</span>
+          <RouterLink :to="{ name: 'section', params: { key: 'new' } }" class="shelf__all">Показать все</RouterLink>
         </div>
         <div class="grid-cards">
           <MediaCard

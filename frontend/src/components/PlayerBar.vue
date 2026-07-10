@@ -10,12 +10,20 @@ import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useDeviceStore } from '@/stores/devices'
+import { useToastStore } from '@/stores/toasts'
+import { openMiniplayer } from '@/lib/miniplayer'
 
 const player = usePlayerStore()
 const library = useLibraryStore()
 const auth = useAuthStore()
 const ui = useUiStore()
 const devices = useDeviceStore()
+const toasts = useToastStore()
+
+async function onMiniplayer() {
+  const ok = await openMiniplayer(player).catch(() => false)
+  if (!ok) toasts.show('Мини-плеер поддерживается в Chrome и Edge')
+}
 
 const track = computed(() => player.currentTrack)
 const liked = computed(() => track.value && library.isLiked(track.value.id))
@@ -133,8 +141,8 @@ function cycleRepeat() {
         <button class="ctl ctl--dot" :class="{ on: (ui.rightOpen && ui.rightView === 'connect') || remote }" title="Подключение к устройству" @click="ui.openRight('connect')"><Icon name="devices" :size="16" /></button>
         <button class="ctl" title="Громкость" @click="remote ? null : player.toggleMute()"><Icon name="volume" :size="16" /></button>
         <div class="player__vol"><DragBar :value="shownVolume" @input="onVol" /></div>
-        <button class="ctl" title="Мини-плеер"><Icon name="miniplayer" :size="16" /></button>
-        <button class="ctl" title="Полноэкранный режим"><Icon name="fullscreen" :size="16" /></button>
+        <button class="ctl" title="Мини-плеер" @click="onMiniplayer"><Icon name="miniplayer" :size="16" /></button>
+        <button class="ctl" :class="{ on: ui.fullscreenOpen }" title="Полноэкранный режим" @click="ui.fullscreenOpen = !ui.fullscreenOpen"><Icon name="fullscreen" :size="16" /></button>
       </div>
     </div>
 

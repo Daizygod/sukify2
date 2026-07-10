@@ -37,3 +37,13 @@ async function bootstrap() {
 }
 
 bootstrap()
+
+// --- PWA: install prompt + service worker -----------------------------------
+window.__installPrompt = null
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  window.__installPrompt = e
+})
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
+}

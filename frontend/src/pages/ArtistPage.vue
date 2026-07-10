@@ -71,7 +71,7 @@ async function toggleFollow() {
     <div class="artist__body">
       <div class="artist__actions">
         <button class="play-btn play-btn--lg" @click="playTop"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
-        <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffleBig" :size="32" /></button>
+        <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="player.setShuffle(true); playTop()"><Icon name="shuffleBig" :size="32" /></button>
         <button v-if="auth.isAuthenticated" class="artist__follow" @click="toggleFollow">
           {{ artist.is_followed ? 'Уже подписаны' : 'Подписаться' }}
         </button>
@@ -194,6 +194,9 @@ async function toggleFollow() {
 .ctl-lg:hover {
   color: #fff;
   transform: scale(1.04);
+}
+.ctl-lg.on {
+  color: var(--accent);
 }
 .artist__follow {
   border: 1px solid var(--text-muted);

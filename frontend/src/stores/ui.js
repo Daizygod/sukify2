@@ -15,8 +15,10 @@ export const useUiStore = defineStore('ui', {
     leftWidth: load('ui.leftWidth', 340),
     rightWidth: load('ui.rightWidth', 340),
     rightOpen: localStorage.getItem('ui.rightOpen') !== '0',
-    // What the right panel shows: 'nowplaying' | 'queue' | 'connect'
+    // What the right panel shows: 'nowplaying' | 'queue' | 'connect' | 'friends'
     rightView: localStorage.getItem('ui.rightView') || 'nowplaying',
+    fullscreenOpen: false,
+    listCompact: localStorage.getItem('ui.listCompact') === '1',
   }),
   actions: {
     setLeftWidth(px) {
@@ -43,6 +45,10 @@ export const useUiStore = defineStore('ui', {
     },
     toggleRight() {
       this.openRight('nowplaying')
+    },
+    toggleListCompact() {
+      this.listCompact = !this.listCompact
+      localStorage.setItem('ui.listCompact', this.listCompact ? '1' : '0')
     },
     persist() {
       localStorage.setItem('ui.rightOpen', this.rightOpen ? '1' : '0')

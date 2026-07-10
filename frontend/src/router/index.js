@@ -10,6 +10,7 @@ const routes = [
   { path: '/release/:slug', name: 'release', component: () => import('@/pages/ReleasePage.vue') },
   { path: '/playlist/:id', name: 'playlist', component: () => import('@/pages/PlaylistPage.vue') },
   { path: '/liked', name: 'liked', component: () => import('@/pages/LikedSongsPage.vue'), meta: { auth: true } },
+  { path: '/section/:key', name: 'section', component: () => import('@/pages/SectionPage.vue') },
   { path: '/user/:username', name: 'profile', component: () => import('@/pages/ProfilePage.vue') },
   { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { guest: true } },
 ]

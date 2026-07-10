@@ -9,9 +9,25 @@ import { useTransitionInfo } from '@/lib/useTransitions'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
+import { useToastStore } from '@/stores/toasts'
+import { downloadTracks } from '@/lib/download'
 
 const player = usePlayerStore()
 const auth = useAuthStore()
+const ui = useUiStore()
+const toasts = useToastStore()
+
+function playShuffled() {
+  player.setShuffle(true)
+  playAll()
+}
+
+async function download() {
+  toasts.show(`Скачиваю: ${tracks.value.length} трек(ов)…`)
+  const n = await downloadTracks(tracks.value)
+  toasts.show(`Скачано файлов: ${n}`)
+}
 const tracks = ref([])
 const loading = ref(true)
 
@@ -51,15 +67,15 @@ function playAll() {
       <div class="liked__actions">
         <div class="liked__actions-left">
           <button class="play-btn play-btn--lg" @click="playAll"><Icon name="playBig" :size="24" /></button>
-          <button class="ctl-lg" title="В случайном порядке"><Icon name="shuffleBig" :size="32" /></button>
-          <button class="ctl-lg" title="Скачать"><Icon name="downloadCircle" :size="32" /></button>
+          <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
+          <button class="ctl-lg" title="Скачать" @click="download"><Icon name="downloadCircle" :size="32" /></button>
         </div>
-        <button class="liked__view">
-          <span>Список</span>
+        <button class="liked__view" @click="ui.toggleListCompact()">
+          <span>{{ ui.listCompact ? 'Компактный' : 'Список' }}</span>
           <Icon name="list" :size="16" />
         </button>
       </div>
-      <div class="tracklist">
+      <div class="tracklist" :class="{ 'tracklist--compact': ui.listCompact }">
         <div class="tracktable__head trackgrid trackgrid--playlist">
           <div>#</div>
           <div>Название</div>
