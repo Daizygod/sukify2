@@ -25,8 +25,12 @@ class GenerateDemoAudio extends Command
 
     public function handle(AudioProcessor $audio): int
     {
+        // Настоящие загрузки не трогаем никогда: --force перегенерирует только
+        // треки, чьё аудио и так синтетическое (demo_audio) или отсутствует.
         $query = Track::query();
-        if (! $this->option('force')) {
+        if ($this->option('force')) {
+            $query->where(fn ($q) => $q->where('demo_audio', true)->orWhereNull('audio_stream_path'));
+        } else {
             $query->whereNull('audio_stream_path');
         }
         $tracks = $query->orderBy('id')->get();
@@ -75,6 +79,7 @@ class GenerateDemoAudio extends Command
                     'file_size_original' => filesize($flac),
                     'processing_status' => ProcessingStatus::Ready,
                     'processing_error' => null,
+                    'demo_audio' => true,
                 ]);
             } catch (\Throwable $e) {
                 $this->warn("Track {$track->id} failed: ".$e->getMessage());

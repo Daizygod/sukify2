@@ -83,6 +83,7 @@ class ProcessTrackAudio implements ShouldQueue
                 'file_size_original' => $fileSize,
                 'processing_status' => ProcessingStatus::Ready,
                 'processing_error' => null,
+                'demo_audio' => false,
             ]);
 
             $this->cleanupTmp();
