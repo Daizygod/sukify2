@@ -387,7 +387,8 @@ export const usePlayerStore = defineStore('player', () => {
     const fadeInLen = transition
       ? transition.fade_in_full_volume_ms - transition.fade_in_start_ms
       : fadeOutLen
-    const curve = transition?.curve_type || 'linear'
+    // Глобальный кроссфейд (без своего перехода) — равная мощность, как в Spotify.
+    const curve = transition?.curve_type || 'equal_power'
 
     // Prime the incoming deck (переход может задавать точку входа в трек Б).
     incoming.el.src = nextTrack.stream_url
