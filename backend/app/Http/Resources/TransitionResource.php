@@ -21,6 +21,8 @@ class TransitionResource extends JsonResource
             'likes_count' => $this->likes_count,
             'created_by_user_id' => $this->created_by_user_id,
             'is_liked' => $this->when(isset($this->is_liked), fn () => (bool) $this->is_liked),
+            'is_preferred' => $this->when(isset($this->is_preferred), fn () => (bool) $this->is_preferred),
+            'is_mine' => $this->when(isset($this->is_mine), fn () => (bool) $this->is_mine),
         ];
     }
 }

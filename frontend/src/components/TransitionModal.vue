@@ -23,6 +23,7 @@ const editorOpen = ref(false)
 const saving = ref(false)
 
 const CURVES = [
+  { value: 'equal_power', label: 'Равная мощность (как в Spotify)' },
   { value: 's_curve', label: 'S-кривая' },
   { value: 'linear', label: 'Линейная' },
   { value: 'exponential', label: 'Экспонента' },
@@ -32,11 +33,11 @@ const curveLabel = (v) => CURVES.find((c) => c.value === v)?.label || v
 
 // Editor works in human seconds; the API wants absolute ms in each track.
 const form = ref({
-  beforeEnd: 8, // сек до конца трека A, когда начинается затухание
-  outLen: 6, // длительность затухания
+  beforeEnd: 7, // сек до конца трека A, когда начинается затухание
+  outLen: 7, // длительность затухания
   inStart: 0, // с какой секунды начинается трек B
-  inLen: 6, // за сколько секунд B доходит до полной громкости
-  curve: 's_curve',
+  inLen: 7, // за сколько секунд B доходит до полной громкости
+  curve: 'equal_power',
 })
 
 const durA = computed(() => props.from.duration_ms || 0)
@@ -60,6 +61,40 @@ function describe(t) {
   const inStart = Math.round(t.fade_in_start_ms / 100) / 10
   const inLen = Math.round((t.fade_in_full_volume_ms - t.fade_in_start_ms) / 100) / 10
   return `затухание ${outLen} c (за ${before} c до конца) → вход с ${inStart} c, подъём ${inLen} c`
+}
+
+/** «Использовать этот» — личный выбор, перекрывает общий для меня. */
+async function togglePrefer(t) {
+  if (!auth.isAuthenticated) return
+  try {
+    if (t.is_preferred) {
+      await api.delete(`/transitions/${t.id}/prefer`)
+      items.value.forEach((x) => (x.is_preferred = false))
+      toasts.show('Снова используется переход сообщества')
+    } else {
+      await api.post(`/transitions/${t.id}/prefer`)
+      items.value.forEach((x) => (x.is_preferred = x.id === t.id))
+      toasts.show('Теперь для тебя играет этот переход')
+    }
+    player.invalidateTransitions()
+    emit('changed')
+  } catch {
+    toasts.show('Не получилось сохранить выбор')
+  }
+}
+
+/** Автор может удалить свой переход. */
+async function removeTransition(t) {
+  if (!confirm('Удалить этот переход?')) return
+  try {
+    await api.delete(`/transitions/${t.id}`)
+    items.value = items.value.filter((x) => x.id !== t.id)
+    player.invalidateTransitions()
+    emit('changed')
+    toasts.show('Переход удалён')
+  } catch {
+    toasts.show('Удалять можно только свои переходы')
+  }
 }
 
 async function toggleLike(t) {
@@ -134,14 +169,25 @@ async function save() {
         <div v-if="loading" class="tm__loading muted">Загружаю…</div>
 
         <div v-else class="tm__list">
-          <div v-for="(t, i) in items" :key="t.id" class="tm__item" :class="{ 'tm__item--best': i === 0 }">
+          <div v-for="(t, i) in items" :key="t.id" class="tm__item" :class="{ 'tm__item--best': t.is_preferred || (i === 0 && !items.some((x) => x.is_preferred)) }">
             <div class="tm__item-main">
               <div class="tm__item-title">
                 {{ curveLabel(t.curve_type) }}
-                <span v-if="i === 0" class="tm__badge">Основной</span>
+                <span v-if="t.is_preferred" class="tm__badge tm__badge--mine">Твой выбор</span>
+                <span v-else-if="i === 0" class="tm__badge">Основной</span>
               </div>
               <div class="tm__item-desc">{{ describe(t) }}</div>
             </div>
+            <button
+              v-if="auth.isAuthenticated"
+              class="tm__use"
+              :class="{ on: t.is_preferred }"
+              :title="t.is_preferred ? 'Вернуться к переходу сообщества' : 'Использовать этот переход для себя'"
+              @click="togglePrefer(t)"
+            >
+              <Icon name="checkCircle" :size="14" />
+              <span>{{ t.is_preferred ? 'Выбран' : 'Использовать' }}</span>
+            </button>
             <button
               class="tm__like"
               :class="{ on: t.is_liked }"
@@ -150,6 +196,14 @@ async function save() {
             >
               <Icon :name="t.is_liked ? 'heartFill' : 'heart'" :size="14" />
               <span>{{ t.likes_count }}</span>
+            </button>
+            <button
+              v-if="t.is_mine"
+              class="tm__del"
+              title="Удалить свой переход"
+              @click="removeTransition(t)"
+            >
+              <Icon name="plus" :size="14" style="transform: rotate(45deg)" />
             </button>
           </div>
 
@@ -326,6 +380,42 @@ async function save() {
 }
 .tm__like.on {
   color: var(--accent);
+}
+.tm__use {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-subdued);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--text-muted);
+  white-space: nowrap;
+}
+.tm__use:hover {
+  color: #fff;
+  border-color: #fff;
+}
+.tm__use.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.tm__badge--mine {
+  background: #4cb3ff;
+}
+.tm__del {
+  color: var(--text-subdued);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+}
+.tm__del:hover {
+  color: #f15e6c;
+  background: rgba(255, 255, 255, 0.06);
 }
 .tm__create {
   display: flex;

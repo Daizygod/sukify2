@@ -22,7 +22,20 @@ class TransitionController extends Controller
             'to' => ['required', 'integer', 'exists:tracks,id'],
         ]);
 
-        $transition = TrackTransition::query()
+        // Личный выбор пользователя перекрывает лучший переход сообщества.
+        $transition = null;
+        if ($user = $request->user()) {
+            $pref = \App\Models\TransitionPreference::query()
+                ->where('user_id', $user->id)
+                ->where('from_track_id', $data['from'])
+                ->where('to_track_id', $data['to'])
+                ->first();
+            if ($pref) {
+                $transition = TrackTransition::find($pref->transition_id);
+            }
+        }
+
+        $transition ??= TrackTransition::query()
             ->where('from_track_id', $data['from'])
             ->where('to_track_id', $data['to'])
             ->orderByDesc('likes_count')
@@ -52,7 +65,59 @@ class TransitionController extends Controller
             ->orderByDesc('likes_count')
             ->get();
 
+        // Пометки для UI: мой личный выбор + возможность удалить своё.
+        if ($user = $request->user()) {
+            $prefId = \App\Models\TransitionPreference::query()
+                ->where('user_id', $user->id)
+                ->where('from_track_id', $data['from'])
+                ->where('to_track_id', $data['to'])
+                ->value('transition_id');
+            $transitions->each(function ($t) use ($user, $prefId) {
+                $t->is_preferred = $t->id === $prefId;
+                $t->is_mine = $t->created_by_user_id === $user->id;
+            });
+        }
+
         return TransitionResource::collection($transitions);
+    }
+
+    /** «Использовать этот» — личный выбор перехода для пары. */
+    public function prefer(Request $request, TrackTransition $transition)
+    {
+        \App\Models\TransitionPreference::updateOrCreate(
+            [
+                'user_id' => $request->user()->id,
+                'from_track_id' => $transition->from_track_id,
+                'to_track_id' => $transition->to_track_id,
+            ],
+            ['transition_id' => $transition->id]
+        );
+
+        return response()->json(['is_preferred' => true]);
+    }
+
+    public function unprefer(Request $request, TrackTransition $transition)
+    {
+        \App\Models\TransitionPreference::query()
+            ->where('user_id', $request->user()->id)
+            ->where('transition_id', $transition->id)
+            ->delete();
+
+        return response()->json(['is_preferred' => false]);
+    }
+
+    /** Автор может удалить свой переход. */
+    public function destroy(Request $request, TrackTransition $transition)
+    {
+        abort_unless(
+            $transition->created_by_user_id === $request->user()->id || $request->user()->is_admin,
+            403,
+            'Удалять можно только свои переходы.'
+        );
+
+        $transition->delete();
+
+        return response()->json(['message' => 'Переход удалён.']);
     }
 
     /**

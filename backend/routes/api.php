@@ -117,8 +117,11 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
 
     // Transitions (crossfade).
     Route::post('/transitions', [TransitionController::class, 'store']);
+    Route::delete('/transitions/{transition}', [TransitionController::class, 'destroy']);
     Route::post('/transitions/{transition}/like', [TransitionController::class, 'like']);
     Route::delete('/transitions/{transition}/like', [TransitionController::class, 'unlike']);
+    Route::post('/transitions/{transition}/prefer', [TransitionController::class, 'prefer']);
+    Route::delete('/transitions/{transition}/prefer', [TransitionController::class, 'unprefer']);
 
     // Realtime (Centrifugo) — device sync + Jam tokens.
     Route::post('/realtime/connection-token', [RealtimeController::class, 'connectionToken']);

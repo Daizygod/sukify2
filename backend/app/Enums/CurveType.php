@@ -8,4 +8,5 @@ enum CurveType: string
     case Exponential = 'exponential';
     case Logarithmic = 'logarithmic';
     case SCurve = 's_curve';
+    case EqualPower = 'equal_power';
 }
