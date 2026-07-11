@@ -53,6 +53,10 @@ async function entityTracks(e) {
       const { data } = await api.get('/library/liked-tracks')
       return data.data || []
     }
+    case 'artist-liked': {
+      const { data } = await api.get(`/artists/${e.slug}/liked`)
+      return data.tracks || []
+    }
   }
   return []
 }

@@ -2,10 +2,14 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/lib/api'
+import { computed } from 'vue'
 import TrackRow from '@/components/TrackRow.vue'
 import MediaCard from '@/components/MediaCard.vue'
+import HeroMenu from '@/components/HeroMenu.vue'
 import Icon from '@/components/Icon.vue'
 import { usePlayerStore } from '@/stores/player'
+
+
 
 const route = useRoute()
 const player = usePlayerStore()
@@ -29,6 +33,10 @@ function playAll() {
     player.playContext(tracks.value, 0, { name: `Любимые треки: ${artist.value?.name}` })
   }
 }
+
+const shareLink = computed(() =>
+  artist.value ? `${location.origin}/artist/${artist.value.slug}/liked` : location.origin
+)
 </script>
 
 <template>
@@ -36,6 +44,7 @@ function playAll() {
     <div class="aliked__head">
       <button class="play-btn aliked__play" @click="playAll"><Icon name="playBig" :size="20" /></button>
       <h1 class="aliked__title">Любимые треки: {{ artist.name }}</h1>
+      <HeroMenu :tracks="tracks" :link="shareLink" />
     </div>
 
     <div class="tracklist">

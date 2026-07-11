@@ -2,18 +2,22 @@
 import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import FileInput from '../../Components/FileInput.vue'
+import ArtistPicker from '../../Components/ArtistPicker.vue'
 
 const props = defineProps({ release: Object, tracks: Array, allArtists: { type: Array, default: () => [] } })
 
+const artistNames = new Map(props.allArtists.map((a) => [a.id, a.name]))
+const editingArtists = ref(null) // id трека с открытым поиском исполнителя
+
 function artistName(id) {
-  return props.allArtists.find((a) => a.id === id)?.name || id
+  return artistNames.get(id) || id
 }
 
-function addTrackArtist(t, e) {
-  const id = Number(e.target.value)
-  e.target.value = ''
-  if (!id || t.artist_ids.includes(id)) return
-  saveTrackArtists(t, [...t.artist_ids, id])
+function addTrackArtist(t, artist) {
+  artistNames.set(artist.id, artist.name)
+  editingArtists.value = null
+  if (t.artist_ids.includes(artist.id)) return
+  saveTrackArtists(t, [...t.artist_ids, artist.id])
 }
 
 function removeTrackArtist(t, id) {
@@ -165,14 +169,14 @@ const badge = {
                 {{ artistName(id) }}
                 <button v-if="t.artist_ids.length > 1" class="opacity-60 hover:opacity-100" @click="removeTrackArtist(t, id)">✕</button>
               </span>
-              <select
-                class="bg-neutral-900 border border-neutral-700 rounded text-xs px-1 py-0.5 w-6 text-neutral-400 cursor-pointer"
+              <button
+                class="rounded-full w-5 h-5 grid place-items-center bg-neutral-800 text-neutral-400 hover:text-white text-xs"
                 title="Добавить исполнителя (feat)"
-                @change="addTrackArtist(t, $event)"
-              >
-                <option value="">+</option>
-                <option v-for="a in allArtists.filter((x) => !t.artist_ids.includes(x.id))" :key="a.id" :value="a.id">{{ a.name }}</option>
-              </select>
+                @click="editingArtists = editingArtists === t.id ? null : t.id"
+              >+</button>
+            </div>
+            <div v-if="editingArtists === t.id" class="mt-2 w-56">
+              <ArtistPicker :exclude="t.artist_ids" placeholder="Найти исполнителя…" @pick="(a) => addTrackArtist(t, a)" />
             </div>
           </td>
           <td class="px-4 py-3">

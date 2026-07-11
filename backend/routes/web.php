@@ -23,6 +23,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
+        Route::get('artists/lookup', [ArtistController::class, 'lookup'])->name('artists.lookup');
         Route::resource('artists', ArtistController::class)->except('show');
         Route::resource('releases', ReleaseController::class);
 

@@ -10,11 +10,17 @@ import { RouterLink } from 'vue-router'
 import { usePlayerStore } from '@/stores/player'
 import { useAuthStore } from '@/stores/auth'
 import { useLibraryStore } from '@/stores/library'
+import { useMenuStore } from '@/stores/menu'
+import { useDeviceStore } from '@/stores/devices'
+import { useToastStore } from '@/stores/toasts'
 
 const route = useRoute()
 const player = usePlayerStore()
 const auth = useAuthStore()
 const library = useLibraryStore()
+const menu = useMenuStore()
+const devices = useDeviceStore()
+const toasts = useToastStore()
 const artist = ref(null)
 const topTracks = ref([])
 const liked = ref({ tracks: [], releases: [] })
@@ -52,6 +58,26 @@ function playTop() {
 async function toggleFollow() {
   if (!auth.isAuthenticated) return
   await library.toggleFollow(artist.value)
+}
+
+/** «Вам нравится» → все лайкнутые треки исполнителя в очередь. */
+function queueLiked() {
+  if (devices.isRemote) {
+    devices.sendCommand('queue-add', liked.value.tracks.map((t) => t.id))
+    toasts.show(`Очередь отправлена на «${devices.activeDevice?.name || 'устройство'}»`)
+    return
+  }
+  let n = 0
+  for (const t of liked.value.tracks) if (player.addToQueue(t)) n++
+  toasts.show(`В очередь добавлено: ${n}`)
+}
+
+function openLikedMenu(e) {
+  menu.openEntityMenu(e, {
+    type: 'artist-liked',
+    slug: artist.value.slug,
+    title: `Любимые треки: ${artist.value.name}`,
+  })
 }
 </script>
 
@@ -94,7 +120,11 @@ async function toggleFollow() {
 
         <section v-if="liked.tracks.length" class="artist__youliked">
           <h2 class="section-title">Вам нравится</h2>
-          <RouterLink :to="{ name: 'artist-liked', params: { slug: artist.slug } }" class="youliked">
+          <RouterLink
+            :to="{ name: 'artist-liked', params: { slug: artist.slug } }"
+            class="youliked"
+            @contextmenu.prevent="openLikedMenu"
+          >
             <div class="youliked__avatar">
               <img v-if="artist.avatar_url" :src="artist.avatar_url" alt="" />
               <div v-else class="youliked__heart"><Icon name="heartFill" :size="28" /></div>
@@ -105,6 +135,9 @@ async function toggleFollow() {
               </div>
               <div class="youliked__by">От: {{ artist.name }}</div>
             </div>
+            <button class="youliked__queue" title="Добавить в очередь" @click.prevent="queueLiked">
+              <Icon name="queue" :size="16" />
+            </button>
           </RouterLink>
         </section>
       </div>
@@ -222,11 +255,34 @@ async function toggleFollow() {
   }
 }
 .youliked {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 8px;
   border-radius: 8px;
+}
+.youliked__queue {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--text-subdued);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.youliked:hover .youliked__queue {
+  opacity: 1;
+}
+.youliked__queue:hover {
+  color: #fff;
+  transform: scale(1.05);
 }
 .youliked:hover {
   background: rgba(255, 255, 255, 0.06);

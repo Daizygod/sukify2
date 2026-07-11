@@ -128,12 +128,12 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
     </div>
 
     <!-- Локальная очередь -->
-    <div v-else-if="!player.currentTrack" class="qp__empty">
+    <div v-else-if="!player.currentTrack && !player.manualQueue.length && !player.upcoming.length" class="qp__empty">
       <p class="muted">Включи что-нибудь — здесь появится очередь.</p>
     </div>
 
     <div v-else class="qp__body">
-      <section class="qp__section">
+      <section v-if="player.currentTrack" class="qp__section">
         <h3 class="qp__label">Сейчас играет</h3>
         <div class="qrow qrow--current" @dblclick="player.togglePlay()">
           <CoverImage :cover="player.currentTrack.cover" :size="48" class="qrow__cover" />

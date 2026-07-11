@@ -1,7 +1,7 @@
 <script setup>
-import { computed } from 'vue'
 import { Head, useForm, Link } from '@inertiajs/vue3'
 import FileInput from '../../Components/FileInput.vue'
+import ArtistPicker from '../../Components/ArtistPicker.vue'
 
 const props = defineProps({ release: Object, artists: Array })
 
@@ -16,14 +16,12 @@ const form = useForm({
   cover: null,
 })
 
-const availableArtists = computed(() =>
-  props.artists.filter((a) => !form.artist_ids.includes(a.id))
-)
+// Имена выбранных: из props.artists + подобранных через поиск.
+const names = new Map(props.artists.map((a) => [a.id, a.name]))
 
-function addArtist(e) {
-  const id = Number(e.target.value)
-  if (id && !form.artist_ids.includes(id)) form.artist_ids.push(id)
-  e.target.value = ''
+function addArtist(a) {
+  names.set(a.id, a.name)
+  if (!form.artist_ids.includes(a.id)) form.artist_ids.push(a.id)
 }
 
 function removeArtist(id) {
@@ -32,7 +30,7 @@ function removeArtist(id) {
 }
 
 function artistName(id) {
-  return props.artists.find((a) => a.id === id)?.name || id
+  return names.get(id) || id
 }
 
 function submit() {
@@ -62,10 +60,7 @@ function submit() {
             <button v-if="form.artist_ids.length > 1" type="button" class="opacity-70 hover:opacity-100" @click="removeArtist(id)">✕</button>
           </span>
         </div>
-        <select class="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 outline-none focus:border-accent" @change="addArtist">
-          <option value="">+ Добавить исполнителя…</option>
-          <option v-for="a in availableArtists" :key="a.id" :value="a.id">{{ a.name }}</option>
-        </select>
+        <ArtistPicker :exclude="form.artist_ids" placeholder="+ Найти и добавить исполнителя…" @pick="addArtist" />
         <p v-if="form.errors.artist_ids" class="text-red-400 text-sm mt-1">{{ form.errors.artist_ids }}</p>
       </div>
       <div>

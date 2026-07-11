@@ -30,6 +30,20 @@ class ArtistController extends Controller
         ]);
     }
 
+    /** JSON-поиск для выбора исполнителей в формах (релиз, треки). */
+    public function lookup(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+
+        $artists = Artist::query()
+            ->when($q !== '', fn ($qq) => $qq->where('name', 'ilike', "%{$q}%"))
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id', 'name']);
+
+        return response()->json(['data' => $artists]);
+    }
+
     public function create()
     {
         return Inertia::render('Artists/Form', ['artist' => null]);
