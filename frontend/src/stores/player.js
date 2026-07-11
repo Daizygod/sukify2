@@ -84,7 +84,10 @@ export const usePlayerStore = defineStore('player', () => {
 
   function setMasterVolume() {
     if (!master) return
-    master.gain.setTargetAtTime(muted.value ? 0 : volume.value, ctx.currentTime, 0.01)
+    // Перцептивная шкала (кубическая ≈ логарифм слуха): положение ползунка →
+    // усиление. Внизу шкалы шаг громкости мелкий, настраивать тихо — удобно.
+    const gain = muted.value ? 0 : Math.pow(volume.value, 3)
+    master.gain.setTargetAtTime(gain, ctx.currentTime, 0.01)
   }
 
   // --- transport ---------------------------------------------------------
@@ -386,11 +389,14 @@ export const usePlayerStore = defineStore('player', () => {
       : fadeOutLen
     const curve = transition?.curve_type || 'linear'
 
-    // Prime the incoming deck.
+    // Prime the incoming deck (переход может задавать точку входа в трек Б).
     incoming.el.src = nextTrack.stream_url
     incoming.el.load()
     incoming.gain.gain.cancelScheduledValues(ctx.currentTime)
     incoming.gain.gain.value = 0
+    if (transition?.fade_in_start_ms > 0) {
+      incoming.el.currentTime = transition.fade_in_start_ms / 1000
+    }
     try {
       await incoming.el.play()
     } catch {
@@ -405,15 +411,17 @@ export const usePlayerStore = defineStore('player', () => {
     applyCurve(curOut.gain, curOut.gain.value, 0, now, fadeOutLen / 1000, curve, true)
     applyCurve(incoming.gain, 0, targetIn, now, fadeInLen / 1000, curve, false)
 
-    // Hand over once the outgoing fade completes (cursor already advanced).
+    // UI переключается сразу: играет уже новый трек (старый дозатухает фоном).
+    active = incomingIndex
+    currentTrack.value = nextTrack
+    updateMediaSession(nextTrack)
+    logPlay(nextTrack)
+    bindEnded()
+
+    // Старый дек глушим, когда его затухание закончилось.
     setTimeout(() => {
       curOut.el.pause()
-      active = incomingIndex
-      currentTrack.value = nextTrack
-      updateMediaSession(nextTrack)
       crossfading = false
-      logPlay(nextTrack)
-      bindEnded()
     }, fadeOutLen)
   }
 
