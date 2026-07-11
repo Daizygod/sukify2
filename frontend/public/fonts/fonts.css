@@ -1,0 +1,37 @@
+/* Оригинальные шрифты Spotify: SpotifyMixUI (основной) + Circular (кириллица). */
+@font-face {
+  font-family: 'SpotifyMixUI';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SpotifyMixUI-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'SpotifyMixUI';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SpotifyMixUI-Bold.woff2') format('woff2');
+}
+/* Вариативный заголовочный шрифт (100–1000) — для больших тайтлов. */
+@font-face {
+  font-family: 'SpotifyMixUITitle';
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/SpotifyMixUITitleVariable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'CircularSp-Cyrl';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/CircularSp-Cyrl-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'CircularSp-Cyrl';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/CircularSp-Cyrl-700-normal.woff2') format('woff2');
+}

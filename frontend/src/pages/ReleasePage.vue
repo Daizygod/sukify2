@@ -99,14 +99,13 @@ async function toggleLike() {
       @zoom="lightboxOpen = true"
     >
       <template #meta>
-        <RouterLink
-          v-if="release.artist"
-          :to="{ name: 'artist', params: { slug: release.artist.slug } }"
-          class="release__artistchip"
-        >
-          <img v-if="release.artist.avatar_url" :src="release.artist.avatar_url" class="release__avatar" alt="" />
-          <strong>{{ release.artist.name }}</strong>
-        </RouterLink>
+        <template v-for="(a, i) in (release.artists?.length ? release.artists : [release.artist]).filter(Boolean)" :key="a.id">
+          <RouterLink :to="{ name: 'artist', params: { slug: a.slug } }" class="release__artistchip">
+            <img v-if="a.avatar_url" :src="a.avatar_url" class="release__avatar" alt="" />
+            <strong>{{ a.name }}</strong>
+          </RouterLink>
+          <span v-if="i < (release.artists?.length || 1) - 1" class="release__sep">,</span>
+        </template>
         <span>• {{ release.year }}</span>
         <span>• {{ trackCount(release.tracks.length) }},</span>
         <span class="muted">{{ formatTotalDuration(totalMs) }}</span>
@@ -177,6 +176,9 @@ async function toggleLike() {
   height: 24px;
   border-radius: 50%;
   object-fit: cover;
+}
+.release__sep {
+  margin-left: -4px;
 }
 .release__body {
   background: linear-gradient(180deg, color-mix(in srgb, var(--body-bg) 40%, #121212) 0, #121212 260px);

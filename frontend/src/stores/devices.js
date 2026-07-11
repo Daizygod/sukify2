@@ -132,6 +132,10 @@ export const useDeviceStore = defineStore('devices', () => {
       pos: Math.round(player.positionMs),
       dur: Math.round(player.durationMs),
       vol: player.volume,
+      // Очередь для пультов: id контекста после курсора + ручная очередь.
+      up: player.upcoming.slice(0, 60).map((t) => t.id),
+      man: player.manualQueue.map((t) => ({ q: t.__qid, id: t.id })),
+      ctx: player.contextName,
       ts: Date.now(),
     })
   }
@@ -176,7 +180,18 @@ export const useDeviceStore = defineStore('devices', () => {
       case 'cmd':
         if (msg.to === myId) execCommand(msg)
         break
+      case 'library-changed':
+        // Лайк/подписка на другом устройстве — обновляем медиатеку здесь.
+        import('@/stores/library').then(({ useLibraryStore }) =>
+          useLibraryStore().load().catch(() => {})
+        )
+        break
     }
+  }
+
+  /** Сообщить остальным устройствам, что медиатека изменилась. */
+  function notifyLibraryChanged() {
+    publish({ t: 'library-changed', d: my })
   }
 
   async function execCommand(msg) {
@@ -202,6 +217,34 @@ export const useDeviceStore = defineStore('devices', () => {
         break
       case 'transfer':
         await receiveTransfer(msg.state)
+        break
+      case 'queue-add': {
+        // Пульт добавил трек(и) в очередь этого устройства.
+        const ids = Array.isArray(msg.value) ? msg.value : [msg.value]
+        try {
+          const { data } = await api.get('/tracks-bulk', { params: { ids: ids.join(',') } })
+          data.data.forEach((t) => player.addToQueue(t))
+          broadcastState()
+        } catch {
+          /* ignore */
+        }
+        break
+      }
+      case 'queue-remove-manual':
+        player.removeFromManualQueue(msg.value)
+        broadcastState()
+        break
+      case 'queue-remove-upcoming':
+        player.removeUpcoming(msg.value)
+        broadcastState()
+        break
+      case 'play-manual':
+        await player.playManualItem(msg.value)
+        broadcastState()
+        break
+      case 'play-upcoming':
+        await player.playUpcomingItem(msg.value)
+        broadcastState()
         break
       case 'push-transfer':
         // Another device asks us to hand playback over to `msg.target`.
@@ -315,6 +358,13 @@ export const useDeviceStore = defineStore('devices', () => {
         }
       }
     )
+    // Изменения очереди тоже транслируем пультам.
+    watch(
+      () => [player.manualQueue.length, player.queue.length, player.queueIndex],
+      () => {
+        if (activeDeviceId.value === myId && player.currentTrack) broadcastState()
+      }
+    )
   }
 
   return {
@@ -331,5 +381,6 @@ export const useDeviceStore = defineStore('devices', () => {
     transferTo,
     sendCommand,
     broadcastState,
+    notifyLibraryChanged,
   }
 })

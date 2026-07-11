@@ -45,6 +45,7 @@ class ReleaseController extends Controller
         return Inertia::render('Releases/Form', [
             'release' => array_merge($release->load('artist')->toArray(), [
                 'cover_url' => $release->coverUrl(300),
+                'artist_ids' => $release->artists()->pluck('artists.id')->all() ?: [$release->artist_id],
             ]),
             'artists' => Artist::orderBy('name')->get(['id', 'name']),
         ]);
@@ -57,7 +58,7 @@ class ReleaseController extends Controller
                 'cover_url' => $release->coverUrl(300),
                 'cover_status' => $release->cover_status->value,
             ]),
-            'tracks' => $release->tracks()->orderBy('track_number')->get()->map(fn ($t) => [
+            'tracks' => $release->tracks()->with('artists:id,name')->orderBy('track_number')->get()->map(fn ($t) => [
                 'id' => $t->id,
                 'title' => $t->title,
                 'track_number' => $t->track_number,
@@ -65,22 +66,26 @@ class ReleaseController extends Controller
                 'loudness_lufs' => $t->loudness_lufs,
                 'processing_status' => $t->processing_status->value,
                 'processing_error' => $t->processing_error,
+                'unofficial' => (bool) $t->unofficial,
+                'artist_ids' => $t->artists->pluck('id')->all(),
             ]),
+            'allArtists' => Artist::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validateData($request);
+        $mainArtist = (int) $data['artist_ids'][0];
 
         $release = Release::create([
-            'artist_id' => $data['artist_id'],
+            'artist_id' => $mainArtist,
             'title' => $data['title'],
-            'slug' => $this->uniqueSlug($data['title'], $data['artist_id']),
+            'slug' => $this->uniqueSlug($data['title'], $mainArtist),
             'type' => $data['type'],
             'release_date' => $data['release_date'] ?? null,
         ]);
-
+        $this->syncArtists($release, $data['artist_ids']);
         $this->handleCover($request, $release);
 
         return redirect()->route('admin.releases.show', $release)->with('success', 'Release created.');
@@ -90,14 +95,25 @@ class ReleaseController extends Controller
     {
         $data = $this->validateData($request);
         $release->update([
-            'artist_id' => $data['artist_id'],
+            'artist_id' => (int) $data['artist_ids'][0],
             'title' => $data['title'],
             'type' => $data['type'],
             'release_date' => $data['release_date'] ?? null,
         ]);
+        $this->syncArtists($release, $data['artist_ids']);
         $this->handleCover($request, $release);
 
         return redirect()->route('admin.releases.show', $release)->with('success', 'Release updated.');
+    }
+
+    /** Соавторы релиза в заданном порядке (первый — основной). */
+    private function syncArtists(Release $release, array $artistIds): void
+    {
+        $release->artists()->sync(
+            collect($artistIds)->values()->mapWithKeys(
+                fn ($id, $i) => [(int) $id => ['position' => $i]]
+            )->all()
+        );
     }
 
     public function destroy(Release $release)
@@ -110,7 +126,8 @@ class ReleaseController extends Controller
     private function validateData(Request $request): array
     {
         return $request->validate([
-            'artist_id' => ['required', 'exists:artists,id'],
+            'artist_ids' => ['required', 'array', 'min:1'],
+            'artist_ids.*' => ['exists:artists,id'],
             'title' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::in(['album', 'single', 'compilation'])],
             'release_date' => ['nullable', 'date'],

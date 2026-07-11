@@ -44,12 +44,23 @@ class TrackController extends Controller
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'unofficial' => ['sometimes', 'boolean'],
+            'artist_ids' => ['sometimes', 'array', 'min:1'],
+            'artist_ids.*' => ['exists:artists,id'],
         ]);
         $track->fill(['title' => $data['title']]);
         if (array_key_exists('unofficial', $data)) {
             $track->unofficial = (bool) $data['unofficial'];
         }
         $track->save();
+
+        // Исполнители трека (feat): первый — main, остальные — featured.
+        if (! empty($data['artist_ids'])) {
+            $track->artists()->sync(
+                collect($data['artist_ids'])->values()->mapWithKeys(fn ($id, $i) => [
+                    (int) $id => ['role' => $i === 0 ? 'main' : 'featured', 'position' => $i],
+                ])->all()
+            );
+        }
 
         return back()->with('success', 'Track updated.');
     }

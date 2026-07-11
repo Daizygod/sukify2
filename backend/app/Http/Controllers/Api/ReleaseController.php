@@ -16,6 +16,7 @@ class ReleaseController extends Controller
     {
         $release->load([
             'artist',
+            'artists',
             'tracks.artists',
         ]);
 

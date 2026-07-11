@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '@/lib/api'
+import { useDeviceStore } from '@/stores/devices'
 
 export const useLibraryStore = defineStore('library', {
   state: () => ({
@@ -71,6 +72,7 @@ export const useLibraryStore = defineStore('library', {
         this.likedTrackIds.add(track.id)
         await api.post(`/tracks/${track.id}/like`)
       }
+      useDeviceStore().notifyLibraryChanged()
     },
 
     /** Like/unlike a release and keep the sidebar Albums tab in sync. */

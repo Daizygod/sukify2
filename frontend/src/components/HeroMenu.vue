@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import Icon from './Icon.vue'
 import { usePlayerStore } from '@/stores/player'
 import { useToastStore } from '@/stores/toasts'
+import { useDeviceStore } from '@/stores/devices'
 
 const props = defineProps({
   tracks: { type: Array, default: () => [] },
@@ -17,9 +18,15 @@ const toasts = useToastStore()
 const open = ref(false)
 
 function addAllToQueue() {
-  let n = 0
-  for (const t of props.tracks) if (player.addToQueue(t)) n++
-  toasts.show(`В очередь добавлено: ${n}`)
+  const devices = useDeviceStore()
+  if (devices.isRemote) {
+    devices.sendCommand('queue-add', props.tracks.map((t) => t.id))
+    toasts.show(`Очередь отправлена на «${devices.activeDevice?.name || 'устройство'}»`)
+  } else {
+    let n = 0
+    for (const t of props.tracks) if (player.addToQueue(t)) n++
+    toasts.show(`В очередь добавлено: ${n}`)
+  }
   open.value = false
 }
 

@@ -61,6 +61,16 @@ function onHotkey(e) {
 onMounted(() => window.addEventListener('keydown', onHotkey))
 onUnmounted(() => window.removeEventListener('keydown', onHotkey))
 
+// Как в оригинале: нативное контекстное меню браузера выключено везде,
+// кроме полей ввода (там оно нужно для вставки).
+function onGlobalContextMenu(e) {
+  const tag = e.target?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return
+  e.preventDefault()
+}
+onMounted(() => document.addEventListener('contextmenu', onGlobalContextMenu))
+onUnmounted(() => document.removeEventListener('contextmenu', onGlobalContextMenu))
+
 const gridStyle = computed(() => ({
   gridTemplateColumns: ui.rightOpen
     ? `${ui.leftWidth}px 1fr ${ui.rightWidth}px`

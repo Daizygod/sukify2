@@ -5,10 +5,12 @@ import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLibraryStore } from '@/stores/library'
+import { useMenuStore } from '@/stores/menu'
 import { trackCount } from '@/lib/format'
 
 const auth = useAuthStore()
 const library = useLibraryStore()
+const menuStore = useMenuStore()
 const route = useRoute()
 const filter = ref('')
 const searchOpen = ref(false)
@@ -99,8 +101,21 @@ const items = computed(() => {
   return [...filtered.filter((i) => i.pinned), ...filtered.filter((i) => !i.pinned)]
 })
 
-async function togglePin(item) {
-  await library.togglePin(item.pinType, item.pinId)
+function openItemMenu(e, item) {
+  const type = item.pinType === 'album' ? 'release' : item.pinType
+  menuStore.openEntityMenu(e, {
+    type,
+    id: item.pinId,
+    slug: item.to?.params?.slug,
+    n: undefined,
+    title: item.title,
+    pinType: item.pinType,
+    pinId: item.pinId,
+  })
+}
+
+function openLikedMenu(e) {
+  menuStore.openEntityMenu(e, { type: 'liked', title: 'Любимые треки' })
 }
 
 const showLiked = computed(() => {
@@ -190,7 +205,7 @@ async function createPlaylist() {
         </div>
 
         <div class="sidebar__list">
-          <RouterLink v-if="showLiked" to="/liked" class="libitem libitem--liked" :class="{ active: route.name === 'liked' }">
+          <RouterLink v-if="showLiked" to="/liked" class="libitem libitem--liked" :class="{ active: route.name === 'liked' }" @contextmenu.prevent="openLikedMenu">
             <div class="libitem__cover libitem__cover--liked">
               <Icon name="heartFill" :size="20" />
             </div>
@@ -209,8 +224,7 @@ async function createPlaylist() {
             :to="item.to"
             class="libitem"
             :class="{ active: item.active }"
-            :title="item.pinned ? 'ПКМ — открепить' : 'ПКМ — закрепить'"
-            @contextmenu.prevent="togglePin(item)"
+            @contextmenu.prevent="openItemMenu($event, item)"
           >
             <CoverImage :cover="item.cover" :size="48" class="libitem__cover" :rounded="item.round" />
             <div class="libitem__meta">

@@ -7,10 +7,12 @@ import MediaCard from '@/components/MediaCard.vue'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
+import { useMenuStore } from '@/stores/menu'
 
 const player = usePlayerStore()
 const library = useLibraryStore()
 const auth = useAuthStore()
+const menu = useMenuStore()
 
 const recentlyPlayed = ref([])
 const popular = ref([])
@@ -77,6 +79,17 @@ function playShortcut(s) {
   if (s.release) return playRelease(s.release)
 }
 
+function openShortcutMenu(e, s) {
+  if (s.liked) return menu.openEntityMenu(e, { type: 'liked', title: 'Любимые треки' })
+  if (s.playlist) {
+    return menu.openEntityMenu(e, {
+      type: 'playlist', id: s.playlist.id, title: s.title,
+      pinType: 'playlist', pinId: s.playlist.id,
+    })
+  }
+  if (s.release) return menu.openEntityMenu(e, { type: 'release', slug: s.release.slug, title: s.title })
+}
+
 onMounted(async () => {
   try {
     const { data } = await api.get('/home')
@@ -108,7 +121,7 @@ async function playMix(m) {
       </div>
 
       <div v-if="shortcuts.length" class="home__shortcuts">
-        <RouterLink v-for="s in shortcuts" :key="s.key" :to="s.to" class="shortcut">
+        <RouterLink v-for="s in shortcuts" :key="s.key" :to="s.to" class="shortcut" @contextmenu.prevent="openShortcutMenu($event, s)">
           <div v-if="s.liked" class="shortcut__cover shortcut__cover--liked">
             <Icon name="heartFill" :size="22" />
           </div>

@@ -13,8 +13,11 @@
   --sidebar-width: 340px;
   --player-height: 88px;
   --topbar-height: 64px;
-  --font: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font: 'SpotifyMixUI', 'CircularSp-Cyrl', 'Manrope', -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-title: 'SpotifyMixUITitle', 'SpotifyMixUI', 'CircularSp-Cyrl', 'Manrope',
+    sans-serif;
 }
 
 * {
@@ -178,6 +181,16 @@ img {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 8px;
+}
+
+/* Большие заголовки — фирменный SpotifyMixUITitle (как у оригинала). */
+.hero__title,
+.artist__name,
+.mix__title,
+.genre__title,
+.profile__name,
+.section-title {
+  font-family: var(--font-title);
 }
 
 /* Shared track-table grids so header rows align with TrackRow. */

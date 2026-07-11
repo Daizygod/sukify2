@@ -41,6 +41,14 @@ class Release extends Model
         return $this->belongsTo(Artist::class);
     }
 
+    /** Все создатели релиза (альбом может иметь нескольких, как в Spotify). */
+    public function artists(): BelongsToMany
+    {
+        return $this->belongsToMany(Artist::class, 'release_artists')
+            ->withPivot('position')
+            ->orderByPivot('position');
+    }
+
     public function tracks(): HasMany
     {
         return $this->hasMany(Track::class)->orderBy('track_number');

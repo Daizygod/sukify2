@@ -1,9 +1,11 @@
 <script setup>
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
+import { useMenuStore } from '@/stores/menu'
 
-defineProps({
+const props = defineProps({
   to: { type: [Object, String], required: true },
   cover: { type: Object, default: null },
   title: { type: String, required: true },
@@ -13,10 +15,34 @@ defineProps({
   playing: { type: Boolean, default: false },
 })
 const emit = defineEmits(['play'])
+
+const menu = useMenuStore()
+
+// Сущность для контекстного меню выводится из ссылки карточки.
+const entity = computed(() => {
+  const to = props.to
+  if (!to || typeof to === 'string') return null
+  switch (to.name) {
+    case 'release':
+      return { type: 'release', slug: to.params.slug, title: props.title }
+    case 'playlist':
+      return { type: 'playlist', id: to.params.id, title: props.title, pinType: 'playlist', pinId: Number(to.params.id) }
+    case 'artist':
+      return { type: 'artist', slug: to.params.slug, title: props.title }
+    case 'mix':
+      return { type: 'mix', n: to.params.n, title: props.title }
+    default:
+      return null
+  }
+})
+
+function onContext(e) {
+  if (entity.value) menu.openEntityMenu(e, entity.value)
+}
 </script>
 
 <template>
-  <RouterLink :to="to" class="card">
+  <RouterLink :to="to" class="card" @contextmenu.prevent="onContext">
     <div class="card__art">
       <CoverImage :cover="cover" :size="300" :rounded="round" :alt="title" />
       <button

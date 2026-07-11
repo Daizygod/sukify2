@@ -24,6 +24,7 @@ class ReleaseResource extends JsonResource
                 'text' => $this->text_color_hex,
             ],
             'artist' => new ArtistResource($this->whenLoaded('artist')),
+            'artists' => ArtistResource::collection($this->whenLoaded('artists')),
             'tracks' => TrackResource::collection($this->whenLoaded('tracks')),
             'tracks_count' => $this->when(isset($this->tracks_count), fn () => $this->tracks_count),
             'is_liked' => $this->when(isset($this->is_liked), fn () => (bool) $this->is_liked),

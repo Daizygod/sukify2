@@ -3,7 +3,27 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import FileInput from '../../Components/FileInput.vue'
 
-const props = defineProps({ release: Object, tracks: Array })
+const props = defineProps({ release: Object, tracks: Array, allArtists: { type: Array, default: () => [] } })
+
+function artistName(id) {
+  return props.allArtists.find((a) => a.id === id)?.name || id
+}
+
+function addTrackArtist(t, e) {
+  const id = Number(e.target.value)
+  e.target.value = ''
+  if (!id || t.artist_ids.includes(id)) return
+  saveTrackArtists(t, [...t.artist_ids, id])
+}
+
+function removeTrackArtist(t, id) {
+  if (t.artist_ids.length <= 1) return
+  saveTrackArtists(t, t.artist_ids.filter((x) => x !== id))
+}
+
+function saveTrackArtists(t, ids) {
+  router.put(`/admin/tracks/${t.id}`, { title: t.title, artist_ids: ids }, { preserveScroll: true })
+}
 const uploadKey = ref(0)
 
 // Mirror each track's status locally so polling can update it live. Re-sync
@@ -122,6 +142,7 @@ const badge = {
         <tr>
           <th class="text-left px-4 py-3 font-semibold w-10">#</th>
           <th class="text-left px-4 py-3 font-semibold">Title</th>
+          <th class="text-left px-4 py-3 font-semibold">Artists</th>
           <th class="text-left px-4 py-3 font-semibold">Status</th>
           <th class="text-right px-4 py-3 font-semibold">Duration</th>
           <th class="text-right px-4 py-3 font-semibold">LUFS</th>
@@ -133,6 +154,27 @@ const badge = {
         <tr v-for="t in tracks" :key="t.id" class="border-b border-neutral-800/60 last:border-0">
           <td class="px-4 py-3 text-neutral-500">{{ t.track_number }}</td>
           <td class="px-4 py-3 font-medium">{{ t.title }}</td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap items-center gap-1">
+              <span
+                v-for="(id, i) in t.artist_ids"
+                :key="id"
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
+                :class="i === 0 ? 'bg-neutral-700 font-semibold' : 'bg-neutral-800 text-neutral-300'"
+              >
+                {{ artistName(id) }}
+                <button v-if="t.artist_ids.length > 1" class="opacity-60 hover:opacity-100" @click="removeTrackArtist(t, id)">✕</button>
+              </span>
+              <select
+                class="bg-neutral-900 border border-neutral-700 rounded text-xs px-1 py-0.5 w-6 text-neutral-400 cursor-pointer"
+                title="Добавить исполнителя (feat)"
+                @change="addTrackArtist(t, $event)"
+              >
+                <option value="">+</option>
+                <option v-for="a in allArtists.filter((x) => !t.artist_ids.includes(x.id))" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+            </div>
+          </td>
           <td class="px-4 py-3">
             <span class="px-2 py-1 rounded text-xs font-semibold capitalize" :class="badge[live[t.id]]">{{ live[t.id] }}</span>
             <span v-if="live[t.id] === 'failed'" class="text-red-400 text-xs ml-2">{{ t.processing_error }}</span>
@@ -151,7 +193,7 @@ const badge = {
             <button class="text-red-400 hover:underline" @click="destroy(t)">Delete</button>
           </td>
         </tr>
-        <tr v-if="!tracks.length"><td colspan="6" class="px-4 py-8 text-center text-neutral-500">No tracks yet — upload one above.</td></tr>
+        <tr v-if="!tracks.length"><td colspan="8" class="px-4 py-8 text-center text-neutral-500">No tracks yet — upload one above.</td></tr>
       </tbody>
     </table>
   </div>

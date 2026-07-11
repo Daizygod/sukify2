@@ -12,6 +12,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useToastStore } from '@/stores/toasts'
 import { downloadTracks } from '@/lib/download'
+import HeroMenu from '@/components/HeroMenu.vue'
+
+const likedLink = `${location.origin}/liked`
 
 const player = usePlayerStore()
 const auth = useAuthStore()
@@ -35,7 +38,7 @@ const totalMs = computed(() => tracks.value.reduce((a, t) => a + (t.duration_ms 
 
 const { info: tinfo, load: loadTinfo, keyFor } = useTransitionInfo()
 
-onMounted(async () => {
+async function loadTracks() {
   try {
     const { data } = await api.get('/library/liked-tracks')
     tracks.value = data.data
@@ -43,7 +46,22 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+onMounted(loadTracks)
+
+// Живое обновление: лайк из плеера/другой страницы/другого устройства
+// меняет library.likedTrackIds — перечитываем список.
+import { useLibraryStore } from '@/stores/library'
+import { watch } from 'vue'
+const library = useLibraryStore()
+let refetchTimer
+watch(
+  () => library.likedTrackIds.size,
+  () => {
+    clearTimeout(refetchTimer)
+    refetchTimer = setTimeout(loadTracks, 350)
+  }
+)
 
 function playAll() {
   if (tracks.value.length) player.playContext(tracks.value, 0, { name: 'Любимые треки' })
@@ -69,6 +87,7 @@ function playAll() {
           <button class="play-btn play-btn--lg" @click="playAll"><Icon name="playBig" :size="24" /></button>
           <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
           <button class="ctl-lg" title="Скачать" @click="download"><Icon name="downloadCircle" :size="32" /></button>
+          <HeroMenu :tracks="tracks" :link="likedLink" />
         </div>
         <button class="liked__view" @click="ui.toggleListCompact()">
           <span>{{ ui.listCompact ? 'Компактный' : 'Список' }}</span>

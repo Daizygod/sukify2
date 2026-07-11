@@ -8,6 +8,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useToastStore } from '@/stores/toasts'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
+import { useDeviceStore } from '@/stores/devices'
 import api from '@/lib/api'
 
 const menu = useMenuStore()
@@ -24,8 +25,92 @@ const plFilter = ref('')
 const pos = ref({ x: 0, y: 0 })
 
 const track = computed(() => menu.track)
+const entity = computed(() => menu.entity)
 const liked = computed(() => track.value && library.isLiked(track.value.id))
 const artist = computed(() => track.value?.artists?.[0] || null)
+
+// --- Меню сущности (альбом/плейлист/микс/исполнитель/любимые) --------------
+
+async function entityTracks(e) {
+  switch (e.type) {
+    case 'release': {
+      const { data } = await api.get(`/releases/${e.slug}`)
+      return data.data.tracks || []
+    }
+    case 'playlist': {
+      const { data } = await api.get(`/playlists/${e.id}`)
+      return data.data.tracks || []
+    }
+    case 'mix': {
+      const { data } = await api.get(`/mixes/daily/${e.n}`)
+      return data.tracks || []
+    }
+    case 'artist': {
+      const { data } = await api.get(`/artists/${e.slug}/top-tracks`)
+      return data.data || []
+    }
+    case 'liked': {
+      const { data } = await api.get('/library/liked-tracks')
+      return data.data || []
+    }
+  }
+  return []
+}
+
+async function entityQueue() {
+  const e = entity.value
+  menu.close()
+  try {
+    const tracks = await entityTracks(e)
+    const devices = useDeviceStore()
+    if (devices.isRemote) {
+      devices.sendCommand('queue-add', tracks.map((t) => t.id))
+      toasts.show(`Очередь отправлена на «${devices.activeDevice?.name || 'устройство'}»`)
+    } else {
+      let n = 0
+      for (const t of tracks) if (player.addToQueue(t)) n++
+      toasts.show(`В очередь добавлено: ${n}`)
+    }
+  } catch {
+    toasts.show('Не получилось добавить в очередь')
+  }
+}
+
+async function entityPlay() {
+  const e = entity.value
+  menu.close()
+  try {
+    const tracks = await entityTracks(e)
+    if (tracks.length) player.playContext(tracks, 0, { name: e.title })
+  } catch {
+    toasts.show('Не получилось включить')
+  }
+}
+
+async function entityPin() {
+  const e = entity.value
+  menu.close()
+  const pinned = await library.togglePin(e.pinType, e.pinId)
+  toasts.show(pinned ? 'Закреплено в медиатеке' : 'Откреплено')
+}
+
+async function entityShare() {
+  const e = entity.value
+  menu.close()
+  const path = {
+    release: `/release/${e.slug}`,
+    playlist: `/playlist/${e.id}`,
+    artist: `/artist/${e.slug}`,
+    mix: `/mix/${e.n}`,
+    liked: '/liked',
+  }[e.type] || '/'
+  try {
+    await navigator.clipboard.writeText(location.origin + path)
+    toasts.show('Ссылка скопирована в буфер обмена')
+  } catch {
+    toasts.show(location.origin + path)
+  }
+}
 
 // Open the playlist submenu toward whichever side has room.
 const subLeft = computed(() => pos.value.x > window.innerWidth - 620)
@@ -80,7 +165,13 @@ function toggleLike() {
 }
 
 function addToQueue() {
-  if (player.addToQueue(track.value)) toasts.show('Добавлено в очередь')
+  const devices = useDeviceStore()
+  if (devices.isRemote) {
+    devices.sendCommand('queue-add', track.value.id)
+    toasts.show(`Добавлено в очередь на «${devices.activeDevice?.name || 'устройстве'}»`)
+  } else if (player.addToQueue(track.value)) {
+    toasts.show('Добавлено в очередь')
+  }
   menu.close()
 }
 
@@ -134,7 +225,31 @@ async function copyLink() {
 
 <template>
   <Teleport to="body">
-    <div v-if="menu.open && track" class="cm__backdrop" @click="menu.close()" @contextmenu.prevent="menu.close()">
+    <!-- Меню сущности: альбом/плейлист/микс/исполнитель/любимые -->
+    <div v-if="menu.open && entity" class="cm__backdrop" @click="menu.close()" @contextmenu.prevent="menu.close()">
+      <div ref="rootEl" class="cm" :style="{ left: pos.x + 'px', top: pos.y + 'px' }" @click.stop>
+        <div class="cm__entityhead">{{ entity.title }}</div>
+        <button class="cm__item" @click="entityPlay">
+          <Icon name="play" :size="16" />
+          <span>Слушать</span>
+        </button>
+        <button class="cm__item" @click="entityQueue">
+          <Icon name="queue" :size="16" />
+          <span>Добавить в очередь</span>
+        </button>
+        <button v-if="entity.pinType && auth.isAuthenticated" class="cm__item" @click="entityPin">
+          <Icon name="pin" :size="16" :class="{ cm__liked: library.isPinned(entity.pinType, entity.pinId) }" />
+          <span>{{ library.isPinned(entity.pinType, entity.pinId) ? 'Открепить' : 'Закрепить в медиатеке' }}</span>
+        </button>
+        <div class="cm__divider"></div>
+        <button class="cm__item" @click="entityShare">
+          <Icon name="share" :size="16" />
+          <span>Поделиться</span>
+        </button>
+      </div>
+    </div>
+
+    <div v-else-if="menu.open && track" class="cm__backdrop" @click="menu.close()" @contextmenu.prevent="menu.close()">
       <div
         ref="rootEl"
         class="cm"
@@ -281,6 +396,15 @@ async function copyLink() {
   height: 1px;
   background: rgba(255, 255, 255, 0.1);
   margin: 4px 0;
+}
+.cm__entityhead {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-subdued);
+  padding: 8px 12px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cm__search {
   display: flex;
