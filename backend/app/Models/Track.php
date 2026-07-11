@@ -78,12 +78,17 @@ class Track extends Model
         return $this->cover_override_path ?? $this->release?->cover_path;
     }
 
-    /** Streaming (AAC/m4a) URL for the Web Audio player. */
+    /** Streaming (MP3) URL for the Web Audio player. */
     public function streamUrl(): ?string
     {
-        return $this->audio_stream_path
-            ? Storage::disk('s3')->url($this->audio_stream_path)
-            : null;
+        if (! $this->audio_stream_path) {
+            return null;
+        }
+
+        // Cache-buster: файл по этому пути может быть перезаписан (переобработка,
+        // восстановление) — иначе браузер продолжит играть закэшированную версию.
+        return Storage::disk('s3')->url($this->audio_stream_path)
+            .'?v='.($this->updated_at?->getTimestamp() ?? 0);
     }
 
     /** Cover renditions ({size,url} list), inheriting from the release unless overridden. */
