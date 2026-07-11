@@ -127,7 +127,7 @@ function openLikedMenu(e) {
         <button class="ctl-lg" title="Открыть контекстное меню"><Icon name="moreBig" :size="32" /></button>
       </div>
 
-      <div class="artist__cols">
+      <div class="artist__cols" :class="{ 'artist__cols--single': !liked.tracks.length }">
         <section v-if="topTracks.length" class="artist__popular">
           <h2 class="section-title">Популярные треки</h2>
           <TrackRow
@@ -288,6 +288,10 @@ function openLikedMenu(e) {
   grid-template-columns: minmax(0, 1fr) 343px;
   gap: 24px;
   align-items: start;
+}
+/* Без лайкнутых треков колонка не резервируется — таблица во всю ширину. */
+.artist__cols--single {
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (max-width: 1100px) {
   .artist__cols {
