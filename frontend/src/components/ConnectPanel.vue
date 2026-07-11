@@ -49,7 +49,7 @@ async function copyCode() {
       </button>
     </div>
 
-    <div class="cp__body">
+    <div v-osbar class="cp__body">
       <button
         v-for="d in devices.deviceList"
         :key="d.id"

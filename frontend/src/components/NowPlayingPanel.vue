@@ -19,7 +19,7 @@ const artist = computed(() => track.value?.artists?.[0] || null)
       <button class="np__close" title="Закрыть" @click="ui.toggleRight()"><Icon name="plus" :size="16" style="transform:rotate(45deg)" /></button>
     </div>
 
-    <div v-if="track" class="np__body">
+    <div v-if="track" v-osbar class="np__body">
       <CoverImage :cover="track.cover" :size="640" class="np__cover" />
       <div class="np__meta">
         <RouterLink v-if="track.release" :to="{ name: 'release', params: { slug: track.release.slug } }" class="np__song">{{ track.title }}</RouterLink>

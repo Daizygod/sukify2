@@ -200,8 +200,8 @@ function openLikedMenu(e) {
 
 <style scoped>
 .artist__hero {
-  /* У Spotify герой ~475px при 1080p (≈40vh + топбар). */
-  height: clamp(340px, 40vh, 500px);
+  /* Баннер Spotify = ровно 40vh (замерено: 576@1440, 432@1080). */
+  height: max(340px, 40vh);
   background-size: cover;
   background-position: center 30%;
   background-color: var(--a-bg);
@@ -283,8 +283,9 @@ function openLikedMenu(e) {
   transform: scale(1.02);
 }
 .artist__cols {
+  /* Spotify: таблица тянется, «Вам нравится» — фикс 343px, зазор 24. */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  grid-template-columns: minmax(0, 1fr) 343px;
   gap: 24px;
   align-items: start;
 }

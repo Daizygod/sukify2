@@ -70,7 +70,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
     </div>
 
     <!-- Пульт: показываем и правим очередь активного устройства -->
-    <div v-if="remote" class="qp__body">
+    <div v-if="remote" v-osbar class="qp__body">
       <p class="qp__remote muted">
         Очередь устройства «{{ devices.activeDevice?.name || 'другое устройство' }}»
       </p>
@@ -132,7 +132,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
       <p class="muted">Включи что-нибудь — здесь появится очередь.</p>
     </div>
 
-    <div v-else class="qp__body">
+    <div v-else v-osbar class="qp__body">
       <section v-if="player.currentTrack" class="qp__section">
         <h3 class="qp__label">Сейчас играет</h3>
         <div class="qrow qrow--current" @dblclick="player.togglePlay()">

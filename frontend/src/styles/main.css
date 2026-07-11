@@ -86,6 +86,38 @@ img {
   background: transparent;
 }
 
+/* Оверлейный скроллбар (v-osbar): нативный скрыт, ползунок поверх контента. */
+.osbar-host {
+  scrollbar-width: none;
+}
+.osbar-host::-webkit-scrollbar {
+  display: none;
+}
+.osbar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  z-index: 20;
+}
+.osbar__thumb {
+  width: 100%;
+  background: hsla(0, 0%, 100%, 0.3);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.osbar--on .osbar__thumb,
+.osbar--drag .osbar__thumb {
+  opacity: 1;
+}
+.osbar__thumb:hover {
+  background: hsla(0, 0%, 100%, 0.5);
+}
+.osbar--drag .osbar__thumb {
+  background: hsla(0, 0%, 100%, 0.6);
+}
+
 /* --- App shell --------------------------------------------------------- */
 .app {
   display: grid;

@@ -64,7 +64,7 @@ onUnmounted(() => {
         <Icon name="plus" :size="16" style="transform: rotate(45deg)" />
       </button>
     </div>
-    <div class="fp__body">
+    <div v-osbar class="fp__body">
       <template v-if="items.length">
         <div v-for="i in items" :key="i.user.id" class="fp__friend">
           <div class="fp__avatar">{{ (i.user.name || '?')[0].toUpperCase() }}</div>

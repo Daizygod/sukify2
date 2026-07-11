@@ -204,7 +204,7 @@ async function createPlaylist() {
           </div>
         </div>
 
-        <div class="sidebar__list">
+        <div v-osbar class="sidebar__list">
           <RouterLink v-if="showLiked" to="/liked" class="libitem libitem--liked" :class="{ active: route.name === 'liked' }" @contextmenu.prevent="openLikedMenu">
             <div class="libitem__cover libitem__cover--liked">
               <Icon name="heartFill" :size="20" />

@@ -116,7 +116,7 @@ function startRight(e) {
     </div>
 
     <main class="app__main">
-      <div class="app__scroll">
+      <div v-osbar class="app__scroll">
         <RouterView />
       </div>
     </main>

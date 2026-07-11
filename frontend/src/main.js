@@ -9,6 +9,7 @@ import '@fontsource/manrope/700.css'
 import '@fontsource/manrope/800.css'
 import '@/styles/main.css'
 import { initTooltips } from '@/lib/tooltip'
+import { vOsbar } from '@/lib/osbar'
 
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
@@ -19,6 +20,7 @@ async function bootstrap() {
   const app = createApp(App)
   app.use(createPinia())
   app.use(router)
+  app.directive('osbar', vOsbar)
 
   // Resolve the current session before the first paint so guards behave.
   const auth = useAuthStore()
