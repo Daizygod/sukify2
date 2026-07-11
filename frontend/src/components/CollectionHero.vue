@@ -50,7 +50,10 @@ const titleSize = computed(() => {
 
 <style scoped>
 .hero {
-  background: linear-gradient(180deg, var(--hero-bg) 0%, rgba(0, 0, 0, 0.55) 100%);
+  /* Как у Spotify: сплошной цвет обложки + лёгкое затемнение к низу.
+     Блок ниже продолжает тот же цвет (60% чёрного → #121212) — шва нет. */
+  background-color: var(--hero-bg);
+  background-image: linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.5) 100%);
   padding: 0;
 }
 .hero__inner {

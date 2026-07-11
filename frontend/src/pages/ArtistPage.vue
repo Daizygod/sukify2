@@ -29,6 +29,15 @@ const liked = ref({ tracks: [], releases: [] })
 const popularExpanded = ref(false)
 const shownTracks = computed(() => (popularExpanded.value ? topTracks.value : topTracks.value.slice(0, 5)))
 
+// Фото карточки «Вам нравится»: аватар → баннер → обложка первого лайка.
+const likedImage = computed(() => {
+  const a = artist.value
+  if (!a) return null
+  const cover = liked.value.tracks[0]?.cover
+  const coverUrl = cover?.find?.((c) => c.size >= 300)?.url || cover?.[0]?.url
+  return a.avatar_url || a.banner_url || coverUrl || null
+})
+
 // Дискография: чипы-фильтры по типу релиза.
 const discoTab = ref('popular')
 const discoTabs = computed(() => {
@@ -152,7 +161,7 @@ function openLikedMenu(e) {
             @contextmenu.prevent="openLikedMenu"
           >
             <div class="youliked__avatar">
-              <img v-if="artist.avatar_url" :src="artist.avatar_url" alt="" />
+              <img v-if="likedImage" :src="likedImage" alt="" />
               <div v-else class="youliked__heart"><Icon name="heartFill" :size="28" /></div>
               <Icon name="heartFill" :size="14" class="youliked__badge" />
             </div>
@@ -245,7 +254,8 @@ function openLikedMenu(e) {
   line-height: 32px;
 }
 .artist__body {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--a-bg, #333) 30%, #121212) 0, #121212 200px);
+  background-color: var(--a-bg, #333);
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0, #121212 232px);
   padding: 24px;
 }
 .artist__actions {

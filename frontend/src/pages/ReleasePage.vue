@@ -181,7 +181,8 @@ async function toggleLike() {
   margin-left: -4px;
 }
 .release__body {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--body-bg) 40%, #121212) 0, #121212 260px);
+  background-color: var(--body-bg, #222);
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0, #121212 232px);
   padding: 24px;
   min-height: 400px;
 }
