@@ -19,6 +19,8 @@ export const useUiStore = defineStore('ui', {
     rightView: localStorage.getItem('ui.rightView') || 'nowplaying',
     fullscreenOpen: false,
     lyricsOpen: false,
+    // Трек-источник для «Создать переход…» из контекстного меню.
+    transitionFrom: null,
     listCompact: localStorage.getItem('ui.listCompact') === '1',
   }),
   actions: {

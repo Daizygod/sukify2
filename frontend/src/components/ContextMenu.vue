@@ -7,6 +7,7 @@ import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 import { useToastStore } from '@/stores/toasts'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import api from '@/lib/api'
 
 const menu = useMenuStore()
@@ -14,6 +15,7 @@ const library = useLibraryStore()
 const player = usePlayerStore()
 const toasts = useToastStore()
 const auth = useAuthStore()
+const ui = useUiStore()
 const router = useRouter()
 
 const rootEl = ref(null)
@@ -86,6 +88,11 @@ function removeFromQueue() {
   if (menu.opts.queueQid != null) player.removeFromManualQueue(menu.opts.queueQid)
   else if (menu.opts.upcomingIndex != null) player.removeUpcoming(menu.opts.upcomingIndex)
   toasts.show('Удалено из очереди')
+  menu.close()
+}
+
+function openTransitionPicker() {
+  ui.transitionFrom = track.value
   menu.close()
 }
 
@@ -183,6 +190,10 @@ async function copyLink() {
 
         <div class="cm__divider"></div>
 
+        <button class="cm__item" @click="openTransitionPicker">
+          <Icon name="shuffle" :size="16" />
+          <span>Создать переход…</span>
+        </button>
         <button class="cm__item" @click="startRadio">
           <Icon name="radio" :size="16" />
           <span>К радио по треку</span>
