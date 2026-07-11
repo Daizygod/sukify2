@@ -407,10 +407,13 @@ export const usePlayerStore = defineStore('player', () => {
 
     const now = ctx.currentTime
     const targetIn = normGain(nextTrack)
+    const fromOut = curOut.gain.gain.value
 
     // Fade current out, next in — with the selected curve shape.
-    applyCurve(curOut.gain, curOut.gain.value, 0, now, fadeOutLen / 1000, curve, true)
-    applyCurve(incoming.gain, 0, targetIn, now, fadeInLen / 1000, curve, false)
+    applyCurve(curOut.gain, fromOut, 0, now, fadeOutLen / 1000, curve)
+    applyCurve(incoming.gain, 0, targetIn, now, fadeInLen / 1000, curve)
+
+    debugCrossfade(curOut, incoming, fadeOutLen, curve, fromOut, targetIn)
 
     // UI переключается сразу: играет уже новый трек (старый дозатухает фоном).
     active = incomingIndex
@@ -426,15 +429,56 @@ export const usePlayerStore = defineStore('player', () => {
     }, fadeOutLen)
   }
 
-  function applyCurve(gainNode, from, to, startTime, durationSec, curveType, descending) {
-    const values = buildCurve(from, to, curveType, 64)
+  function applyCurve(gainNode, from, to, startTime, durationSec, curveType) {
+    if (!Number.isFinite(from)) from = gainNode.gain.value
+    if (!Number.isFinite(from)) from = 0
+    if (!Number.isFinite(to)) to = 0
+    const values = buildCurve(from, to, curveType, 64).map((v) => (Number.isFinite(v) ? v : to))
     try {
       gainNode.gain.cancelScheduledValues(startTime)
       gainNode.gain.setValueAtTime(from, startTime)
       gainNode.gain.setValueCurveAtTime(Float32Array.from(values), startTime, Math.max(durationSec, 0.05))
-    } catch {
+    } catch (e) {
+      console.warn('[xfade] setValueCurveAtTime failed, linear fallback:', e?.message)
+      // Якорим текущее значение, иначе linearRamp без предыдущего события
+      // прыгает к цели мгновенно (это и слышно как «провал» громкости).
+      gainNode.gain.setValueAtTime(from, startTime)
       gainNode.gain.linearRampToValueAtTime(to, startTime + durationSec)
     }
+  }
+
+  /**
+   * Отладка кроссфейда: раз в секунду пишем в консоль фактические gain'ы
+   * обоих деков и мастера, в конце — сводная console.table.
+   */
+  function debugCrossfade(outDeck, inDeck, fadeMs, curve, fromOut, targetIn) {
+    const t0 = ctx.currentTime
+    const rows = []
+    console.log(
+      `[xfade] start: curve=${curve} len=${(fadeMs / 1000).toFixed(1)}s ` +
+      `out ${fromOut.toFixed(3)}→0, in 0→${targetIn.toFixed(3)}, ` +
+      `master=${master.gain.value.toFixed(3)} (volume=${Math.round(volume.value * 100)}%)`
+    )
+    const timer = setInterval(() => {
+      const t = ctx.currentTime - t0
+      const outG = outDeck.gain.gain.value
+      const inG = inDeck.gain.gain.value
+      const m = master.gain.value
+      rows.push({
+        't, сек': +t.toFixed(1),
+        'out gain': +outG.toFixed(3),
+        'in gain': +inG.toFixed(3),
+        'master': +m.toFixed(3),
+        'out×master': +(outG * m).toFixed(3),
+        'in×master': +(inG * m).toFixed(3),
+        'мощность Σ': +Math.sqrt(outG * outG + inG * inG).toFixed(3),
+      })
+      console.log(`[xfade] t=${t.toFixed(1)}s out=${outG.toFixed(3)} in=${inG.toFixed(3)} master=${m.toFixed(3)}`)
+      if (t >= fadeMs / 1000) {
+        clearInterval(timer)
+        console.table(rows)
+      }
+    }, 1000)
   }
 
   // --- ticker ------------------------------------------------------------
