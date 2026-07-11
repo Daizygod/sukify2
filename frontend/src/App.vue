@@ -13,10 +13,12 @@ import LyricsView from '@/components/LyricsView.vue'
 import TransitionPicker from '@/components/TransitionPicker.vue'
 import { useUiStore } from '@/stores/ui'
 import { useDeviceStore } from '@/stores/devices'
+import { useAuthStore } from '@/stores/auth'
 
 const ui = useUiStore()
 const devices = useDeviceStore()
 const player = usePlayerStore()
+const auth = useAuthStore()
 
 // Глобальные горячие клавиши (не срабатывают в полях ввода).
 function onHotkey(e) {
@@ -107,7 +109,13 @@ function startRight(e) {
 </script>
 
 <template>
-  <div class="app" :style="gridStyle">
+  <!-- Гость видит только форму входа/регистрации — без сайдбаров и плеера. -->
+  <div v-if="!auth.isAuthenticated" class="app--guest">
+    <RouterView />
+    <ToastHost />
+  </div>
+
+  <div v-else class="app" :style="gridStyle">
     <TopBar class="app__top" />
 
     <div class="app__nav">
@@ -167,5 +175,10 @@ function startRight(e) {
 }
 .resizer:hover::after {
   background: var(--accent);
+}
+.app--guest {
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--bg-base);
 }
 </style>

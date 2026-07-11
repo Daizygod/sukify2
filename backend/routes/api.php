@@ -18,42 +18,16 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Public / guest-accessible endpoints
+| Public endpoints — ТОЛЬКО вход и регистрация
 |--------------------------------------------------------------------------
-| `auth:sanctum` optional here: the controllers personalize (is_liked etc.)
-| when a session user is present but still work for guests.
+| Каталог полностью закрыт от гостей: без сессии не видно ни треков,
+| ни артистов, ни поиска.
 */
 
 // Auth (SPA cookie flow — hit /sanctum/csrf-cookie first).
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-
-// Browse (guest-friendly).
-Route::get('/home', HomeController::class);
-Route::get('/search', SearchController::class);
-Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index']);
-Route::get('/genres/{genre}', [\App\Http\Controllers\Api\GenreController::class, 'show']);
-
-Route::get('/artists', [ArtistController::class, 'index']);
-Route::get('/artists/{artist:slug}', [ArtistController::class, 'show']);
-Route::get('/artists/{artist:slug}/top-tracks', [ArtistController::class, 'topTracks']);
-Route::get('/artists/{artist:slug}/releases', [ArtistController::class, 'releases']);
-
-Route::get('/releases/{release:slug}', [ReleaseController::class, 'show']);
-Route::get('/tracks-bulk', [TrackController::class, 'bulk']);
-Route::get('/tracks/{track}', [TrackController::class, 'show']);
-Route::get('/tracks/{track}/radio', [\App\Http\Controllers\Api\MixController::class, 'trackRadio']);
-Route::get('/tracks/{track}/lyrics', [\App\Http\Controllers\Api\LyricsController::class, 'show']);
-
-Route::get('/transitions', [TransitionController::class, 'forPair']);
-Route::get('/transitions/all', [TransitionController::class, 'index']);
-Route::get('/transitions/for-context', [TransitionController::class, 'forContext']);
-
-Route::get('/users/{username}', [UserProfileController::class, 'show']);
-
-// Playlist read is guarded per-policy (public or owner) inside the controller.
-Route::get('/playlists/{playlist}', [PlaylistController::class, 'show']);
 
 /*
 |--------------------------------------------------------------------------
@@ -62,6 +36,32 @@ Route::get('/playlists/{playlist}', [PlaylistController::class, 'show']);
 */
 Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+
+    // Browse (каталог — только для залогиненных).
+    Route::get('/home', HomeController::class);
+    Route::get('/search', SearchController::class);
+    Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index']);
+    Route::get('/genres/{genre}', [\App\Http\Controllers\Api\GenreController::class, 'show']);
+
+    Route::get('/artists', [ArtistController::class, 'index']);
+    Route::get('/artists/{artist:slug}', [ArtistController::class, 'show']);
+    Route::get('/artists/{artist:slug}/top-tracks', [ArtistController::class, 'topTracks']);
+    Route::get('/artists/{artist:slug}/releases', [ArtistController::class, 'releases']);
+
+    Route::get('/releases/{release:slug}', [ReleaseController::class, 'show']);
+    Route::get('/tracks-bulk', [TrackController::class, 'bulk']);
+    Route::get('/tracks/{track}', [TrackController::class, 'show']);
+    Route::get('/tracks/{track}/radio', [\App\Http\Controllers\Api\MixController::class, 'trackRadio']);
+    Route::get('/tracks/{track}/lyrics', [\App\Http\Controllers\Api\LyricsController::class, 'show']);
+
+    Route::get('/transitions', [TransitionController::class, 'forPair']);
+    Route::get('/transitions/all', [TransitionController::class, 'index']);
+    Route::get('/transitions/for-context', [TransitionController::class, 'forContext']);
+
+    Route::get('/users/{username}', [UserProfileController::class, 'show']);
+
+    // Playlist read is guarded per-policy (public or owner) inside the controller.
+    Route::get('/playlists/{playlist}', [PlaylistController::class, 'show']);
 
     // Library.
     Route::get('/library/playlists', [LibraryController::class, 'playlists']);

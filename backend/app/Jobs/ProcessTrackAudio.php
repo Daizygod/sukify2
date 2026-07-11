@@ -50,17 +50,17 @@ class ProcessTrackAudio implements ShouldQueue
             file_put_contents($localInput, $disk->get($this->tmpUploadPath));
             $fileSize = filesize($localInput);
 
-            // 2. Establish the "original" we keep: APE -> FLAC, everything else as-is.
+            // 2. APE не читается ffmpeg-рендишном напрямую стабильно — приводим к FLAC.
+            //    Оригинал живёт только локально на время обработки: в S3 он НЕ
+            //    сохраняется (экономия места — храним только stream.mp3).
             if ($ext === 'ape') {
                 $localOriginal = "{$workDir}/original.flac";
                 $audio->transcodeToFlac($localInput, $localOriginal);
-                $originalExt = 'flac';
             } else {
                 $localOriginal = $localInput;
-                $originalExt = $ext;
             }
 
-            // 3. Streaming AAC rendition.
+            // 3. Streaming rendition.
             $localStream = "{$workDir}/stream.mp3";
             $audio->makeStreamRendition($localOriginal, $localStream);
 
@@ -68,15 +68,18 @@ class ProcessTrackAudio implements ShouldQueue
             $loudness = $audio->measureLoudness($localOriginal);
             $durationMs = $audio->probeDurationMs($localOriginal);
 
-            // 5. Upload results to their permanent home.
-            $originalKey = "audio/{$track->id}/original.{$originalExt}";
+            // 5. Upload only the stream rendition.
             $streamKey = "audio/{$track->id}/stream.mp3";
-
-            $disk->writeStream($originalKey, fopen($localOriginal, 'r'));
             $disk->writeStream($streamKey, fopen($localStream, 'r'));
 
+            // Если у трека остался старый оригинал (до перехода на «без
+            // оригиналов») — подчищаем его.
+            if ($track->audio_original_path) {
+                $disk->delete($track->audio_original_path);
+            }
+
             $track->update([
-                'audio_original_path' => $originalKey,
+                'audio_original_path' => null,
                 'audio_stream_path' => $streamKey,
                 'loudness_lufs' => $loudness,
                 'duration_ms' => $durationMs,

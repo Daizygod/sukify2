@@ -66,13 +66,15 @@ class GenerateDemoAudio extends Command
                 $loudness = $audio->measureLoudness($flac);
                 $duration = $audio->probeDurationMs($flac);
 
-                $originalKey = "audio/{$track->id}/original.flac";
+                // Оригиналы в S3 не храним — только stream-рендишн.
                 $streamKey = "audio/{$track->id}/stream.mp3";
-                $disk->writeStream($originalKey, fopen($flac, 'r'));
                 $disk->writeStream($streamKey, fopen($stream, 'r'));
+                if ($track->audio_original_path) {
+                    $disk->delete($track->audio_original_path);
+                }
 
                 $track->update([
-                    'audio_original_path' => $originalKey,
+                    'audio_original_path' => null,
                     'audio_stream_path' => $streamKey,
                     'loudness_lufs' => $loudness,
                     'duration_ms' => $duration,
