@@ -13,7 +13,7 @@ function load(key, fallback, max = Infinity) {
 
 export const useUiStore = defineStore('ui', {
   state: () => ({
-    leftWidth: load('ui.leftWidth', 340, LEFT_MAX),
+    leftWidth: load('ui.leftWidth', 420, LEFT_MAX),
     rightWidth: load('ui.rightWidth', 420, RIGHT_MAX),
     rightOpen: localStorage.getItem('ui.rightOpen') !== '0',
     // What the right panel shows: 'nowplaying' | 'queue' | 'connect' | 'friends'

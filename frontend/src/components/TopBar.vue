@@ -79,11 +79,11 @@ async function logout() {
         <Icon :name="route.name === 'home' ? 'homeFill' : 'home'" :size="24" />
       </RouterLink>
       <div class="topbar__search">
-        <Icon name="search" :size="20" class="topbar__searchicon" />
+        <Icon name="search" :size="24" class="topbar__searchicon" />
         <input v-model="q" class="topbar__input" placeholder="Что хочешь включить?" />
         <div class="topbar__divider"></div>
         <RouterLink to="/search" class="topbar__browse" title="Обзор">
-          <Icon name="browse" :size="20" />
+          <Icon name="browse" :size="24" />
         </RouterLink>
       </div>
     </div>
@@ -177,7 +177,7 @@ async function logout() {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--bg-elevated);
+  background: #1f1f1f;
   color: var(--text-subdued);
   display: grid;
   place-items: center;
@@ -194,7 +194,7 @@ async function logout() {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--bg-elevated);
+  background: #1f1f1f; /* цвет пилюли поиска Spotify */
   border: 1px solid transparent;
   border-radius: 999px;
   padding: 0 6px 0 16px;

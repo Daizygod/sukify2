@@ -148,7 +148,7 @@ async function createPlaylist() {
     <div class="sidebar__library">
       <div class="sidebar__libhead">
         <div class="sidebar__libtitle">
-          <Icon name="library" :size="24" /> <span>Моя медиатека</span>
+          <span>Моя медиатека</span>
         </div>
         <div class="sidebar__headactions">
           <button v-if="auth.isAuthenticated" class="sidebar__create" title="Создать плейлист" @click="createPlaylist">
@@ -269,7 +269,7 @@ async function createPlaylist() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px 8px 4px;
+  padding: 8px 8px 8px 8px; /* текст на x28 от края панели, как у Spotify */
 }
 .sidebar__libtitle {
   display: flex;

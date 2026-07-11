@@ -281,7 +281,8 @@ function cycleRepeat() {
   max-width: 620px;
 }
 .player__time {
-  font-size: 11px;
+  font-size: 12px;
+  color: var(--text-subdued);
   font-variant-numeric: tabular-nums;
   min-width: 40px;
   text-align: center;

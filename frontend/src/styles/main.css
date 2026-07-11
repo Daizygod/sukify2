@@ -65,19 +65,22 @@ img {
   display: block;
 }
 
+/* Скроллбар как у Spotify: плоский, без скруглений, виден только при
+   наведении на скроллящийся блок. */
 ::-webkit-scrollbar {
   width: 12px;
   height: 12px;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #4d4d4d;
-  border-radius: 6px;
-  border: 3px solid transparent;
-  background-clip: content-box;
+  background: transparent;
+  border-radius: 0;
+}
+:hover::-webkit-scrollbar-thumb {
+  background: hsla(0, 0%, 100%, 0.3);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #6a6a6a;
-  background-clip: content-box;
+  background: hsla(0, 0%, 100%, 0.5);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -87,10 +90,13 @@ img {
 .app {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
+  /* Как у Spotify: топбар 64 (поиск по центру, снизу «пустота» уже внутри),
+     контент, плеер 88 всего (72 бар + по 8 сверху/снизу). */
   grid-template-rows: var(--topbar-height) 1fr var(--player-height);
   height: 100vh;
-  gap: 8px;
-  padding: 0 8px 8px;
+  column-gap: 8px;
+  row-gap: 0;
+  padding: 0 8px;
   background: var(--bg-base);
 }
 
@@ -132,6 +138,29 @@ img {
 .app__player {
   grid-row: 3;
   grid-column: 1 / -1;
+  padding: 8px 0; /* итого 88: 8 + 72 бар + 8 */
+}
+
+/* --- Кастомные подсказки (стиль tippy у Spotify) ------------------------ */
+.tooltip {
+  position: fixed;
+  z-index: 9999;
+  display: none;
+  pointer-events: none;
+  background: #282828;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+  padding: 6px 10px;
+  border-radius: 4px;
+  max-width: 336px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  opacity: 0;
+}
+.tooltip--on {
+  opacity: 1;
+  transition: opacity 0.12s ease;
 }
 
 /* --- Reusable bits ----------------------------------------------------- */
