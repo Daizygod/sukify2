@@ -22,7 +22,8 @@ jobs:
             set -e
             cd /home/deploy/sukify
             echo "🌊 Pull from main..."
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             echo "🧱 Build user SPA..."
             docker run --rm -v /home/deploy/sukify/frontend:/app -w /app node:22-alpine sh -c "npm ci --no-audit --no-fund && npm run build"
             echo "🧱 Build admin assets..."
