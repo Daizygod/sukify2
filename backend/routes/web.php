@@ -36,5 +36,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::put('users/{user}/ban', [UserController::class, 'toggleBan'])->name('users.ban');
+        Route::put('users/{user}/admin', [UserController::class, 'toggleAdmin'])->name('users.admin');
+
+        Route::get('profile', [\App\Http\Controllers\Admin\ProfileController::class, 'show'])->name('profile');
+        Route::put('profile/password', [\App\Http\Controllers\Admin\ProfileController::class, 'updatePassword'])->name('profile.password');
     });
 });

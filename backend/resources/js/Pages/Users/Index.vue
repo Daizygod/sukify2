@@ -1,9 +1,11 @@
 <script setup>
-import { Head, router } from '@inertiajs/vue3'
-import { ref, watch } from 'vue'
+import { Head, router, usePage } from '@inertiajs/vue3'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({ users: Object, filters: Object })
 const search = ref(props.filters.search || '')
+const page = usePage()
+const myId = computed(() => page.props.auth.user?.id)
 
 let t
 watch(search, (v) => {
@@ -15,6 +17,14 @@ function toggleBan(u) {
   const verb = u.is_banned ? 'Unban' : 'Ban'
   if (confirm(`${verb} ${u.name}?`)) {
     router.put(`/admin/users/${u.id}/ban`, {}, { preserveScroll: true })
+  }
+}
+
+function toggleAdmin(u) {
+  const verb = u.is_admin ? 'Revoke admin rights from' : 'Make'
+  const tail = u.is_admin ? '' : ' an admin'
+  if (confirm(`${verb} ${u.name}${tail}?`)) {
+    router.put(`/admin/users/${u.id}/admin`, {}, { preserveScroll: true })
   }
 }
 </script>
@@ -50,7 +60,11 @@ function toggleBan(u) {
             <span v-if="u.is_banned" class="px-2 py-1 rounded bg-red-500/20 text-red-400 text-xs">banned</span>
             <span v-else class="px-2 py-1 rounded bg-neutral-700 text-neutral-200 text-xs">active</span>
           </td>
-          <td class="px-4 py-3 text-right">
+          <td class="px-4 py-3 text-right space-x-4 whitespace-nowrap">
+            <!-- Себе права не меняем — кнопки нет вовсе. -->
+            <button v-if="u.id !== myId" class="hover:underline" :class="u.is_admin ? 'text-yellow-400' : 'text-neutral-300'" @click="toggleAdmin(u)">
+              {{ u.is_admin ? 'Revoke admin' : 'Make admin' }}
+            </button>
             <button v-if="!u.is_admin" class="hover:underline" :class="u.is_banned ? 'text-accent' : 'text-red-400'" @click="toggleBan(u)">
               {{ u.is_banned ? 'Unban' : 'Ban' }}
             </button>
