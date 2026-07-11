@@ -2,18 +2,19 @@ import { defineStore } from 'pinia'
 
 const LEFT_MIN = 280
 const LEFT_MAX = 420
+// Правая панель Spotify — 420px максимум.
 const RIGHT_MIN = 280
-const RIGHT_MAX = 440
+const RIGHT_MAX = 420
 
-function load(key, fallback) {
+function load(key, fallback, max = Infinity) {
   const v = Number(localStorage.getItem(key))
-  return Number.isFinite(v) && v > 0 ? v : fallback
+  return Number.isFinite(v) && v > 0 ? Math.min(v, max) : fallback
 }
 
 export const useUiStore = defineStore('ui', {
   state: () => ({
-    leftWidth: load('ui.leftWidth', 340),
-    rightWidth: load('ui.rightWidth', 340),
+    leftWidth: load('ui.leftWidth', 340, LEFT_MAX),
+    rightWidth: load('ui.rightWidth', 420, RIGHT_MAX),
     rightOpen: localStorage.getItem('ui.rightOpen') !== '0',
     // What the right panel shows: 'nowplaying' | 'queue' | 'connect' | 'friends'
     rightView: localStorage.getItem('ui.rightView') || 'nowplaying',

@@ -145,9 +145,10 @@ async function logout() {
 <style scoped>
 .topbar {
   height: var(--topbar-height);
-  display: grid;
-  grid-template-columns: var(--sidebar-width) 1fr auto;
+  position: relative;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 .topbar__left {
@@ -163,10 +164,14 @@ async function logout() {
   place-items: center;
 }
 .topbar__center {
+  /* Как в Spotify: блок «домой + поиск» отцентрован по вьюпорту. */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
-  justify-content: flex-start;
+  width: clamp(350px, 42vw, 546px);
 }
 .topbar__home {
   width: 48px;
@@ -212,7 +217,8 @@ async function logout() {
   background: none;
   border: none;
   color: #fff;
-  font-size: 14px;
+  font-family: inherit;
+  font-size: 16px;
   outline: none;
   min-width: 0;
 }
@@ -248,7 +254,7 @@ async function logout() {
   align-items: center;
   gap: 6px;
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   padding: 8px 12px;
   border-radius: 999px;
@@ -288,12 +294,12 @@ async function logout() {
 }
 .topbar__bellhead {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   margin-bottom: 8px;
 }
 .topbar__bellempty {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
 }
 .topbar__bellbtn {

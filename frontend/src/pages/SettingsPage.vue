@@ -144,19 +144,19 @@ function save() {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .setting__name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
 }
 .setting__desc {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   margin-top: 4px;
 }
 .setting__ctl--slider {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .settings__val {
   min-width: 34px;

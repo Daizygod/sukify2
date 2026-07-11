@@ -220,7 +220,7 @@ async function toggleLike() {
   align-items: center;
   gap: 8px;
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
 }
 .release__view:hover {
   color: #fff;

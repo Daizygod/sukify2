@@ -92,7 +92,7 @@ async function toggleFollow() {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 .profile__kind {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 .profile__name {
@@ -118,7 +118,7 @@ async function toggleFollow() {
   color: #fff;
   border-radius: 999px;
   padding: 7px 15px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 .profile__follow:hover {

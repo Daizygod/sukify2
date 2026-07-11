@@ -436,7 +436,7 @@ async function save() {
   background: rgba(255, 255, 255, 0.1);
 }
 .tm__hint {
-  font-size: 13px;
+  font-size: 14px;
   margin: 10px 0 16px;
 }
 .tm__loading,
@@ -491,7 +491,7 @@ async function save() {
   align-items: center;
   gap: 6px;
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   padding: 6px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
@@ -561,7 +561,7 @@ async function save() {
   margin-bottom: 14px;
 }
 .tm__modes button {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-subdued);
   background: rgba(255, 255, 255, 0.07);
@@ -675,7 +675,7 @@ async function save() {
 }
 .tm__simple-val {
   color: #fff;
-  font-size: 15px;
+  font-size: 16px;
   min-width: 38px;
   text-align: right;
   font-variant-numeric: tabular-nums;

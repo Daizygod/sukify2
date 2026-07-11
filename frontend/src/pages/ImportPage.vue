@@ -260,7 +260,7 @@ function onPick(e) {
   color: #fff;
 }
 .imp__note {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
   margin-top: 16px;
   max-width: 560px;
@@ -290,7 +290,7 @@ function onPick(e) {
 }
 .imp__dropline {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .imp__pick {
   cursor: pointer;
@@ -332,7 +332,7 @@ function onPick(e) {
   margin-top: 20px;
 }
 .imp__missnote {
-  font-size: 13px;
+  font-size: 14px;
   margin: 6px 0 12px;
 }
 .imp__adminlink {

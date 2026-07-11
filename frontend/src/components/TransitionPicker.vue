@@ -143,7 +143,7 @@ function close() {
 .tp__from {
   display: flex;
   gap: 6px;
-  font-size: 15px;
+  font-size: 16px;
   flex-wrap: wrap;
 }
 .tp__close {
@@ -223,11 +223,11 @@ function close() {
   text-overflow: ellipsis;
 }
 .tp__dur {
-  font-size: 13px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
 .tp__none {
-  font-size: 13px;
+  font-size: 14px;
   padding: 12px 4px;
   line-height: 1.5;
 }

@@ -245,7 +245,7 @@ async function playMix(m) {
   color: #fff;
   border-radius: 999px;
   padding: 7px 14px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 .chip:hover {
@@ -327,12 +327,12 @@ async function playMix(m) {
 }
 .shelf__eyebrow {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 .shelf__all {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   padding-bottom: 18px;
@@ -385,11 +385,11 @@ async function playMix(m) {
 }
 .mixcard__title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .mixcard__sub {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   margin-top: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;

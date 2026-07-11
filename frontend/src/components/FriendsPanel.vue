@@ -116,7 +116,7 @@ onUnmounted(() => {
 }
 .fp__title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .fp__close {
   color: var(--text-subdued);
@@ -193,7 +193,7 @@ onUnmounted(() => {
   margin: 8px;
 }
 .fp__text {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   margin: 0 8px;
 }

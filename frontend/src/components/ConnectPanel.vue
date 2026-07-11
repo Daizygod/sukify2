@@ -130,7 +130,7 @@ async function copyCode() {
 }
 .cp__title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .cp__close {
   color: var(--text-subdued);
@@ -199,7 +199,7 @@ async function copyCode() {
   flex: 0 0 auto;
 }
 .cp__hint {
-  font-size: 13px;
+  font-size: 14px;
   padding: 16px 8px;
   line-height: 1.5;
 }
@@ -237,7 +237,7 @@ async function copyCode() {
   background: var(--accent);
   color: #000;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   border-radius: 999px;
   padding: 8px 16px;
 }
@@ -265,7 +265,7 @@ async function copyCode() {
   border-radius: 999px;
   color: #fff;
   padding: 8px 14px;
-  font-size: 13px;
+  font-size: 14px;
   outline: none;
   text-transform: uppercase;
 }

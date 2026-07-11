@@ -31,14 +31,14 @@ export async function openMiniplayer(player) {
     }
     img { width: 56px; height: 56px; border-radius: 4px; object-fit: cover; background: #333; }
     .meta { flex: 1; min-width: 0; }
-    .title { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .title { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .artists { font-size: 11px; color: #b3b3b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
     .controls { display: flex; align-items: center; gap: 10px; }
     button { background: none; border: none; color: #b3b3b3; cursor: pointer; font-size: 16px; line-height: 1; padding: 4px; }
     button:hover { color: #fff; }
     .play {
       width: 32px; height: 32px; border-radius: 50%; background: #fff; color: #000;
-      display: grid; place-items: center; font-size: 13px;
+      display: grid; place-items: center; font-size: 14px;
     }
     .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #333; }
     .bar i { display: block; height: 100%; background: #1ed760; width: 0%; }

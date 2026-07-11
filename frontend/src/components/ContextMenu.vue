@@ -403,7 +403,7 @@ async function copyLink() {
 }
 .cm__entityhead {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-subdued);
   padding: 8px 12px 6px;
   white-space: nowrap;
@@ -425,7 +425,7 @@ async function copyLink() {
   border: none;
   outline: none;
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   width: 100%;
 }
 .cm__scroll {

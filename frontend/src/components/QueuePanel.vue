@@ -227,7 +227,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
 }
 .qp__title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .qp__close {
   color: var(--text-subdued);
@@ -255,7 +255,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
   margin-top: 16px;
 }
 .qp__label {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   padding: 0 8px 8px;
 }
@@ -267,7 +267,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
 }
 .qp__clear {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 .qp__clear:hover {
@@ -328,7 +328,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
 }
 .qrow__title {
   color: #fff;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -339,7 +339,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
 }
 .qrow__artists {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

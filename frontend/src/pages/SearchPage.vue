@@ -300,7 +300,7 @@ function tileColor(i) {
   color: #fff;
   border-radius: 999px;
   padding: 7px 14px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 .chip:hover {

@@ -251,7 +251,7 @@ async function removePlaylist() {
   align-items: center;
   gap: 8px;
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
 }
 .playlist__view:hover {
   color: #fff;
@@ -263,7 +263,7 @@ async function removePlaylist() {
   margin-top: 40px;
 }
 .playlist__recsub {
-  font-size: 13px;
+  font-size: 14px;
   margin: -10px 0 12px;
 }
 .rec {
@@ -278,7 +278,7 @@ async function removePlaylist() {
   color: #fff;
   border-radius: 999px;
   padding: 5px 14px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   background: var(--bg-elevated);
 }

@@ -134,7 +134,7 @@ a.stats__row:hover {
   font-size: 12px;
 }
 .stats__plays {
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
 }
 </style>

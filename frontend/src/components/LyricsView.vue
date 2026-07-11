@@ -121,7 +121,7 @@ function seekTo(line) {
 }
 .ly__context {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .ly__btn {
   width: 36px;

@@ -168,7 +168,7 @@ function playAll() {
   align-items: center;
   gap: 8px;
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
 }
 .liked__view:hover {
   color: #fff;

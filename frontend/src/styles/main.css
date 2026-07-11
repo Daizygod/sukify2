@@ -53,6 +53,13 @@ button {
   color: inherit;
 }
 
+/* Инпуты не наследуют шрифт по умолчанию (рендерились Arial'ом). */
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
 img {
   max-width: 100%;
   display: block;
@@ -134,7 +141,7 @@ img {
   font-weight: 700;
   border-radius: 999px;
   padding: 14px 32px;
-  font-size: 15px;
+  font-size: 16px;
   transition: transform 0.1s ease, background 0.2s ease;
 }
 .btn-primary:hover {
@@ -214,7 +221,7 @@ img {
 .tracktable__head {
   padding: 0 16px 8px;
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 16px;
 }

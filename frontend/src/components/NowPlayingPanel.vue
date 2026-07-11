@@ -60,7 +60,7 @@ const artist = computed(() => track.value?.artists?.[0] || null)
 }
 .np__title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

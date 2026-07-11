@@ -119,7 +119,7 @@ async function submit() {
 }
 .auth__form label span {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   margin-bottom: 6px;
 }
@@ -130,7 +130,7 @@ async function submit() {
   border-radius: 4px;
   padding: 12px 14px;
   color: #fff;
-  font-size: 15px;
+  font-size: 16px;
 }
 .auth__form input:focus {
   outline: none;

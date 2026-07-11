@@ -88,7 +88,7 @@ function playAll() {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 .mix__kind {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 .mix__title {

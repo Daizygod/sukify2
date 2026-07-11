@@ -89,14 +89,14 @@ function onContext(e) {
 }
 .card__title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .card__subtitle {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   margin-top: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;

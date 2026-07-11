@@ -81,7 +81,7 @@ const titleSize = computed(() => {
   place-items: center;
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   opacity: 0;
   transition: opacity 0.18s ease;
@@ -96,7 +96,7 @@ const titleSize = computed(() => {
   padding-bottom: 8px;
 }
 .hero__kind {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 .hero__title {

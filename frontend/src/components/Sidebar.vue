@@ -276,7 +276,7 @@ async function createPlaylist() {
   align-items: center;
   gap: 12px;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   color: #fff;
 }
 .sidebar__headactions {
@@ -291,7 +291,7 @@ async function createPlaylist() {
   background: #1f1f1f;
   color: #fff;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   border-radius: 999px;
   padding: 8px 14px;
 }
@@ -337,7 +337,7 @@ async function createPlaylist() {
   color: #fff;
   border-radius: 999px;
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
 }
 .pill:hover {
@@ -384,7 +384,7 @@ async function createPlaylist() {
   border: none;
   outline: none;
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   padding: 6px 8px 6px 0;
 }
 .sidebar__filter::placeholder {
@@ -398,7 +398,7 @@ async function createPlaylist() {
   align-items: center;
   gap: 8px;
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
 }
 .sidebar__sortmenu {
   position: absolute;
@@ -446,7 +446,7 @@ async function createPlaylist() {
 }
 .sidebar__nores {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   padding: 16px 8px;
 }
 .libitem {
@@ -481,7 +481,7 @@ async function createPlaylist() {
 .libitem__title {
   color: #fff;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -492,7 +492,7 @@ async function createPlaylist() {
 }
 .libitem__sub {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

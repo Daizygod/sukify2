@@ -76,7 +76,7 @@ onUnmounted(() => {
 }
 .fs__context {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .fs__actions {
   display: flex;
