@@ -1,0 +1,128 @@
+# Прод-стек Sukify (sukify.nepalimsya.ru).
+# Отличия от dev: нет MinIO (внешний S3), нет Vite (SPA собрана в frontend/dist),
+# наружу торчит только nginx на 127.0.0.1:${NGINX_PORT} — дальше host-nginx с TLS.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    image: sukify/app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - sukify
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${NGINX_PORT:-8098}:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./frontend/dist:/var/www/frontend:ro
+      - ./docker/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+      - centrifugo
+    networks:
+      - sukify
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sukify}
+      POSTGRES_USER: ${POSTGRES_USER:-sukify}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sukify} -d ${POSTGRES_DB:-sukify}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sukify
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    networks:
+      - sukify
+
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    restart: unless-stopped
+    command: ["centrifugo", "-c", "config.json"]
+    volumes:
+      # Файл с прод-секретами генерируется на сервере, в git его нет.
+      - ./centrifugo.prod.json:/centrifugo/config.json:ro
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks:
+      - sukify
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?set in .env}
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meilidata:/meili_data
+    networks:
+      - sukify
+
+  queue-worker:
+    image: sukify/app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--max-time=3600", "--timeout=600"]
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      - app
+      - redis
+      - postgres
+    networks:
+      - sukify
+
+  scheduler:
+    image: sukify/app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      - app
+      - redis
+      - postgres
+    networks:
+      - sukify
+
+networks:
+  sukify:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  meilidata:
+  backend_vendor:

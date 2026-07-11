@@ -1,0 +1,39 @@
+name: Deploy
+run-name: ${{ github.actor }} deploys to sukify.nepalimsya.ru 🚀
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: deploy production
+    runs-on: ubuntu-latest
+    steps:
+      - name: deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USERNAME }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT }}
+          command_timeout: 30m
+          script: |
+            set -e
+            cd /home/deploy/sukify
+            echo "🌊 Pull from main..."
+            git pull origin main
+            echo "🧱 Build user SPA..."
+            docker run --rm -v /home/deploy/sukify/frontend:/app -w /app node:22-alpine sh -c "npm ci --no-audit --no-fund && npm run build"
+            echo "🧱 Build admin assets..."
+            docker run --rm -v /home/deploy/sukify/backend:/app -w /app node:22-alpine sh -c "npm ci --no-audit --no-fund && npm run build"
+            echo "🎼 Composer install..."
+            docker compose -f docker-compose.prod.yml exec -T app composer install --no-dev --optimize-autoloader --no-interaction
+            echo "🩻 Apply migrations..."
+            docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
+            docker compose -f docker-compose.prod.yml exec -T app php artisan optimize:clear
+            docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
+            echo "🚀 Restart workers..."
+            docker compose -f docker-compose.prod.yml restart queue-worker scheduler
+            docker compose -f docker-compose.prod.yml up -d
+            echo "🎉 Completed"
