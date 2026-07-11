@@ -13,6 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // За реверс-прокси (host nginx + docker nginx): доверяем X-Forwarded-*,
+        // иначе Laravel считает запрос http и генерирует http:// ссылки на
+        // ассеты — браузер блокирует их на https-странице (mixed content).
+        $middleware->trustProxies(at: '*');
+
         // SPA cookie auth: treat first-party (Sanctum stateful) API requests as
         // session-authenticated. Applies to the `api` middleware group.
         $middleware->statefulApi();
