@@ -165,7 +165,7 @@ img {
 .section-title {
   font-size: 24px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: normal; /* у Spotify заголовки секций без трекинга */
   margin-bottom: 16px;
 }
 

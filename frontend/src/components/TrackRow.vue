@@ -101,7 +101,7 @@ function toggleLike() {
 
 <style scoped>
 .row {
-  padding: 6px 16px;
+  padding: 8px 16px; /* 40px cover + 2×8 = 56px, как строка Spotify */
   border-radius: 4px;
   color: var(--text-subdued);
   font-size: 14px;
@@ -117,7 +117,7 @@ function toggleLike() {
 }
 .row__num {
   font-variant-numeric: tabular-nums;
-  font-size: 15px;
+  font-size: 16px;
 }
 .row__num--green {
   color: var(--accent);
@@ -148,8 +148,8 @@ function toggleLike() {
 }
 .row__title {
   color: #fff;
-  font-weight: 500;
-  font-size: 15px;
+  font-weight: 400;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -174,7 +174,7 @@ function toggleLike() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 13px;
+  font-size: 14px;
 }
 .row__artist:hover {
   text-decoration: underline;
@@ -186,7 +186,7 @@ function toggleLike() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 13px;
+  font-size: 14px;
 }
 .row__album:hover {
   text-decoration: underline;

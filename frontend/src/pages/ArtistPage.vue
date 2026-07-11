@@ -25,6 +25,26 @@ const artist = ref(null)
 const topTracks = ref([])
 const liked = ref({ tracks: [], releases: [] })
 
+// Популярные: 5 строк, «Ещё» раскрывает весь топ (как в Spotify).
+const popularExpanded = ref(false)
+const shownTracks = computed(() => (popularExpanded.value ? topTracks.value : topTracks.value.slice(0, 5)))
+
+// Дискография: чипы-фильтры по типу релиза.
+const discoTab = ref('popular')
+const discoTabs = computed(() => {
+  const rs = artist.value?.releases || []
+  const tabs = [{ value: 'popular', label: 'Популярные релизы' }]
+  if (rs.some((r) => r.type === 'album' || r.type === 'compilation')) tabs.push({ value: 'albums', label: 'Альбомы' })
+  if (rs.some((r) => r.type === 'single' || r.type === 'ep')) tabs.push({ value: 'singles', label: 'Синглы и EP' })
+  return tabs
+})
+const discoReleases = computed(() => {
+  const rs = artist.value?.releases || []
+  if (discoTab.value === 'albums') return rs.filter((r) => r.type === 'album' || r.type === 'compilation')
+  if (discoTab.value === 'singles') return rs.filter((r) => r.type === 'single' || r.type === 'ep')
+  return rs
+})
+
 const typeLabel = computed(() => ({
   album: 'альбом',
   single: 'сингл',
@@ -40,6 +60,8 @@ async function load(slug) {
   artist.value = a.data
   topTracks.value = tt.data
   liked.value = { tracks: [], releases: [] }
+  popularExpanded.value = false
+  discoTab.value = 'popular'
   if (auth.isAuthenticated) {
     api.get(`/artists/${slug}/liked`).then(({ data }) => {
       liked.value = data
@@ -85,11 +107,12 @@ function openLikedMenu(e) {
   <div v-if="artist" class="artist">
     <div class="artist__hero" :style="{ '--a-bg': artist.colors?.background || '#333', backgroundImage: artist.banner_url ? `url(${artist.banner_url})` : null }">
       <div class="artist__hero-inner">
+        <!-- Как в Spotify: имя, под ним бейдж подтверждения, ниже слушатели. -->
+        <h1 class="artist__name">{{ artist.name }}</h1>
         <div class="artist__verified">
           <Icon name="verified" :size="24" class="artist__badge" />
-          <span>Подтверждённый исполнитель</span>
+          <span>Подтверждено Sukify</span>
         </div>
-        <h1 class="artist__name">{{ artist.name }}</h1>
         <div class="artist__listeners">{{ formatListeners(artist.monthly_listeners) }}</div>
       </div>
     </div>
@@ -108,7 +131,7 @@ function openLikedMenu(e) {
         <section v-if="topTracks.length" class="artist__popular">
           <h2 class="section-title">Популярные треки</h2>
           <TrackRow
-            v-for="(t, i) in topTracks"
+            v-for="(t, i) in shownTracks"
             :key="t.id"
             :track="t"
             :index="i"
@@ -116,6 +139,9 @@ function openLikedMenu(e) {
             :context-tracks="topTracks"
             :context-name="artist.name"
           />
+          <button v-if="topTracks.length > 5" class="artist__more" @click="popularExpanded = !popularExpanded">
+            {{ popularExpanded ? 'Свернуть' : 'Ещё' }}
+          </button>
         </section>
 
         <section v-if="liked.tracks.length" class="artist__youliked">
@@ -128,10 +154,11 @@ function openLikedMenu(e) {
             <div class="youliked__avatar">
               <img v-if="artist.avatar_url" :src="artist.avatar_url" alt="" />
               <div v-else class="youliked__heart"><Icon name="heartFill" :size="28" /></div>
+              <Icon name="heartFill" :size="14" class="youliked__badge" />
             </div>
             <div class="youliked__meta">
               <div class="youliked__counts">
-                {{ liked.tracks.length }} {{ plural(liked.tracks.length, 'трек', 'трека', 'треков') }}<template v-if="liked.releases.length"> • {{ liked.releases.length }} {{ plural(liked.releases.length, 'релиз', 'релиза', 'релизов') }}</template>
+                {{ liked.tracks.length }} {{ plural(liked.tracks.length, 'трек', 'трека', 'треков') }}
               </div>
               <div class="youliked__by">От: {{ artist.name }}</div>
             </div>
@@ -147,9 +174,18 @@ function openLikedMenu(e) {
           <h2 class="section-title">Дискография</h2>
           <span class="artist__all">Показать все</span>
         </div>
+        <div v-if="discoTabs.length > 1" class="artist__chips">
+          <button
+            v-for="tab in discoTabs"
+            :key="tab.value"
+            class="artist__chip"
+            :class="{ on: discoTab === tab.value }"
+            @click="discoTab = tab.value"
+          >{{ tab.label }}</button>
+        </div>
         <div class="grid-cards">
           <MediaCard
-            v-for="r in artist.releases"
+            v-for="r in discoReleases"
             :key="r.id"
             :to="{ name: 'release', params: { slug: r.slug } }"
             :cover="r.cover"
@@ -164,7 +200,8 @@ function openLikedMenu(e) {
 
 <style scoped>
 .artist__hero {
-  height: 340px;
+  /* У Spotify герой ~475px при 1080p (≈40vh + топбар). */
+  height: clamp(340px, 40vh, 500px);
   background-size: cover;
   background-position: center 30%;
   background-color: var(--a-bg);
@@ -188,7 +225,8 @@ function openLikedMenu(e) {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
+  margin: 8px 0 2px;
 }
 .artist__badge {
   color: #4cb3ff;
@@ -198,12 +236,13 @@ function openLikedMenu(e) {
 .artist__name {
   font-size: clamp(48px, 9vw, 96px);
   font-weight: 800;
-  letter-spacing: -0.04em;
-  margin: 8px 0 16px;
-  line-height: 1;
+  letter-spacing: normal;
+  margin: 0;
+  line-height: 1.2;
 }
 .artist__listeners {
-  font-size: 15px;
+  font-size: 16px;
+  line-height: 32px;
 }
 .artist__body {
   background: linear-gradient(180deg, color-mix(in srgb, var(--a-bg, #333) 30%, #121212) 0, #121212 200px);
@@ -235,8 +274,8 @@ function openLikedMenu(e) {
   border: 1px solid var(--text-muted);
   color: #fff;
   border-radius: 999px;
-  padding: 7px 15px;
-  font-size: 13px;
+  padding: 5px 15px;
+  font-size: 14px;
   font-weight: 700;
 }
 .artist__follow:hover {
@@ -288,17 +327,26 @@ function openLikedMenu(e) {
   background: rgba(255, 255, 255, 0.06);
 }
 .youliked__avatar {
+  position: relative;
   width: 88px;
   height: 88px;
   flex: 0 0 88px;
   border-radius: 50%;
-  overflow: hidden;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 .youliked__avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
+}
+/* Зелёное сердечко на нижнем правом крае круга — как у Spotify. */
+.youliked__badge {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  color: var(--accent);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 .youliked__heart {
   width: 100%;
@@ -307,15 +355,16 @@ function openLikedMenu(e) {
   place-items: center;
   background: linear-gradient(135deg, #450af5, #8e8ee5);
   color: #fff;
+  border-radius: 50%;
 }
 .youliked__counts {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
 }
 .youliked__by {
   color: var(--text-subdued);
-  font-size: 13px;
-  margin-top: 4px;
+  font-size: 14px;
+  margin-top: 6px;
 }
 .artist__shelfhead {
   display: flex;
@@ -324,11 +373,41 @@ function openLikedMenu(e) {
 }
 .artist__all {
   color: var(--text-subdued);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
 .artist__all:hover {
   text-decoration: underline;
+}
+.artist__more {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 16px;
+  text-align: left;
+}
+.artist__more:hover {
+  color: #fff;
+}
+.artist__chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.artist__chip {
+  font-size: 14px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  padding: 8px 16px;
+  line-height: 1;
+}
+.artist__chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.artist__chip.on {
+  background: #fff;
+  color: #000;
 }
 </style>
