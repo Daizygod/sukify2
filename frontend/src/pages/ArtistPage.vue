@@ -283,19 +283,28 @@ function openLikedMenu(e) {
   transform: scale(1.02);
 }
 .artist__cols {
-  /* Spotify: таблица тянется, «Вам нравится» — фикс 343px, зазор 24. */
+  /* Spotify: сетка из 8 равных колонок (как у полок с карточками).
+     Таблица — 5 колонок, «Вам нравится» — 3; без лайков таблица = 6. */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 343px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 24px;
   align-items: start;
 }
-/* Без лайкнутых треков колонка не резервируется — таблица во всю ширину. */
-.artist__cols--single {
-  grid-template-columns: minmax(0, 1fr);
+.artist__popular {
+  grid-column: 1 / span 5;
+  min-width: 0;
+}
+.artist__cols--single .artist__popular {
+  grid-column: 1 / span 6;
+}
+.artist__youliked {
+  grid-column: 6 / span 3;
+  min-width: 0;
 }
 @media (max-width: 1100px) {
-  .artist__cols {
-    grid-template-columns: 1fr;
+  .artist__cols .artist__popular,
+  .artist__cols .artist__youliked {
+    grid-column: 1 / -1;
   }
 }
 .youliked {
@@ -305,6 +314,7 @@ function openLikedMenu(e) {
   gap: 16px;
   padding: 8px;
   border-radius: 8px;
+  max-width: 343px; /* сама карточка у Spotify — 343px */
 }
 .youliked__queue {
   position: absolute;
