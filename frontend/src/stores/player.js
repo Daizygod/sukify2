@@ -73,8 +73,10 @@ export const usePlayerStore = defineStore('player', () => {
       gain.connect(master)
       return { el, source, gain }
     })
-    // Отладочный доступ (и для E2E-тестов): оба аудиоэлемента.
+    // Отладочный доступ (и для E2E-тестов): аудиоэлементы и гейны деков.
     window.__sukifyDecks = decks.map((d) => d.el)
+    window.__sukifyGains = decks.map((d) => d.gain)
+    window.__sukifyNorm = () => ({ target: targetLufs.value, track: currentTrack.value?.loudness_lufs, active })
 
     inited.value = true
   }
@@ -145,8 +147,14 @@ export const usePlayerStore = defineStore('player', () => {
     active = deckIndex
     const deck = decks[active]
     idleDeck().el.pause()
+    // Локальный запуск отменяет возможное затухание передачи.
+    clearTimeout(fadeOutTimer)
+    setMasterVolume()
 
     currentTrack.value = track
+    // Таймлайн сразу с нуля, не дожидаясь timeupdate нового аудио.
+    positionMs.value = 0
+    durationMs.value = track.duration_ms || 0
     updateMediaSession(track)
     deck.el.src = track.stream_url
     deck.el.load()
@@ -184,6 +192,9 @@ export const usePlayerStore = defineStore('player', () => {
     const el = activeDeck().el
     if (el.paused) {
       ctx?.resume()
+      // Если шло затухание при передаче — отменяем его и возвращаем громкость.
+      clearTimeout(fadeOutTimer)
+      setMasterVolume()
       el.play().catch(() => {
         isPlaying.value = false
         setMediaPlaybackState()
@@ -210,6 +221,24 @@ export const usePlayerStore = defineStore('player', () => {
     if (crossfading) cancelCrossfade()
     isPlaying.value = false
     setMediaPlaybackState()
+  }
+
+  /**
+   * Передача воспроизведения: старое устройство не обрубает звук, а плавно
+   * затухает ~секунду, пока новое уже играет — без ощущения «вырубилось».
+   */
+  let fadeOutTimer = null
+  function fadeOutAndPause(ms = 1100) {
+    if (!inited.value || !isPlaying.value) return pauseLocal()
+    clearTimeout(fadeOutTimer)
+    const t = ctx.currentTime
+    master.gain.cancelScheduledValues(t)
+    master.gain.setValueAtTime(master.gain.value, t)
+    master.gain.linearRampToValueAtTime(0.0001, t + ms / 1000)
+    fadeOutTimer = setTimeout(() => {
+      pauseLocal()
+      setMasterVolume() // вернуть громкость для будущего локального воспроизведения
+    }, ms)
   }
 
   /** Мгновенно завершает кроссфейд: уходящий дек — стоп, активный — на номинал. */
@@ -663,7 +692,7 @@ export const usePlayerStore = defineStore('player', () => {
     // getters
     progress, upcoming,
     // actions
-    init, playContext, playTrack, togglePlay, pauseLocal, seek, setVolume, toggleMute,
+    init, playContext, playTrack, togglePlay, pauseLocal, fadeOutAndPause, seek, setVolume, toggleMute,
     next, prev, stop, loadSettings, setShuffle, setRepeat, cycleRepeat, hydrate, invalidateTransitions,
     addToQueue, removeFromManualQueue, removeUpcoming, clearManualQueue,
     playManualItem, playUpcomingItem, setManualQueue, setUpcoming,

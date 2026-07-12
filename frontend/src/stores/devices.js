@@ -112,14 +112,18 @@ export const useDeviceStore = defineStore('devices', () => {
 
   function lightTrack(t) {
     if (!t) return null
-    const cover = Array.isArray(t.cover)
-      ? t.cover.find((c) => c.size >= 64)?.url || t.cover[0]?.url
+    const arr = Array.isArray(t.cover) ? t.cover : null
+    const cover = arr
+      ? arr.find((c) => c.size >= 64)?.url || arr[0]?.url
       : t.cover?.[64] || t.cover?.[300] || null
+    // Максимальный рендер — для полноэкранного пульта (обложка на весь экран).
+    const coverBig = arr ? arr[arr.length - 1]?.url : t.cover?.[1000] || t.cover?.[640] || cover
     return {
       id: t.id,
       title: t.title,
       artists: (t.artists || []).map((a) => a.name).join(', '),
       cover,
+      coverBig,
       duration_ms: t.duration_ms,
     }
   }
@@ -176,7 +180,8 @@ export const useDeviceStore = defineStore('devices', () => {
           activeDeviceId.value = dev.id
           // Single active device: someone else started playing — we stop.
           if (player.isPlaying) {
-            player.pauseLocal()
+            // Плавная передача: новое устройство уже играет, мы затухаем ~1с.
+            player.fadeOutAndPause(1100)
             toasts.show(`Играет на устройстве «${dev.name}»`)
           }
         } else if (!activeDeviceId.value || activeDeviceId.value === dev.id) {
@@ -253,7 +258,8 @@ export const useDeviceStore = defineStore('devices', () => {
         // Another device asks us to hand playback over to `msg.target`.
         if (msg.target) {
           publish({ t: 'cmd', to: msg.target, action: 'transfer', state: snapshot() })
-          if (player.isPlaying) player.pauseLocal()
+          // Не глушим сразу: продолжаем играть, пока приёмник не заиграет
+          // (его state-бродкаст запустит плавное затухание).
         }
         break
       case 'play-context': {
@@ -338,7 +344,7 @@ export const useDeviceStore = defineStore('devices', () => {
       action: 'transfer',
       state: snapshot(),
     })
-    if (player.isPlaying) player.pauseLocal()
+    // Продолжаем играть до state-бродкаста приёмника — тогда плавно затухнем.
     const name = devices.value[deviceId]?.name || 'устройство'
     toasts.show(`Играет на устройстве «${name}»`)
   }
@@ -361,10 +367,18 @@ export const useDeviceStore = defineStore('devices', () => {
     if (remoteState.value) {
       if (action === 'pause') remoteState.value.playing = false
       if (action === 'play') remoteState.value.playing = true
-      if (action === 'seek') remoteState.value.pos = value
+      if (action === 'seek') {
+        remoteState.value.pos = value
+        remoteState.value.receivedAt = Date.now()
+      }
       if (action === 'volume') remoteState.value.vol = value
       if (action === 'shuffle') remoteState.value.shuffle = value
       if (action === 'repeat') remoteState.value.repeat = value
+      // Переключение трека: таймлайн пульта сразу с нуля.
+      if (action === 'next' || action === 'prev' || action === 'play-context') {
+        remoteState.value.pos = 0
+        remoteState.value.receivedAt = Date.now()
+      }
     }
   }
 

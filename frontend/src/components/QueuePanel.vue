@@ -58,6 +58,13 @@ async function resolveRemote() {
 }
 
 const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
+
+/** Одиночный клик по строке (мимо кнопок) — как везде в приложении. */
+function rowClick(e, fn) {
+  if (e.target.closest('button, a')) return
+  if (e.detail > 1) return
+  fn()
+}
 </script>
 
 <template>
@@ -92,7 +99,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
           v-for="m in remoteManual"
           :key="m.__qid"
           class="qrow"
-          @dblclick="devices.sendCommand('play-manual', m.__qid)"
+          @click="(e) => rowClick(e, () => devices.sendCommand('play-manual', m.__qid))"
         >
           <CoverImage :cover="m.cover" :size="48" class="qrow__cover" />
           <div class="qrow__meta">
@@ -111,7 +118,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
           v-for="(t, i) in remoteUpcoming"
           :key="`${t.id}-${i}`"
           class="qrow"
-          @dblclick="devices.sendCommand('play-upcoming', i)"
+          @click="(e) => rowClick(e, () => devices.sendCommand('play-upcoming', i))"
         >
           <CoverImage :cover="t.cover" :size="48" class="qrow__cover" />
           <div class="qrow__meta">
@@ -135,7 +142,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
     <div v-else v-osbar class="qp__body">
       <section v-if="player.currentTrack" class="qp__section">
         <h3 class="qp__label">Сейчас играет</h3>
-        <div class="qrow qrow--current" @dblclick="player.togglePlay()">
+        <div class="qrow qrow--current" @click="(e) => rowClick(e, () => player.togglePlay())">
           <CoverImage :cover="player.currentTrack.cover" :size="48" class="qrow__cover" />
           <div class="qrow__meta">
             <div class="qrow__title qrow__title--green">{{ player.currentTrack.title }}</div>
@@ -156,7 +163,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
           <template #item="{ element }">
             <div
               class="qrow qrow--grab"
-              @dblclick="player.playManualItem(element.__qid)"
+              @click="(e) => rowClick(e, () => player.playManualItem(element.__qid))"
               @contextmenu.prevent="openMenu($event, element, { queueQid: element.__qid })"
             >
               <div class="qrow__coverwrap">
@@ -186,7 +193,7 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
           <template #item="{ element, index }">
             <div
               class="qrow qrow--grab"
-              @dblclick="player.playUpcomingItem(index)"
+              @click="(e) => rowClick(e, () => player.playUpcomingItem(index))"
               @contextmenu.prevent="openMenu($event, element, { upcomingIndex: index })"
             >
               <div class="qrow__coverwrap">

@@ -29,7 +29,13 @@ export function usePlaybackControls() {
   const view = computed(() => {
     if (remote.value && rs.value?.track) {
       const t = rs.value.track
-      return { title: t.title, artists: t.artists || '', coverUrl: t.cover || null, cover: null }
+      return {
+        title: t.title,
+        artists: t.artists || '',
+        coverUrl: t.cover || null,
+        coverBigUrl: t.coverBig || t.cover || null,
+        cover: null,
+      }
     }
     const t = player.currentTrack
     if (!t) return null

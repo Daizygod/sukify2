@@ -25,17 +25,22 @@ export function useLyrics() {
     return out.sort((a, b) => a.ms - b.ms)
   }
 
+  // При быстром переключении треков поздний ответ старого запроса не должен
+  // затирать текст нового — сверяем порядковый номер запроса.
+  let seq = 0
   async function load() {
+    const my = ++seq
     lyrics.value = null
     lines.value = []
     const t = player.currentTrack
     if (!t) return
     try {
       const { data } = await api.get(`/tracks/${t.id}/lyrics`)
+      if (my !== seq) return // уже переключились на другой трек
       lyrics.value = data
       if (data.synced) lines.value = parseLrc(data.synced)
     } catch {
-      lyrics.value = { found: false }
+      if (my === seq) lyrics.value = { found: false }
     }
   }
   watch(() => player.currentTrack?.id, load, { immediate: true })

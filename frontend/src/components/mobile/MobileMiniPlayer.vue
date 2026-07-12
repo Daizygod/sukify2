@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import Icon from '../Icon.vue'
 import CoverImage from '../CoverImage.vue'
 import { useLibraryStore } from '@/stores/library'
@@ -9,8 +9,45 @@ import { usePlaybackControls } from '@/composables/usePlaybackControls'
 const library = useLibraryStore()
 const ui = useUiStore()
 
-const { player, devices, remote, localTrack, view, hasPlayback, shownPlaying, shownProgress, togglePlay } =
+const { player, devices, remote, localTrack, view, hasPlayback, shownPlaying, shownProgress, togglePlay, next, prev } =
   usePlaybackControls()
+
+// Свайп по мини-плееру влево/вправо переключает трек (как в приложении).
+const miniX = ref(0)
+const miniDrag = ref(false)
+let sx = 0
+let sy = 0
+let horiz = null
+let swiped = false
+function onTouchStart(e) {
+  sx = e.touches[0].clientX
+  sy = e.touches[0].clientY
+  horiz = null
+  swiped = false
+  miniDrag.value = true
+}
+function onTouchMove(e) {
+  const dx = e.touches[0].clientX - sx
+  const dy = e.touches[0].clientY - sy
+  if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy)
+  if (horiz) miniX.value = Math.max(-120, Math.min(120, dx))
+}
+function onTouchEnd() {
+  miniDrag.value = false
+  const dx = miniX.value
+  miniX.value = 0
+  if (!horiz) return
+  if (Math.abs(dx) > 12) swiped = true // подавляем клик-открытие после свайпа
+  if (dx < -56) next()
+  else if (dx > 56) prev()
+}
+function onOpen() {
+  if (swiped) {
+    swiped = false
+    return
+  }
+  ui.mobileNowOpen = true
+}
 
 const liked = computed(() => localTrack.value && library.isLiked(localTrack.value.id))
 const bg = computed(() =>
@@ -22,7 +59,16 @@ const deviceLabel = computed(() =>
 </script>
 
 <template>
-  <div v-if="hasPlayback" class="mini" :style="{ '--mini-bg': bg }" @click="ui.mobileNowOpen = true">
+  <div
+    v-if="hasPlayback"
+    class="mini"
+    :class="{ 'mini--drag': miniDrag }"
+    :style="{ '--mini-bg': bg, transform: miniX ? `translateX(${miniX}px)` : '' }"
+    @click="onOpen"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend.passive="onTouchEnd"
+  >
     <img v-if="view.coverUrl" :src="view.coverUrl" class="mini__cover mini__cover--img" alt="" />
     <CoverImage v-else :cover="view.cover" :size="80" class="mini__cover" />
     <div class="mini__meta">
@@ -65,6 +111,11 @@ const deviceLabel = computed(() =>
   background: color-mix(in srgb, var(--mini-bg) 60%, #181818);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   overflow: hidden;
+  touch-action: pan-y;
+  transition: transform 0.22s ease;
+}
+.mini--drag {
+  transition: none;
 }
 .mini__cover {
   width: 40px;

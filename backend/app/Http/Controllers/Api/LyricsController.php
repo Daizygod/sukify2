@@ -16,8 +16,9 @@ class LyricsController extends Controller
     public function show(Track $track)
     {
         $cached = TrackLyrics::where('track_id', $track->id)->first();
-        // Отрицательный кэш переспрашиваем раз в неделю.
-        if ($cached && ($cached->found || $cached->fetched_at?->gt(now()->subWeek()))) {
+        // Синхронизированный текст — навсегда; обычный текст или «не найдено»
+        // переспрашиваем раз в неделю (вдруг на LRCLIB появился synced-вариант).
+        if ($cached && ($cached->synced_lyrics || $cached->fetched_at?->gt(now()->subWeek()))) {
             return $this->respond($cached);
         }
 
@@ -41,20 +42,31 @@ class LyricsController extends Controller
                 ->withHeaders(['User-Agent' => 'Sukify/1.0 (https://localhost)']);
 
             $res = $client()->get('https://lrclib.net/api/get', $payload);
+            $hit = $res->successful() ? $res->json() : null;
+            $synced = $hit['syncedLyrics'] ?? null;
+            $plain = $hit['plainLyrics'] ?? null;
 
-            if (! $res->successful()) {
-                // Точного совпадения нет — пробуем поиск.
+            // Точное совпадение без таймкодов (или мимо) — ищем в /search
+            // вариант С синхронизацией: у LRCLIB часто несколько записей на трек.
+            if (! $synced) {
                 $res = $client()->get('https://lrclib.net/api/search', [
                     'track_name' => $payload['track_name'],
                     'artist_name' => $payload['artist_name'],
                 ]);
-                $hit = $res->successful() ? collect($res->json())->first() : null;
-            } else {
-                $hit = $res->json();
+                $hits = $res->successful() ? collect($res->json()) : collect();
+                $dur = (int) $payload['duration'];
+                $best = $hits
+                    ->filter(fn ($c) => ! empty($c['syncedLyrics']))
+                    // Ближайший по длительности, и не дальше 10 секунд (иначе ремикс).
+                    ->sortBy(fn ($c) => abs(($c['duration'] ?? 0) - $dur))
+                    ->first(fn ($c) => $dur === 0 || abs(($c['duration'] ?? 0) - $dur) <= 10);
+                if ($best) {
+                    $synced = $best['syncedLyrics'];
+                    $plain = $plain ?? ($best['plainLyrics'] ?? null);
+                } elseif (! $plain) {
+                    $plain = $hits->first()['plainLyrics'] ?? null;
+                }
             }
-
-            $synced = $hit['syncedLyrics'] ?? null;
-            $plain = $hit['plainLyrics'] ?? null;
         } catch (\Throwable) {
             // офлайн/таймаут — вернём "не найдено", но перепросим позже
         }

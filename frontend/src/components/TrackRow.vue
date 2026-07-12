@@ -45,11 +45,12 @@ function play() {
   player.playTrack(props.track, props.contextTracks, { name: props.contextName })
 }
 
-// На мобильном строка играет по одиночному тапу (как в приложении).
+// Строка играет по одиночному клику/тапу (и на ПК, и на мобильном).
 const isMobile = useIsMobile()
 function onRowClick(e) {
-  if (!isMobile.value) return
   if (e.target.closest('a, button')) return
+  // Второй клик даблклика игнорируем, иначе трек тут же встанет на паузу.
+  if (e.detail > 1) return
   play()
 }
 
@@ -100,7 +101,6 @@ function toggleLike() {
     class="row trackgrid"
     :class="[`trackgrid--${variant}`, { 'row--active': isCurrent, 'row--drag': swipeDrag }]"
     :style="swipeX ? { transform: `translateX(${swipeX}px)` } : null"
-    @dblclick="play"
     @click="onRowClick"
     @contextmenu.prevent="menu.openMenu($event, track)"
     @touchstart.passive="onSwipeStart"

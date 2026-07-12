@@ -120,19 +120,36 @@ function onTouchEnd() {
     swipeX.value = 0
     return
   }
-  // Доводим карусель до соседнего слайда, потом переключаем трек.
+  // Доводим карусель до соседнего слайда и держим её там, пока трек
+  // реально не сменится (locally мгновенно, на пульте — по бродкасту),
+  // иначе обложка «отпрыгивает» назад до смены.
   settling.value = true
   swipeX.value = goNext ? -w : w
-  setTimeout(async () => {
-    if (goNext) await next()
-    else await prev()
-    // Мгновенно возвращаем ленту в центр уже с новой обложкой.
-    settling.value = false
-    swiping.value = true // отключает transition на один кадр
-    swipeX.value = 0
-    requestAnimationFrame(() => (swiping.value = false))
-  }, 240)
+  setTimeout(() => (goNext ? next() : prev()), 230)
+  // Страховка: трек не сменился (конец очереди и т.п.) — вернуть плавно.
+  clearTimeout(settleGuard)
+  settleGuard = setTimeout(() => {
+    if (settling.value) {
+      settling.value = false
+      swipeX.value = 0
+    }
+  }, 4000)
 }
+
+// Как только показываемый трек сменился — мгновенно центрируем ленту
+// (в центре уже новая обложка, боковые слайды пересчитались).
+let settleGuard = null
+const trackKey = computed(() =>
+  remote.value ? devices.remoteState?.track?.id ?? view.value?.title : localTrack.value?.id
+)
+watch(trackKey, () => {
+  if (!settling.value) return
+  clearTimeout(settleGuard)
+  settling.value = false
+  swiping.value = true // выключаем transition на один кадр
+  swipeX.value = 0
+  requestAnimationFrame(() => (swiping.value = false))
+})
 
 // Нижние шиты.
 const queueOpen = ref(false)
@@ -183,7 +200,7 @@ const previewLines = computed(() => {
             <CoverImage v-if="prevTrack" :cover="prevTrack.cover" :size="1000" class="mnp__cover" />
           </div>
           <div class="mnp__slide">
-            <img v-if="view.coverUrl" :src="view.coverUrl" class="mnp__cover mnp__cover--img" alt="" />
+            <img v-if="view.coverBigUrl" :src="view.coverBigUrl" class="mnp__cover mnp__cover--img" alt="" />
             <CoverImage v-else :cover="view.cover" :size="1000" class="mnp__cover" />
           </div>
           <div class="mnp__slide">
