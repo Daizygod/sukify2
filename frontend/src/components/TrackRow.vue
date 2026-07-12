@@ -8,6 +8,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
+import { useDeviceStore } from '@/stores/devices'
 import { useIsMobile } from '@/composables/useIsMobile'
 import { useToastStore } from '@/stores/toasts'
 import { ref } from 'vue'
@@ -26,8 +27,16 @@ const library = useLibraryStore()
 const auth = useAuthStore()
 const menu = useMenuStore()
 
-const isCurrent = computed(() => player.currentTrack?.id === props.track.id)
-const isPlayingThis = computed(() => isCurrent.value && player.isPlaying)
+const devices = useDeviceStore()
+// «Текущий» трек — с учётом Connect: если играет другое устройство, сверяемся с ним.
+const isCurrent = computed(() =>
+  devices.isRemote
+    ? devices.remoteState?.track?.id === props.track.id
+    : player.currentTrack?.id === props.track.id
+)
+const isPlayingThis = computed(() =>
+  isCurrent.value && (devices.isRemote ? !!devices.remoteState?.playing : player.isPlaying)
+)
 const liked = computed(() => library.isLiked(props.track.id))
 const addedAt = computed(() => props.track.added_at || props.track.liked_at)
 

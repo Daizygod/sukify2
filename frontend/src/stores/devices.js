@@ -90,7 +90,9 @@ export const useDeviceStore = defineStore('devices', () => {
 
       helloTimer = setInterval(sayHello, HELLO_INTERVAL)
       stateTimer = setInterval(() => {
-        if (player.isPlaying && activeDeviceId.value === myId) broadcastState()
+        // Транслируем и на паузе: иначе через DEVICE_TTL пульты «слепнут»
+        // и начинают управлять локальным плеером вместо активного.
+        if (player.currentTrack && activeDeviceId.value === myId) broadcastState()
       }, STATE_INTERVAL)
 
       window.addEventListener('beforeunload', () => publish({ t: 'bye', d: my }))
@@ -136,6 +138,8 @@ export const useDeviceStore = defineStore('devices', () => {
       up: player.upcoming.slice(0, 60).map((t) => t.id),
       man: player.manualQueue.map((t) => ({ q: t.__qid, id: t.id })),
       ctx: player.contextName,
+      shuffle: player.shuffle,
+      repeat: player.repeat,
       ts: Date.now(),
     })
   }
@@ -154,7 +158,7 @@ export const useDeviceStore = defineStore('devices', () => {
     switch (msg.t) {
       case 'ping':
         sayHello()
-        if (player.isPlaying && activeDeviceId.value === myId) broadcastState()
+        if (player.currentTrack && activeDeviceId.value === myId) broadcastState()
         break
       case 'bye': {
         const rest = { ...devices.value }
@@ -172,9 +176,12 @@ export const useDeviceStore = defineStore('devices', () => {
           activeDeviceId.value = dev.id
           // Single active device: someone else started playing — we stop.
           if (player.isPlaying) {
-            player.togglePlay()
+            player.pauseLocal()
             toasts.show(`Играет на устройстве «${dev.name}»`)
           }
+        } else if (!activeDeviceId.value || activeDeviceId.value === dev.id) {
+          // Активное устройство на паузе — оно всё ещё «активное» (как в Spotify).
+          activeDeviceId.value = dev.id
         }
         break
       case 'cmd':
@@ -221,13 +228,9 @@ export const useDeviceStore = defineStore('devices', () => {
       case 'queue-add': {
         // Пульт добавил трек(и) в очередь этого устройства.
         const ids = Array.isArray(msg.value) ? msg.value : [msg.value]
-        try {
-          const { data } = await api.get('/tracks-bulk', { params: { ids: ids.join(',') } })
-          data.data.forEach((t) => player.addToQueue(t))
-          broadcastState()
-        } catch {
-          /* ignore */
-        }
+        const tracks = await fetchTracksOrdered(ids)
+        tracks.forEach((t) => player.addToQueue(t))
+        broadcastState()
         break
       }
       case 'queue-remove-manual':
@@ -250,9 +253,37 @@ export const useDeviceStore = defineStore('devices', () => {
         // Another device asks us to hand playback over to `msg.target`.
         if (msg.target) {
           publish({ t: 'cmd', to: msg.target, action: 'transfer', state: snapshot() })
-          if (player.isPlaying) player.togglePlay()
+          if (player.isPlaying) player.pauseLocal()
         }
         break
+      case 'play-context': {
+        // Пульт включил трек/альбом: играем этот контекст здесь.
+        const { ids = [], index = 0, name = '' } = msg.value || {}
+        const tracks = await fetchTracksOrdered(ids)
+        if (tracks.length) await player.playContext(tracks, Math.min(index, tracks.length - 1), { name })
+        broadcastState()
+        break
+      }
+      case 'shuffle':
+        player.setShuffle(!!msg.value)
+        broadcastState()
+        break
+      case 'repeat':
+        player.setRepeat(msg.value)
+        broadcastState()
+        break
+    }
+  }
+
+  /** /tracks-bulk не гарантирует порядок — восстанавливаем по списку id. */
+  async function fetchTracksOrdered(ids) {
+    if (!ids.length) return []
+    try {
+      const { data } = await api.get('/tracks-bulk', { params: { ids: ids.join(',') } })
+      const byId = new Map(data.data.map((t) => [t.id, t]))
+      return ids.map((id) => byId.get(id)).filter(Boolean)
+    } catch {
+      return []
     }
   }
 
@@ -307,7 +338,7 @@ export const useDeviceStore = defineStore('devices', () => {
       action: 'transfer',
       state: snapshot(),
     })
-    if (player.isPlaying) player.togglePlay()
+    if (player.isPlaying) player.pauseLocal()
     const name = devices.value[deviceId]?.name || 'устройство'
     toasts.show(`Играет на устройстве «${name}»`)
   }
@@ -332,6 +363,8 @@ export const useDeviceStore = defineStore('devices', () => {
       if (action === 'play') remoteState.value.playing = true
       if (action === 'seek') remoteState.value.pos = value
       if (action === 'volume') remoteState.value.vol = value
+      if (action === 'shuffle') remoteState.value.shuffle = value
+      if (action === 'repeat') remoteState.value.repeat = value
     }
   }
 
@@ -358,9 +391,16 @@ export const useDeviceStore = defineStore('devices', () => {
         }
       }
     )
-    // Изменения очереди тоже транслируем пультам.
+    // Изменения очереди тоже транслируем пультам (отпечаток ловит и reorder,
+    // и замену трека при неизменной длине — не только length).
     watch(
-      () => [player.manualQueue.length, player.queue.length, player.queueIndex],
+      () => [
+        player.manualQueue.map((t) => t.__qid).join(','),
+        player.queue.map((t) => t.id).join(','),
+        player.queueIndex,
+        player.shuffle,
+        player.repeat,
+      ].join('|'),
       () => {
         if (activeDeviceId.value === myId && player.currentTrack) broadcastState()
       }

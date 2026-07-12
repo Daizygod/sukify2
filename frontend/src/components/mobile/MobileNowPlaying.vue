@@ -24,7 +24,8 @@ const router = useRouter()
 const {
   player, devices, remote, localTrack, view, hasPlayback,
   shownPlaying, shownDuration, shownPosition, shownProgress,
-  togglePlay, next, prev, seek,
+  shownShuffle, shownRepeat,
+  togglePlay, next, prev, seek, toggleShuffle, cycleRepeat,
 } = usePlaybackControls()
 
 const liked = computed(() => localTrack.value && library.isLiked(localTrack.value.id))
@@ -144,9 +145,6 @@ function goArtist(slug) {
   close()
   router.push({ name: 'artist', params: { slug } })
 }
-function cycleRepeat() {
-  player.repeat = player.repeat === 'off' ? 'all' : player.repeat === 'all' ? 'one' : 'off'
-}
 function openMenu(e) {
   if (localTrack.value) menu.openMenu(e, localTrack.value)
 }
@@ -223,7 +221,7 @@ const previewLines = computed(() => {
       </div>
 
       <div class="mnp__controls">
-        <button class="mnp__ctl" :class="{ on: player.shuffle }" @click="player.setShuffle(!player.shuffle)">
+        <button class="mnp__ctl" :class="{ on: shownShuffle }" @click="toggleShuffle">
           <Icon name="shuffle" :size="22" />
         </button>
         <button class="mnp__ctl mnp__ctl--big" @click="prev"><Icon name="prev" :size="30" /></button>
@@ -231,9 +229,9 @@ const previewLines = computed(() => {
           <Icon :name="shownPlaying ? 'pauseBig' : 'playBig'" :size="30" />
         </button>
         <button class="mnp__ctl mnp__ctl--big" @click="next"><Icon name="next" :size="30" /></button>
-        <button class="mnp__ctl" :class="{ on: player.repeat !== 'off' }" @click="cycleRepeat">
+        <button class="mnp__ctl" :class="{ on: shownRepeat !== 'off' }" @click="cycleRepeat">
           <Icon name="repeat" :size="22" />
-          <span v-if="player.repeat === 'one'" class="mnp__one">1</span>
+          <span v-if="shownRepeat === 'one'" class="mnp__one">1</span>
         </button>
       </div>
 

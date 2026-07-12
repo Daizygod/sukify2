@@ -56,25 +56,25 @@ const shownVolume = computed(() =>
   remote.value ? rs.value?.vol ?? 0.8 : player.muted ? 0 : player.volume
 )
 
+// Шафл/повтор активного устройства (store сам маршрутизирует команды).
+const shownShuffle = computed(() => (remote.value ? !!rs.value?.shuffle : player.shuffle))
+const shownRepeat = computed(() => (remote.value ? rs.value?.repeat || 'off' : player.repeat))
+
 function onTogglePlay() {
   if (remote.value) return devices.sendCommand(shownPlaying.value ? 'pause' : 'play')
   player.togglePlay()
 }
 function onNext() {
-  remote.value ? devices.sendCommand('next') : player.next()
+  player.next()
 }
 function onPrev() {
-  remote.value ? devices.sendCommand('prev') : player.prev()
+  player.prev()
 }
 function onSeek(frac) {
-  const ms = frac * shownDuration.value
-  remote.value ? devices.sendCommand('seek', ms) : player.seek(ms)
+  player.seek(frac * shownDuration.value)
 }
 function onVol(frac) {
   remote.value ? devices.sendCommand('volume', frac) : player.setVolume(frac)
-}
-function cycleRepeat() {
-  player.repeat = player.repeat === 'off' ? 'all' : player.repeat === 'all' ? 'one' : 'off'
 }
 </script>
 
@@ -115,15 +115,15 @@ function cycleRepeat() {
       <!-- Center: controls -->
       <div class="player__center">
         <div class="player__controls">
-          <button class="ctl ctl--dot" :class="{ on: player.shuffle }" title="В случайном порядке" @click="player.setShuffle(!player.shuffle)"><Icon name="shuffle" :size="16" /></button>
+          <button class="ctl ctl--dot" :class="{ on: shownShuffle }" title="В случайном порядке" @click="player.setShuffle(!shownShuffle)"><Icon name="shuffle" :size="16" /></button>
           <button class="ctl" title="Назад" @click="onPrev"><Icon name="prev" :size="16" /></button>
           <button class="player__play" @click="onTogglePlay">
             <Icon :name="shownPlaying ? 'pause' : 'play'" :size="16" />
           </button>
           <button class="ctl" title="Далее" @click="onNext"><Icon name="next" :size="16" /></button>
-          <button class="ctl ctl--dot" :class="{ on: player.repeat !== 'off' }" title="Повторять" @click="cycleRepeat">
+          <button class="ctl ctl--dot" :class="{ on: shownRepeat !== 'off' }" title="Повторять" @click="player.cycleRepeat()">
             <Icon name="repeat" :size="16" />
-            <span v-if="player.repeat === 'one'" class="ctl__one">1</span>
+            <span v-if="shownRepeat === 'one'" class="ctl__one">1</span>
           </button>
         </div>
         <div class="player__progress">

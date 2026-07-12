@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/lib/api'
 import { buildCurve } from '@/lib/curves'
+// Циклический импорт (devices ↔ player) безопасен: стор берём лениво в экшенах.
+import { useDeviceStore } from '@/stores/devices'
 
 /**
  * The player owns the whole Web Audio graph:
@@ -95,7 +97,29 @@ export const usePlayerStore = defineStore('player', () => {
 
   // --- transport ---------------------------------------------------------
 
+  /**
+   * Пока активно другое устройство, все действия — это команды ему
+   * (как в Spotify Connect): вернёт devices-store или null.
+   */
+  function remoteTarget() {
+    try {
+      const d = useDeviceStore()
+      return d.isRemote ? d : null
+    } catch {
+      return null
+    }
+  }
+
   async function playContext(tracks, startIndex = 0, meta = {}) {
+    const d = remoteTarget()
+    if (d) {
+      d.sendCommand('play-context', {
+        ids: tracks.filter((t) => t.stream_url).map((t) => t.id),
+        index: startIndex,
+        name: meta.name || '',
+      })
+      return
+    }
     init()
     queue.value = tracks.filter((t) => t.stream_url)
     queueIndex.value = Math.min(startIndex, queue.value.length - 1)
@@ -151,6 +175,11 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function togglePlay() {
+    const d = remoteTarget()
+    if (d) {
+      d.sendCommand(d.remoteState?.playing ? 'pause' : 'play')
+      return
+    }
     if (!currentTrack.value) return
     const el = activeDeck().el
     if (el.paused) {
@@ -170,6 +199,19 @@ export const usePlayerStore = defineStore('player', () => {
     setMediaPlaybackState()
   }
 
+  /**
+   * Пауза строго локального звука — без маршрутизации на пульт.
+   * Нужна devices-стору: «другое устройство заиграло — глушим себя».
+   */
+  function pauseLocal() {
+    if (!inited.value) return
+    const el = activeDeck().el
+    if (!el.paused) el.pause()
+    if (crossfading) cancelCrossfade()
+    isPlaying.value = false
+    setMediaPlaybackState()
+  }
+
   /** Мгновенно завершает кроссфейд: уходящий дек — стоп, активный — на номинал. */
   function cancelCrossfade() {
     clearTimeout(fadeTimer)
@@ -184,6 +226,11 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function seek(ms) {
+    const d = remoteTarget()
+    if (d) {
+      d.sendCommand('seek', ms)
+      return
+    }
     const el = activeDeck().el
     if (el && isFinite(ms)) {
       el.currentTime = ms / 1000
@@ -222,6 +269,8 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   async function next() {
+    const d = remoteTarget()
+    if (d) return d.sendCommand('next')
     if (repeat.value === 'one' && currentTrack.value) {
       return loadAndPlay(currentTrack.value)
     }
@@ -236,6 +285,8 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   async function prev() {
+    const d = remoteTarget()
+    if (d) return d.sendCommand('prev')
     // Restart current track if we're more than 3s in.
     if (positionMs.value > 3000) return seek(0)
     if (queueIndex.value > 0) {
@@ -259,6 +310,12 @@ export const usePlayerStore = defineStore('player', () => {
   /** «Добавить в очередь» — plays after the current track, before the context. */
   function addToQueue(track) {
     if (!track?.stream_url) return false
+    const d = remoteTarget()
+    if (d) {
+      // Очередью владеет активное устройство — шлём ему.
+      d.sendCommand('queue-add', [track.id])
+      return true
+    }
     manualQueue.value.push({ ...track, __qid: ++qidCounter })
     return true
   }
@@ -336,6 +393,8 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function setShuffle(on) {
+    const d = remoteTarget()
+    if (d) return d.sendCommand('shuffle', !!on)
     shuffle.value = on
     if (!queue.value.length) return
     if (on) {
@@ -347,6 +406,19 @@ export const usePlayerStore = defineStore('player', () => {
       const idx = queue.value.findIndex((t) => t.id === cur?.id)
       if (idx >= 0) queueIndex.value = idx
     }
+  }
+
+  /** Режим повтора; на пульте — команда активному устройству. */
+  function setRepeat(mode) {
+    const d = remoteTarget()
+    if (d) return d.sendCommand('repeat', mode)
+    repeat.value = mode
+  }
+
+  function cycleRepeat() {
+    const d = remoteTarget()
+    const cur = d ? d.remoteState?.repeat || 'off' : repeat.value
+    setRepeat(cur === 'off' ? 'all' : cur === 'all' ? 'one' : 'off')
   }
 
   // --- crossfade ---------------------------------------------------------
@@ -591,8 +663,8 @@ export const usePlayerStore = defineStore('player', () => {
     // getters
     progress, upcoming,
     // actions
-    init, playContext, playTrack, togglePlay, seek, setVolume, toggleMute,
-    next, prev, stop, loadSettings, setShuffle, hydrate, invalidateTransitions,
+    init, playContext, playTrack, togglePlay, pauseLocal, seek, setVolume, toggleMute,
+    next, prev, stop, loadSettings, setShuffle, setRepeat, cycleRepeat, hydrate, invalidateTransitions,
     addToQueue, removeFromManualQueue, removeUpcoming, clearManualQueue,
     playManualItem, playUpcomingItem, setManualQueue, setUpcoming,
   }

@@ -56,19 +56,29 @@ export function usePlaybackControls() {
     shownDuration.value ? Math.min(shownPosition.value / shownDuration.value, 1) : 0
   )
 
+  // Шафл/повтор активного устройства (или локальные).
+  const shownShuffle = computed(() => (remote.value ? !!rs.value?.shuffle : player.shuffle))
+  const shownRepeat = computed(() => (remote.value ? rs.value?.repeat || 'off' : player.repeat))
+
+  // Экшены плеера сами маршрутизируют на активное устройство (Connect).
   function togglePlay() {
     if (remote.value) return devices.sendCommand(shownPlaying.value ? 'pause' : 'play')
     player.togglePlay()
   }
   function next() {
-    remote.value ? devices.sendCommand('next') : player.next()
+    player.next()
   }
   function prev() {
-    remote.value ? devices.sendCommand('prev') : player.prev()
+    player.prev()
   }
   function seek(frac) {
-    const ms = frac * shownDuration.value
-    remote.value ? devices.sendCommand('seek', ms) : player.seek(ms)
+    player.seek(frac * shownDuration.value)
+  }
+  function toggleShuffle() {
+    player.setShuffle(!shownShuffle.value)
+  }
+  function cycleRepeat() {
+    player.cycleRepeat()
   }
 
   return {
@@ -82,9 +92,13 @@ export function usePlaybackControls() {
     shownDuration,
     shownPosition,
     shownProgress,
+    shownShuffle,
+    shownRepeat,
     togglePlay,
     next,
     prev,
     seek,
+    toggleShuffle,
+    cycleRepeat,
   }
 }
