@@ -39,6 +39,7 @@ export const usePlayerStore = defineStore('player', () => {
   let decks = [] // [{ el, source, gain }]
   let active = 0
   let crossfading = false
+  let fadeTimer = null // глушит уходящий дек в конце кроссфейда
   let rafId = null
   let onEndedHandler = null
 
@@ -70,6 +71,8 @@ export const usePlayerStore = defineStore('player', () => {
       gain.connect(master)
       return { el, source, gain }
     })
+    // Отладочный доступ (и для E2E-тестов): оба аудиоэлемента.
+    window.__sukifyDecks = decks.map((d) => d.el)
 
     inited.value = true
   }
@@ -159,9 +162,25 @@ export const usePlayerStore = defineStore('player', () => {
       isPlaying.value = true
     } else {
       el.pause()
+      // Пауза во время кроссфейда: старый дек ещё дозатухает по таймеру и без
+      // этого доиграл бы до конца. Обрываем фейд и глушим его сразу.
+      if (crossfading) cancelCrossfade()
       isPlaying.value = false
     }
     setMediaPlaybackState()
+  }
+
+  /** Мгновенно завершает кроссфейд: уходящий дек — стоп, активный — на номинал. */
+  function cancelCrossfade() {
+    clearTimeout(fadeTimer)
+    crossfading = false
+    const out = idleDeck()
+    out.el.pause()
+    out.gain.gain.cancelScheduledValues(ctx.currentTime)
+    out.gain.gain.value = 0
+    const cur = activeDeck()
+    cur.gain.gain.cancelScheduledValues(ctx.currentTime)
+    cur.gain.gain.value = normGain(currentTrack.value)
   }
 
   function seek(ms) {
@@ -423,7 +442,8 @@ export const usePlayerStore = defineStore('player', () => {
     bindEnded()
 
     // Старый дек глушим, когда его затухание закончилось.
-    setTimeout(() => {
+    clearTimeout(fadeTimer)
+    fadeTimer = setTimeout(() => {
       curOut.el.pause()
       crossfading = false
     }, fadeOutLen)

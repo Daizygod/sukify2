@@ -2,40 +2,48 @@
 import { computed } from 'vue'
 import Icon from '../Icon.vue'
 import CoverImage from '../CoverImage.vue'
-import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useUiStore } from '@/stores/ui'
+import { usePlaybackControls } from '@/composables/usePlaybackControls'
 
-const player = usePlayerStore()
 const library = useLibraryStore()
 const ui = useUiStore()
 
-const track = computed(() => player.currentTrack)
-const liked = computed(() => track.value && library.isLiked(track.value.id))
-const bg = computed(() => track.value?.release?.colors?.background || '#3a3a3a')
-const progress = computed(() => (player.durationMs ? Math.min(player.positionMs / player.durationMs, 1) : 0))
-const artists = computed(() => (track.value?.artists || []).map((a) => a.name).join(', '))
+const { player, devices, remote, localTrack, view, hasPlayback, shownPlaying, shownProgress, togglePlay } =
+  usePlaybackControls()
+
+const liked = computed(() => localTrack.value && library.isLiked(localTrack.value.id))
+const bg = computed(() =>
+  remote.value ? '#503750' : localTrack.value?.release?.colors?.background || '#3a3a3a'
+)
+const deviceLabel = computed(() =>
+  remote.value ? `Играет: ${devices.activeDevice?.name || 'другое устройство'}` : 'Sukify Web Player'
+)
 </script>
 
 <template>
-  <div v-if="track" class="mini" :style="{ '--mini-bg': bg }" @click="ui.mobileNowOpen = true">
-    <CoverImage :cover="track.cover" :size="80" class="mini__cover" />
+  <div v-if="hasPlayback" class="mini" :style="{ '--mini-bg': bg }" @click="ui.mobileNowOpen = true">
+    <img v-if="view.coverUrl" :src="view.coverUrl" class="mini__cover mini__cover--img" alt="" />
+    <CoverImage v-else :cover="view.cover" :size="80" class="mini__cover" />
     <div class="mini__meta">
       <div class="mini__line">
-        <span class="mini__title">{{ track.title }}</span>
+        <span class="mini__title">{{ view.title }}</span>
         <span class="mini__sep"> • </span>
-        <span class="mini__artists">{{ artists }}</span>
+        <span class="mini__artists">{{ view.artists }}</span>
       </div>
-      <div class="mini__device">Sukify Web Player</div>
+      <div class="mini__device" :class="{ 'mini__device--remote': remote }">
+        <Icon v-if="remote" name="devices" :size="11" />
+        {{ deviceLabel }}
+      </div>
     </div>
-    <button class="mini__btn" :class="{ on: liked }" @click.stop="library.toggleLike(track)">
+    <button v-if="localTrack" class="mini__btn" :class="{ on: liked }" @click.stop="library.toggleLike(localTrack)">
       <Icon :name="liked ? 'checkCircleBig' : 'plusCircleBig'" :size="24" />
     </button>
-    <button class="mini__btn mini__play" @click.stop="player.togglePlay()">
-      <Icon :name="player.isPlaying ? 'pauseBig' : 'playBig'" :size="24" />
+    <button class="mini__btn mini__play" @click.stop="togglePlay">
+      <Icon :name="shownPlaying ? 'pauseBig' : 'playBig'" :size="24" />
     </button>
     <div class="mini__bar">
-      <div class="mini__fill" :style="{ width: progress * 100 + '%' }"></div>
+      <div class="mini__fill" :style="{ width: shownProgress * 100 + '%' }"></div>
     </div>
   </div>
 </template>
@@ -63,6 +71,10 @@ const artists = computed(() => (track.value?.artists || []).map((a) => a.name).j
   flex: 0 0 40px;
   border-radius: 4px;
 }
+.mini__cover--img {
+  height: 40px;
+  object-fit: cover;
+}
 .mini__meta {
   flex: 1;
   min-width: 0;
@@ -85,6 +97,11 @@ const artists = computed(() => (track.value?.artists || []).map((a) => a.name).j
   font-size: 11px;
   color: var(--accent);
   margin-top: 1px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .mini__btn {
   color: #fff;

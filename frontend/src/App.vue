@@ -127,7 +127,7 @@ function startRight(e) {
 
   <!-- Мобильный каркас: контент + мини-плеер + нижняя навигация. -->
   <div v-else-if="isMobile" class="appm">
-    <main ref="mobileScroll" class="appm__main" :class="{ 'appm__main--mini': player.currentTrack }">
+    <main ref="mobileScroll" class="appm__main" :class="{ 'appm__main--mini': player.currentTrack || devices.isRemote }">
       <RouterView />
     </main>
     <MobileMiniPlayer />

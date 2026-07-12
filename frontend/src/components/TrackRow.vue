@@ -9,6 +9,8 @@ import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
 import { useIsMobile } from '@/composables/useIsMobile'
+import { useToastStore } from '@/stores/toasts'
+import { ref } from 'vue'
 
 const props = defineProps({
   track: { type: Object, required: true },
@@ -41,6 +43,38 @@ function onRowClick(e) {
   if (e.target.closest('a, button')) return
   play()
 }
+
+// Свайп строки вправо — «Добавить в очередь» (как в приложении Spotify).
+const toasts = useToastStore()
+const swipeX = ref(0)
+const swipeDrag = ref(false)
+let sx = 0
+let sy = 0
+let sHoriz = null
+function onSwipeStart(e) {
+  if (!isMobile.value) return
+  sx = e.touches[0].clientX
+  sy = e.touches[0].clientY
+  sHoriz = null
+  swipeDrag.value = true
+}
+function onSwipeMove(e) {
+  if (!isMobile.value) return
+  const dx = e.touches[0].clientX - sx
+  const dy = e.touches[0].clientY - sy
+  if (sHoriz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    sHoriz = Math.abs(dx) > Math.abs(dy)
+  }
+  // Тянем только вправо.
+  if (sHoriz) swipeX.value = Math.max(0, Math.min(dx, 140))
+}
+function onSwipeEnd() {
+  swipeDrag.value = false
+  const dx = swipeX.value
+  swipeX.value = 0
+  if (!sHoriz || dx < 72) return
+  if (player.addToQueue(props.track)) toasts.show('Добавлено в очередь')
+}
 function toggleLike() {
   if (!auth.isAuthenticated) return
   library.toggleLike(props.track)
@@ -48,12 +82,21 @@ function toggleLike() {
 </script>
 
 <template>
+  <div class="rowwrap">
+    <!-- Зелёная подложка «в очередь», открывается свайпом вправо -->
+    <div v-if="swipeX > 0" class="rowwrap__queue" :style="{ width: swipeX + 'px' }">
+      <Icon name="queue" :size="20" />
+    </div>
   <div
     class="row trackgrid"
-    :class="[`trackgrid--${variant}`, { 'row--active': isCurrent }]"
+    :class="[`trackgrid--${variant}`, { 'row--active': isCurrent, 'row--drag': swipeDrag }]"
+    :style="swipeX ? { transform: `translateX(${swipeX}px)` } : null"
     @dblclick="play"
     @click="onRowClick"
     @contextmenu.prevent="menu.openMenu($event, track)"
+    @touchstart.passive="onSwipeStart"
+    @touchmove.passive="onSwipeMove"
+    @touchend.passive="onSwipeEnd"
   >
     <div class="row__index">
       <button class="row__play" @click="play">
@@ -107,14 +150,39 @@ function toggleLike() {
       </button>
     </div>
   </div>
+  </div>
 </template>
 
 <style scoped>
+.rowwrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.rowwrap__queue {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 4px 0 0 4px;
+}
 .row {
   padding: 8px 16px; /* 40px cover + 2×8 = 56px, как строка Spotify */
   border-radius: 4px;
   color: var(--text-subdued);
   font-size: 14px;
+  background: transparent;
+  transition: transform 0.22s ease;
+  touch-action: pan-y;
+}
+.row--drag {
+  transition: none;
 }
 .row:hover {
   background: rgba(255, 255, 255, 0.08);

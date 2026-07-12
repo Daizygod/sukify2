@@ -31,7 +31,8 @@ const isOn = (i) => i.match.includes(route.name)
   z-index: 50;
   display: flex;
   padding-bottom: env(safe-area-inset-bottom, 0);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.72), #000 46%);
+  /* Полупрозрачный градиент, как в приложении: контент виден сквозь затемнение. */
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.62) 34%, rgba(0, 0, 0, 0.92) 100%);
 }
 .mnav__item {
   flex: 1;

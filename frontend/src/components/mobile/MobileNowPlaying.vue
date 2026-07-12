@@ -5,32 +5,40 @@ import api from '@/lib/api'
 import Icon from '../Icon.vue'
 import CoverImage from '../CoverImage.vue'
 import DragBar from '../DragBar.vue'
+import MobileQueueSheet from './MobileQueueSheet.vue'
+import MobileDevicesSheet from './MobileDevicesSheet.vue'
 import { formatDuration, formatListeners } from '@/lib/format'
-import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useUiStore } from '@/stores/ui'
 import { useMenuStore } from '@/stores/menu'
 import { useAuthStore } from '@/stores/auth'
 import { useLyrics } from '@/composables/useLyrics'
+import { usePlaybackControls } from '@/composables/usePlaybackControls'
 
-const player = usePlayerStore()
 const library = useLibraryStore()
 const ui = useUiStore()
 const menu = useMenuStore()
 const auth = useAuthStore()
 const router = useRouter()
 
-const track = computed(() => player.currentTrack)
-const liked = computed(() => track.value && library.isLiked(track.value.id))
-const bg = computed(() => track.value?.release?.colors?.background || '#3b3054')
-const progress = computed(() => (player.durationMs ? Math.min(player.positionMs / player.durationMs, 1) : 0))
+const {
+  player, devices, remote, localTrack, view, hasPlayback,
+  shownPlaying, shownDuration, shownPosition, shownProgress,
+  togglePlay, next, prev, seek,
+} = usePlaybackControls()
+
+const liked = computed(() => localTrack.value && library.isLiked(localTrack.value.id))
+const bg = computed(() =>
+  remote.value ? '#503750' : localTrack.value?.release?.colors?.background || '#3b3054'
+)
 
 const { lyrics, lines, activeIndex, hasLyrics } = useLyrics()
+const showCards = computed(() => !remote.value && !!localTrack.value)
 
 // Карточка «Об исполнителе».
 const aboutArtist = ref(null)
 watch(
-  () => track.value?.artists?.[0]?.slug,
+  () => localTrack.value?.artists?.[0]?.slug,
   async (slug) => {
     aboutArtist.value = null
     if (!slug) return
@@ -43,6 +51,39 @@ watch(
 )
 const aboutImage = computed(() => aboutArtist.value?.banner_url || aboutArtist.value?.avatar_url || null)
 
+// Свайп обложки: влево — следующий, вправо — предыдущий.
+const swipeX = ref(0)
+const swiping = ref(false)
+let touchX = 0
+let touchY = 0
+let horizontal = null
+function onTouchStart(e) {
+  touchX = e.touches[0].clientX
+  touchY = e.touches[0].clientY
+  horizontal = null
+  swiping.value = true
+}
+function onTouchMove(e) {
+  const dx = e.touches[0].clientX - touchX
+  const dy = e.touches[0].clientY - touchY
+  if (horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    horizontal = Math.abs(dx) > Math.abs(dy)
+  }
+  if (horizontal) swipeX.value = Math.max(-140, Math.min(140, dx))
+}
+function onTouchEnd() {
+  swiping.value = false
+  const dx = swipeX.value
+  swipeX.value = 0
+  if (!horizontal) return
+  if (dx < -60) next()
+  else if (dx > 60) prev()
+}
+
+// Нижние шиты.
+const queueOpen = ref(false)
+const devicesOpen = ref(false)
+
 function close() {
   ui.mobileNowOpen = false
 }
@@ -54,14 +95,14 @@ function cycleRepeat() {
   player.repeat = player.repeat === 'off' ? 'all' : player.repeat === 'all' ? 'one' : 'off'
 }
 function openMenu(e) {
-  if (track.value) menu.openMenu(e, track.value)
+  if (localTrack.value) menu.openMenu(e, localTrack.value)
 }
 async function toggleFollow() {
   if (!auth.isAuthenticated || !aboutArtist.value) return
   await library.toggleFollow(aboutArtist.value)
 }
 
-// Превью текста в карточке — первые строки; активная подсвечивается.
+// Превью текста в карточке — активная строка подсвечивается.
 const previewLines = computed(() => {
   if (lines.value.length) return lines.value.map((l) => l.text || '♪')
   if (lyrics.value?.plain) return lyrics.value.plain.split('\n')
@@ -70,37 +111,48 @@ const previewLines = computed(() => {
 </script>
 
 <template>
-  <div v-if="track" class="mnp" :style="{ '--mnp-bg': bg }">
+  <div v-if="hasPlayback" class="mnp" :style="{ '--mnp-bg': bg }">
     <div class="mnp__head">
       <button class="mnp__hbtn" @click="close"><Icon name="caretDown" :size="20" /></button>
-      <span class="mnp__context">{{ player.contextName || 'Трек' }}</span>
-      <button class="mnp__hbtn" @click="openMenu"><Icon name="more" :size="20" /></button>
+      <span class="mnp__context">{{ remote ? devices.activeDevice?.name || 'Другое устройство' : player.contextName || 'Трек' }}</span>
+      <button class="mnp__hbtn" :style="{ visibility: localTrack ? 'visible' : 'hidden' }" @click="openMenu"><Icon name="more" :size="20" /></button>
     </div>
 
     <div class="mnp__scroll">
-      <div class="mnp__coverwrap">
-        <CoverImage :cover="track.cover" :size="1000" class="mnp__cover" />
+      <div
+        class="mnp__coverwrap"
+        @touchstart.passive="onTouchStart"
+        @touchmove.passive="onTouchMove"
+        @touchend.passive="onTouchEnd"
+      >
+        <div class="mnp__coverslide" :class="{ 'mnp__coverslide--drag': swiping }" :style="{ transform: `translateX(${swipeX}px) rotate(${swipeX / 30}deg)` }">
+          <img v-if="view.coverUrl" :src="view.coverUrl" class="mnp__cover mnp__cover--img" alt="" />
+          <CoverImage v-else :cover="view.cover" :size="1000" class="mnp__cover" />
+        </div>
       </div>
 
       <div class="mnp__titlerow">
         <div class="mnp__titles">
-          <div class="mnp__title">{{ track.title }}</div>
+          <div class="mnp__title">{{ view.title }}</div>
           <div class="mnp__artists">
-            <template v-for="(a, i) in track.artists" :key="a.id">
-              <span @click="goArtist(a.slug)">{{ a.name }}</span><span v-if="i < track.artists.length - 1">, </span>
+            <template v-if="localTrack">
+              <template v-for="(a, i) in localTrack.artists" :key="a.id">
+                <span @click="goArtist(a.slug)">{{ a.name }}</span><span v-if="i < localTrack.artists.length - 1">, </span>
+              </template>
             </template>
+            <template v-else>{{ view.artists }}</template>
           </div>
         </div>
-        <button v-if="auth.isAuthenticated" class="mnp__like" :class="{ on: liked }" @click="library.toggleLike(track)">
+        <button v-if="auth.isAuthenticated && localTrack" class="mnp__like" :class="{ on: liked }" @click="library.toggleLike(localTrack)">
           <Icon :name="liked ? 'checkCircleBig' : 'plusCircleBig'" :size="26" />
         </button>
       </div>
 
       <div class="mnp__progress">
-        <DragBar :value="progress" @input="(f) => player.seek(f * player.durationMs)" />
+        <DragBar :value="shownProgress" @input="seek" />
         <div class="mnp__times">
-          <span>{{ formatDuration(player.positionMs) }}</span>
-          <span>{{ formatDuration(player.durationMs) }}</span>
+          <span>{{ formatDuration(shownPosition) }}</span>
+          <span>{{ formatDuration(shownDuration) }}</span>
         </div>
       </div>
 
@@ -108,19 +160,30 @@ const previewLines = computed(() => {
         <button class="mnp__ctl" :class="{ on: player.shuffle }" @click="player.setShuffle(!player.shuffle)">
           <Icon name="shuffle" :size="22" />
         </button>
-        <button class="mnp__ctl mnp__ctl--big" @click="player.prev()"><Icon name="prev" :size="30" /></button>
-        <button class="mnp__play" @click="player.togglePlay()">
-          <Icon :name="player.isPlaying ? 'pauseBig' : 'playBig'" :size="30" />
+        <button class="mnp__ctl mnp__ctl--big" @click="prev"><Icon name="prev" :size="30" /></button>
+        <button class="mnp__play" @click="togglePlay">
+          <Icon :name="shownPlaying ? 'pauseBig' : 'playBig'" :size="30" />
         </button>
-        <button class="mnp__ctl mnp__ctl--big" @click="player.next()"><Icon name="next" :size="30" /></button>
+        <button class="mnp__ctl mnp__ctl--big" @click="next"><Icon name="next" :size="30" /></button>
         <button class="mnp__ctl" :class="{ on: player.repeat !== 'off' }" @click="cycleRepeat">
           <Icon name="repeat" :size="22" />
           <span v-if="player.repeat === 'one'" class="mnp__one">1</span>
         </button>
       </div>
 
+      <!-- Устройства слева, очередь справа — как в приложении -->
+      <div class="mnp__bottomrow">
+        <button class="mnp__devbtn" :class="{ on: remote }" @click="devicesOpen = true">
+          <Icon name="devices" :size="18" />
+          <span v-if="remote">{{ devices.activeDevice?.name || 'Другое устройство' }}</span>
+        </button>
+        <button class="mnp__qbtn" @click="queueOpen = true">
+          <Icon name="queue" :size="18" />
+        </button>
+      </div>
+
       <!-- Карточка «Текст» — как в мобильном Spotify -->
-      <section v-if="hasLyrics" class="mnp__card mnp__card--lyrics">
+      <section v-if="showCards && hasLyrics" class="mnp__card mnp__card--lyrics">
         <div class="mnp__cardhead">
           <h3>Текст</h3>
           <button class="mnp__expand" @click="ui.lyricsOpen = true"><Icon name="expand" :size="16" /></button>
@@ -139,7 +202,7 @@ const previewLines = computed(() => {
       </section>
 
       <!-- Карточка «Об исполнителе» -->
-      <section v-if="aboutArtist" class="mnp__card mnp__card--artist" @click="goArtist(aboutArtist.slug)">
+      <section v-if="showCards && aboutArtist" class="mnp__card mnp__card--artist" @click="goArtist(aboutArtist.slug)">
         <div class="mnp__artimg">
           <img v-if="aboutImage" :src="aboutImage" alt="" />
           <div v-else class="mnp__artimg-ph"><Icon name="person" :size="48" /></div>
@@ -154,6 +217,9 @@ const previewLines = computed(() => {
         </div>
       </section>
     </div>
+
+    <MobileQueueSheet v-if="queueOpen" @close="queueOpen = false" />
+    <MobileDevicesSheet v-if="devicesOpen" @close="devicesOpen = false" />
   </div>
 </template>
 
@@ -204,11 +270,25 @@ const previewLines = computed(() => {
   display: grid;
   place-items: center;
   padding: 4vh 0 5vh;
+  touch-action: pan-y;
+  overflow: hidden;
+}
+.mnp__coverslide {
+  transition: transform 0.25s ease;
+  will-change: transform;
+}
+.mnp__coverslide--drag {
+  transition: none;
 }
 .mnp__cover {
   width: min(100%, 42vh);
   border-radius: 8px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+.mnp__cover--img {
+  aspect-ratio: 1;
+  object-fit: cover;
+  width: min(78vw, 42vh);
 }
 .mnp__titlerow {
   display: flex;
@@ -255,7 +335,7 @@ const previewLines = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 10px 0 28px;
+  margin: 10px 0 4px;
 }
 .mnp__ctl {
   position: relative;
@@ -289,6 +369,42 @@ const previewLines = computed(() => {
 }
 .mnp__play:active {
   transform: scale(0.96);
+}
+/* Ряд «устройства + очередь» под контролами */
+.mnp__bottomrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 0 24px;
+}
+.mnp__devbtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-subdued);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 0;
+  max-width: 70vw;
+}
+.mnp__devbtn.on {
+  color: var(--accent);
+}
+.mnp__devbtn span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mnp__qbtn {
+  color: var(--text-subdued);
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+.mnp__qbtn:active,
+.mnp__devbtn:active {
+  color: #fff;
 }
 /* Карточки под контролами */
 .mnp__card {
