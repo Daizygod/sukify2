@@ -8,6 +8,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
 import { useMenuStore } from '@/stores/menu'
+import { useIsMobile } from '@/composables/useIsMobile'
 
 const props = defineProps({
   track: { type: Object, required: true },
@@ -32,6 +33,14 @@ function play() {
   if (isCurrent.value) return player.togglePlay()
   player.playTrack(props.track, props.contextTracks, { name: props.contextName })
 }
+
+// На мобильном строка играет по одиночному тапу (как в приложении).
+const isMobile = useIsMobile()
+function onRowClick(e) {
+  if (!isMobile.value) return
+  if (e.target.closest('a, button')) return
+  play()
+}
 function toggleLike() {
   if (!auth.isAuthenticated) return
   library.toggleLike(props.track)
@@ -43,6 +52,7 @@ function toggleLike() {
     class="row trackgrid"
     :class="[`trackgrid--${variant}`, { 'row--active': isCurrent }]"
     @dblclick="play"
+    @click="onRowClick"
     @contextmenu.prevent="menu.openMenu($event, track)"
   >
     <div class="row__index">
@@ -75,7 +85,7 @@ function toggleLike() {
       :to="{ name: 'release', params: { slug: track.release.slug } }"
       class="row__album"
     >{{ track.release.title }}</RouterLink>
-    <span v-else-if="variant === 'playlist'"></span>
+    <span v-else-if="variant === 'playlist'" class="row__album"></span>
 
     <span v-if="variant === 'playlist'" class="row__date">{{ formatRelativeDate(addedAt) }}</span>
 

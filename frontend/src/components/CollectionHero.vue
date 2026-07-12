@@ -116,4 +116,31 @@ const titleSize = computed(() => {
   gap: 6px;
   flex-wrap: wrap;
 }
+/* Мобильный: обложка по центру, текст под ней (как в приложении). */
+@media (max-width: 768px) {
+  .hero__inner {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 16px 12px;
+  }
+  .hero__cover {
+    width: min(62vw, 260px);
+    height: auto;
+    aspect-ratio: 1;
+    flex: none;
+  }
+  .hero__text {
+    width: 100%;
+    padding-bottom: 0;
+  }
+  .hero__title {
+    font-size: 26px !important;
+    margin: 6px 0;
+    letter-spacing: -0.02em;
+  }
+  .hero__kind {
+    display: none;
+  }
+}
 </style>

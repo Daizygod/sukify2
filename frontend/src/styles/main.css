@@ -306,3 +306,61 @@ img {
   justify-content: flex-end;
   padding-right: 42px;
 }
+
+/* --- Мобильная версия (≤768px) ------------------------------------------ */
+@media (max-width: 768px) {
+  .content-pad {
+    padding: 16px 16px 24px;
+  }
+  .section-title {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+  /* Полки карточек — горизонтальная лента, как в приложении Spotify. */
+  .grid-cards {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(150px, 42vw);
+    grid-template-columns: none;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .grid-cards::-webkit-scrollbar {
+    display: none;
+  }
+  /* Шапка таблицы треков не нужна. */
+  .tracktable__head {
+    display: none;
+  }
+  /* Строка трека: обложка + название/исполнители + кебаб. */
+  .trackgrid--album,
+  .trackgrid--playlist,
+  .trackgrid--artist,
+  .trackgrid--search {
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+  }
+  .row {
+    padding: 6px 0 !important;
+  }
+  .row:hover {
+    background: none;
+  }
+  .row__index,
+  .row__album,
+  .row__date,
+  .row__plays,
+  .row__add,
+  .row__duration {
+    display: none !important;
+  }
+  /* Тело страниц коллекций — компактные отступы. */
+  .release__body,
+  .playlist__body,
+  .liked__body,
+  .mix__body,
+  .profile__body {
+    padding: 16px !important;
+  }
+}

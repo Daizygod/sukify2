@@ -20,6 +20,8 @@ export const useUiStore = defineStore('ui', {
     rightView: localStorage.getItem('ui.rightView') || 'nowplaying',
     fullscreenOpen: false,
     lyricsOpen: false,
+    // Мобильный экран «Сейчас играет» (тап по мини-плееру).
+    mobileNowOpen: false,
     // Трек-источник для «Создать переход…» из контекстного меню.
     transitionFrom: null,
     listCompact: localStorage.getItem('ui.listCompact') === '1',

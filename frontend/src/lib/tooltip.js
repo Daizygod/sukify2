@@ -50,6 +50,9 @@ function hide() {
 
 export function initTooltips() {
   document.addEventListener('mouseover', (e) => {
+    // На тач-экранах ховера нет — эмулированный mouseover после тапа
+    // оставлял бы плашку висеть навсегда.
+    if (window.matchMedia('(pointer: coarse)').matches) return
     const t = e.target.closest?.('[title], [data-tooltip]')
     if (!t) return
     // Забираем title в data-атрибут, чтобы браузерная подсказка не появлялась.
@@ -71,4 +74,5 @@ export function initTooltips() {
   })
   // При скролле плашка не должна висеть в воздухе.
   document.addEventListener('scroll', hide, true)
+  document.addEventListener('touchstart', hide, true)
 }

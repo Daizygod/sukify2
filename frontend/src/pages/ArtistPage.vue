@@ -114,7 +114,13 @@ function openLikedMenu(e) {
 
 <template>
   <div v-if="artist" class="artist">
-    <div class="artist__hero" :style="{ '--a-bg': artist.colors?.background || '#333', backgroundImage: artist.banner_url ? `url(${artist.banner_url})` : null }">
+    <div
+      class="artist__hero"
+      :class="{ 'artist__hero--noban': !artist.banner_url && artist.avatar_url }"
+      :style="{ '--a-bg': artist.colors?.background || '#333', backgroundImage: artist.banner_url ? `url(${artist.banner_url})` : null }"
+    >
+      <!-- Нет баннера, но есть аватарка — как в Spotify: круг слева от имени. -->
+      <img v-if="!artist.banner_url && artist.avatar_url" :src="artist.avatar_url" alt="" class="artist__heroavatar" />
       <div class="artist__hero-inner">
         <!-- Как в Spotify: имя, под ним бейдж подтверждения, ниже слушатели. -->
         <h1 class="artist__name">{{ artist.name }}</h1>
@@ -223,6 +229,33 @@ function openLikedMenu(e) {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.6));
+}
+/* Компактный hero без баннера: аватарка-круг слева, имя справа (референс Kanye). */
+.artist__hero--noban {
+  height: auto;
+  min-height: 0;
+  align-items: center;
+  gap: 24px;
+  padding: 56px 24px 24px;
+}
+.artist__hero--noban::after {
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.35));
+}
+.artist__heroavatar {
+  position: relative;
+  z-index: 1;
+  width: clamp(128px, 18vw, 232px);
+  height: clamp(128px, 18vw, 232px);
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  box-shadow: 0 4px 60px rgba(0, 0, 0, 0.5);
+}
+.artist__hero--noban .artist__hero-inner {
+  padding: 0;
+}
+.artist__hero--noban .artist__name {
+  font-size: clamp(42px, 7.5vw, 88px);
 }
 .artist__hero-inner {
   position: relative;
@@ -434,5 +467,43 @@ function openLikedMenu(e) {
 .artist__chip.on {
   background: #fff;
   color: #000;
+}
+/* --- Мобильный --- */
+@media (max-width: 768px) {
+  .artist__hero {
+    height: max(240px, 34vh);
+  }
+  .artist__name {
+    font-size: clamp(34px, 11vw, 48px);
+  }
+  .artist__hero--noban {
+    height: auto;
+    padding: 48px 16px 16px;
+    gap: 16px;
+  }
+  .artist__heroavatar {
+    width: 104px;
+    height: 104px;
+  }
+  .artist__hero--noban .artist__name {
+    font-size: clamp(26px, 8vw, 36px);
+  }
+  .artist__listeners {
+    font-size: 13px;
+    line-height: 22px;
+  }
+  .artist__verified {
+    font-size: 12px;
+  }
+  .artist__body {
+    padding: 16px;
+  }
+  .artist__actions {
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  .youliked {
+    max-width: none;
+  }
 }
 </style>

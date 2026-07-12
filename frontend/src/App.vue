@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
-import { RouterView } from 'vue-router'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
 import { usePlayerStore } from '@/stores/player'
 import Sidebar from '@/components/Sidebar.vue'
 import TopBar from '@/components/TopBar.vue'
@@ -11,14 +11,24 @@ import ToastHost from '@/components/ToastHost.vue'
 import FullscreenView from '@/components/FullscreenView.vue'
 import LyricsView from '@/components/LyricsView.vue'
 import TransitionPicker from '@/components/TransitionPicker.vue'
+import MobileNav from '@/components/mobile/MobileNav.vue'
+import MobileMiniPlayer from '@/components/mobile/MobileMiniPlayer.vue'
+import MobileNowPlaying from '@/components/mobile/MobileNowPlaying.vue'
 import { useUiStore } from '@/stores/ui'
 import { useDeviceStore } from '@/stores/devices'
 import { useAuthStore } from '@/stores/auth'
+import { useIsMobile } from '@/composables/useIsMobile'
 
 const ui = useUiStore()
 const devices = useDeviceStore()
 const player = usePlayerStore()
 const auth = useAuthStore()
+const isMobile = useIsMobile()
+const route = useRoute()
+
+// На мобильном контент скроллится внутри .appm__main — сбрасываем вручную.
+const mobileScroll = ref(null)
+watch(() => route.fullPath, () => mobileScroll.value?.scrollTo?.({ top: 0 }))
 
 // Глобальные горячие клавиши (не срабатывают в полях ввода).
 function onHotkey(e) {
@@ -115,6 +125,20 @@ function startRight(e) {
     <ToastHost />
   </div>
 
+  <!-- Мобильный каркас: контент + мини-плеер + нижняя навигация. -->
+  <div v-else-if="isMobile" class="appm">
+    <main ref="mobileScroll" class="appm__main" :class="{ 'appm__main--mini': player.currentTrack }">
+      <RouterView />
+    </main>
+    <MobileMiniPlayer />
+    <MobileNav />
+    <MobileNowPlaying v-if="ui.mobileNowOpen" />
+    <LyricsView v-if="ui.lyricsOpen" />
+    <TransitionPicker v-if="ui.transitionFrom" />
+    <ContextMenu />
+    <ToastHost />
+  </div>
+
   <div v-else class="app" :style="gridStyle">
     <TopBar class="app__top" />
 
@@ -180,5 +204,24 @@ function startRight(e) {
   height: 100vh;
   overflow-y: auto;
   background: var(--bg-base);
+}
+/* --- Мобильный каркас ---------------------------------------------------- */
+.appm {
+  height: 100dvh;
+  background: var(--bg-elevated);
+}
+.appm__main {
+  height: 100%;
+  overflow-y: auto;
+  /* Под нижней навигацией */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  scrollbar-width: none;
+}
+.appm__main::-webkit-scrollbar {
+  display: none;
+}
+/* Когда виден мини-плеер, поднимаем нижний отступ */
+.appm__main--mini {
+  padding-bottom: calc(136px + env(safe-area-inset-bottom, 0px));
 }
 </style>

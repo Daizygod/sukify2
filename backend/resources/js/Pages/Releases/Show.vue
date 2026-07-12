@@ -60,6 +60,32 @@ function destroy(t) {
   if (confirm(`Delete "${t.title}"?`)) router.delete(`/admin/tracks/${t.id}`, { preserveScroll: true })
 }
 
+// Inline rename.
+const editingTitle = ref(null)
+const titleDraft = ref('')
+
+function startRename(t) {
+  editingTitle.value = t.id
+  titleDraft.value = t.title
+}
+
+function saveTitle(t) {
+  const title = titleDraft.value.trim()
+  editingTitle.value = null
+  if (!title || title === t.title) return
+  router.put(`/admin/tracks/${t.id}`, { title }, { preserveScroll: true })
+}
+
+// Reorder with ↑/↓ — swap with the neighbour and persist the whole order.
+function move(t, dir) {
+  const ids = props.tracks.map((x) => x.id)
+  const i = ids.indexOf(t.id)
+  const j = i + dir
+  if (j < 0 || j >= ids.length) return
+  ;[ids[i], ids[j]] = [ids[j], ids[i]]
+  router.put(`/admin/releases/${props.release.id}/tracks/order`, { track_ids: ids }, { preserveScroll: true })
+}
+
 function toggleUnofficial(t, value) {
   router.put(`/admin/tracks/${t.id}`, { title: t.title, unofficial: value }, { preserveScroll: true })
 }
@@ -156,8 +182,30 @@ const badge = {
       </thead>
       <tbody>
         <tr v-for="t in tracks" :key="t.id" class="border-b border-neutral-800/60 last:border-0">
-          <td class="px-4 py-3 text-neutral-500">{{ t.track_number }}</td>
-          <td class="px-4 py-3 font-medium">{{ t.title }}</td>
+          <td class="px-4 py-3 text-neutral-500">
+            <div class="flex items-center gap-1.5">
+              <span class="w-5 tabular-nums">{{ t.track_number }}</span>
+              <span class="flex flex-col leading-none">
+                <button class="text-neutral-600 hover:text-white text-[10px] disabled:opacity-30" :disabled="tracks[0].id === t.id" title="Выше" @click="move(t, -1)">▲</button>
+                <button class="text-neutral-600 hover:text-white text-[10px] disabled:opacity-30" :disabled="tracks[tracks.length - 1].id === t.id" title="Ниже" @click="move(t, 1)">▼</button>
+              </span>
+            </div>
+          </td>
+          <td class="px-4 py-3 font-medium">
+            <input
+              v-if="editingTitle === t.id"
+              v-model="titleDraft"
+              class="w-full rounded bg-neutral-950 border border-accent px-2 py-1 outline-none"
+              @keydown.enter="saveTitle(t)"
+              @keydown.esc="editingTitle = null"
+              @blur="saveTitle(t)"
+              @vue:mounted="({ el }) => el.focus()"
+            />
+            <span v-else class="group/title inline-flex items-center gap-2 cursor-pointer" title="Переименовать" @click="startRename(t)">
+              {{ t.title }}
+              <span class="opacity-0 group-hover/title:opacity-60 text-xs">✎</span>
+            </span>
+          </td>
           <td class="px-4 py-3">
             <div class="flex flex-wrap items-center gap-1">
               <span

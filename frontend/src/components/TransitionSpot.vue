@@ -69,4 +69,10 @@ const open = ref(false)
   color: #fff;
   border-color: rgba(255, 255, 255, 0.4);
 }
+/* На мобильном нет ховера — точки переходов не показываем. */
+@media (max-width: 768px) {
+  .tsp {
+    display: none;
+  }
+}
 </style>

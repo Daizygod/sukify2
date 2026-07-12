@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue'
-import { useRoute, RouterLink } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import api from '@/lib/api'
 import Icon from '@/components/Icon.vue'
 import MediaCard from '@/components/MediaCard.vue'
@@ -8,7 +8,19 @@ import TrackRow from '@/components/TrackRow.vue'
 import { usePlayerStore } from '@/stores/player'
 
 const route = useRoute()
+const router = useRouter()
 const player = usePlayerStore()
+
+// Мобильное поле поиска (на десктопе поиск живёт в топбаре).
+const mq = ref(route.params.q || '')
+let mTimer
+function onMobileSearch() {
+  clearTimeout(mTimer)
+  mTimer = setTimeout(() => {
+    const v = mq.value.trim()
+    router.replace(v ? { name: 'search-query', params: { q: v } } : { name: 'search' })
+  }, 350)
+}
 
 const q = ref(route.params.q || '')
 const results = ref({ tracks: [], releases: [], artists: [], playlists: [] })
@@ -45,6 +57,7 @@ watch(
   () => route.params.q,
   (v) => {
     q.value = v || ''
+    mq.value = v || ''
     chip.value = 'all'
     runSearch()
   }
@@ -110,6 +123,15 @@ function tileColor(i) {
 
 <template>
   <div class="content-pad search">
+    <!-- Мобильный поиск: своя строка, т.к. топбара нет -->
+    <div class="search__mbar">
+      <h1 class="search__mtitle">Поиск</h1>
+      <div class="search__mfield">
+        <Icon name="searchSmall" :size="18" />
+        <input v-model="mq" placeholder="Что хочешь включить?" @input="onMobileSearch" />
+      </div>
+    </div>
+
     <!-- Обзор жанров, когда запрос пуст -->
     <template v-if="!q.trim()">
       <h1 class="section-title" style="font-size: 24px">Все остальное</h1>
@@ -262,6 +284,45 @@ function tileColor(i) {
 </template>
 
 <style scoped>
+/* Мобильная строка поиска — скрыта на десктопе. */
+.search__mbar {
+  display: none;
+}
+@media (max-width: 768px) {
+  .search__mbar {
+    display: block;
+    margin-bottom: 16px;
+  }
+  .search__mtitle {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .search__mfield {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    color: #000;
+    border-radius: 6px;
+    padding: 0 12px;
+    height: 46px;
+  }
+  .search__mfield input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: none;
+    color: #000;
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .search__mfield input::placeholder {
+    color: #555;
+  }
+}
+
 .search__tiles {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

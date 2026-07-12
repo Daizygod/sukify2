@@ -116,6 +116,10 @@ async function playMix(m) {
 
     <div class="home__content">
       <div class="home__chips">
+        <div class="home__ava">
+          <img v-if="auth.user?.avatar_url" :src="auth.user.avatar_url" alt="" />
+          <span v-else>{{ (auth.user?.name || '?').slice(0, 1).toUpperCase() }}</span>
+        </div>
         <button class="chip chip--active">Все</button>
         <button class="chip">Музыка</button>
       </div>
@@ -237,8 +241,46 @@ async function playMix(m) {
 }
 .home__chips {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-bottom: 20px;
+}
+/* Аватарка в шапке — только на мобильном, как в приложении. */
+.home__ava {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #509bf5;
+  color: #000;
+  font-weight: 700;
+  font-size: 15px;
+  place-items: center;
+  flex: 0 0 34px;
+}
+.home__ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@media (max-width: 768px) {
+  .home__ava {
+    display: grid;
+  }
+  .home__content {
+    padding: 12px 16px 24px;
+  }
+  .home__shortcuts {
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .shortcut__play {
+    display: none;
+  }
+  .shelf__all {
+    display: none;
+  }
 }
 .chip {
   background: rgba(255, 255, 255, 0.12);
