@@ -61,20 +61,19 @@ class CoverProcessor
      */
     public function extractColors(string $sourcePath): array
     {
-        $palette = Palette::fromFilename($sourcePath);
-        $extractor = new ColorExtractor($palette);
+        // Основной путь — «живой» цвет в стиле Spotify (Vibrant/Palette).
+        $rgbTuple = (new VibrantExtractor())->dominant($sourcePath);
 
-        // Grab a handful and pick the most saturated for a punchy gradient,
-        // like the dominant colour Spotify pulls from an album cover.
-        $colors = $extractor->extract(5);
-
-        if (empty($colors)) {
-            return ['#333333', '#FFFFFF'];
+        if ($rgbTuple === null) {
+            // Фолбэк: наивное извлечение самого насыщенного из палитры.
+            $palette = Palette::fromFilename($sourcePath);
+            $colors = (new ColorExtractor($palette))->extract(5);
+            if (empty($colors)) {
+                return ['#333333', '#FFFFFF'];
+            }
+            $rgb = ExtractorColor::fromIntToRgb($this->mostVivid($colors));
+            $rgbTuple = [$rgb['r'], $rgb['g'], $rgb['b']];
         }
-
-        $best = $this->mostVivid($colors);
-        $rgb = ExtractorColor::fromIntToRgb($best);
-        $rgbTuple = [$rgb['r'], $rgb['g'], $rgb['b']];
 
         return [
             Color::toHex($rgbTuple),

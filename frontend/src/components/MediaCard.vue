@@ -39,6 +39,12 @@ const entity = computed(() => {
 function onContext(e) {
   if (entity.value) menu.openEntityMenu(e, entity.value)
 }
+
+function onPlay(e) {
+  // Повторный клик даблклика игнорируем — иначе трек тут же встаёт на паузу.
+  if (e.detail > 1) return
+  emit('play')
+}
 </script>
 
 <template>
@@ -49,7 +55,7 @@ function onContext(e) {
         v-if="playable"
         class="play-btn card__play"
         :class="{ 'card__play--visible': playing }"
-        @click.prevent="emit('play')"
+        @click.prevent="onPlay"
       >
         <Icon :name="playing ? 'pauseBig' : 'playBig'" :size="24" />
       </button>

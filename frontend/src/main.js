@@ -31,6 +31,8 @@ async function bootstrap() {
     const library = useLibraryStore()
     const devices = useDeviceStore()
     player.loadSettings()
+    // Последняя сессия: плеер сразу показывает прошлый трек и очередь (на паузе).
+    player.restoreSession()
     library.load().catch(() => {})
     devices.init()
   }

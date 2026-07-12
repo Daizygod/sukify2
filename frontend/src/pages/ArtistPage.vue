@@ -82,7 +82,8 @@ watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 const isThisPlaying = computed(
   () => topTracks.value.some((t) => t.id === player.currentTrack?.id) && player.isPlaying
 )
-function playTop() {
+function playTop(e) {
+  if (e && e.detail > 1) return // повторный клик даблклика — не пауза
   if (isThisPlaying.value) return player.togglePlay()
   if (topTracks.value.length) player.playContext(topTracks.value, 0, { name: artist.value?.name })
 }
@@ -134,7 +135,7 @@ function openLikedMenu(e) {
 
     <div class="artist__body">
       <div class="artist__actions">
-        <button class="play-btn play-btn--lg" @click="playTop"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
+        <button class="play-btn play-btn--lg" @click="playTop($event)"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
         <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="player.setShuffle(true); playTop()"><Icon name="shuffleBig" :size="32" /></button>
         <button v-if="auth.isAuthenticated" class="artist__follow" @click="toggleFollow">
           {{ artist.is_followed ? 'Уже подписаны' : 'Подписаться' }}
@@ -187,7 +188,7 @@ function openLikedMenu(e) {
       <section v-if="artist.releases?.length" style="margin-top:36px">
         <div class="artist__shelfhead">
           <h2 class="section-title">Дискография</h2>
-          <span class="artist__all">Показать все</span>
+          <RouterLink :to="{ name: 'discography', params: { slug: artist.slug } }" class="artist__all">Показать все</RouterLink>
         </div>
         <div v-if="discoTabs.length > 1" class="artist__chips">
           <button

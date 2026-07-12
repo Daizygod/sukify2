@@ -62,27 +62,33 @@ onUnmounted(() => {
     </div>
 
     <div v-if="track" class="fs__center" :class="{ 'fs__center--lyrics': hasLyrics }">
-      <CoverImage :cover="track.cover" :size="1000" class="fs__cover" />
-
-      <div v-if="hasLyrics" ref="listEl" class="fs__lyrics">
-        <template v-if="lines.length">
-          <p
-            v-for="(l, i) in lines"
-            :key="i"
-            class="fs__line"
-            :class="{ 'fs__line--past': i < activeIndex, 'fs__line--active': i === activeIndex }"
-            :data-i="i"
-            @click="seekTo(l)"
-          >
-            {{ l.text || '♪' }}
-          </p>
-        </template>
-        <template v-else>
-          <p v-for="(l, i) in lyrics.plain.split('\n')" :key="i" class="fs__line fs__line--static">
-            {{ l || ' ' }}
-          </p>
-        </template>
+      <div class="fs__coverwrap">
+        <Transition name="coverfade" mode="out-in">
+          <CoverImage :key="track.id" :cover="track.cover" :size="1000" class="fs__cover" />
+        </Transition>
       </div>
+
+      <Transition name="lyrfade">
+        <div v-if="hasLyrics" ref="listEl" class="fs__lyrics">
+          <template v-if="lines.length">
+            <p
+              v-for="(l, i) in lines"
+              :key="i"
+              class="fs__line"
+              :class="{ 'fs__line--past': i < activeIndex, 'fs__line--active': i === activeIndex }"
+              :data-i="i"
+              @click="seekTo(l)"
+            >
+              {{ l.text || '♪' }}
+            </p>
+          </template>
+          <template v-else>
+            <p v-for="(l, i) in lyrics.plain.split('\n')" :key="i" class="fs__line fs__line--static">
+              {{ l || ' ' }}
+            </p>
+          </template>
+        </div>
+      </Transition>
     </div>
     <div v-else class="fs__center">
       <p class="muted">Включи что-нибудь — здесь будет красиво.</p>
@@ -91,6 +97,13 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* Регистрируем цвет фона как анимируемое свойство — тогда смена цвета обложки
+   при переключении трека происходит плавным переливом, а не резким скачком. */
+@property --fs-bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #3b3054;
+}
 .fs {
   /* Поверх всего, включая верхнюю панель — остаётся только плеер снизу. */
   position: fixed;
@@ -104,6 +117,7 @@ onUnmounted(() => {
   flex-direction: column;
   padding: 24px 32px;
   overflow: hidden;
+  transition: --fs-bg 0.7s ease;
 }
 .fs__top {
   display: flex;
@@ -126,35 +140,62 @@ onUnmounted(() => {
   color: #fff;
   background: rgba(0, 0, 0, 0.2);
 }
+/* Сетка из двух колонок: обложка | текст. Ширины во фракциях — тогда переход
+   «текст появился/исчез» плавно двигает обложку из центра влево и обратно. */
 .fs__center {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 0fr;
   align-items: center;
-  justify-content: center;
-  gap: 28px;
+  gap: 0;
+  transition: grid-template-columns 0.6s ease, gap 0.6s ease;
+}
+.fs__coverwrap {
+  display: grid;
+  place-items: center;
+  min-width: 0;
 }
 .fs__cover {
-  width: min(62vh, 720px);
+  width: min(62vh, 640px);
   border-radius: 10px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  transition: width 0.6s ease;
 }
-/* Есть текст: обложка слева, строки справа. */
+/* Есть текст: обложка съезжает влево, строки справа. */
 .fs__center--lyrics {
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
+  grid-template-columns: 0.85fr 1.15fr;
   gap: clamp(32px, 6vw, 96px);
-  padding: 24px 0;
 }
 .fs__center--lyrics .fs__cover {
-  width: min(56vh, 42vw, 640px);
-  flex-shrink: 0;
+  width: min(52vh, 40vw, 560px);
+}
+/* «Линзовый» кроссфейд обложки при смене трека. */
+.coverfade-enter-active,
+.coverfade-leave-active {
+  transition: opacity 0.45s ease, transform 0.45s ease, filter 0.45s ease;
+}
+.coverfade-enter-from {
+  opacity: 0;
+  transform: scale(1.1);
+  filter: blur(16px);
+}
+.coverfade-leave-to {
+  opacity: 0;
+  transform: scale(0.92);
+  filter: blur(16px);
+}
+/* Плавное появление/исчезновение колонки текста. */
+.lyrfade-enter-active,
+.lyrfade-leave-active {
+  transition: opacity 0.5s ease;
+}
+.lyrfade-enter-from,
+.lyrfade-leave-to {
+  opacity: 0;
 }
 .fs__lyrics {
   align-self: stretch;
-  flex: 0 1 760px;
   min-width: 0;
   overflow-y: auto;
   /* Пустота сверху/снизу, чтобы активная строка держалась по центру. */

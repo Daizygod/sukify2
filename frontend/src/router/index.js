@@ -8,6 +8,7 @@ const routes = [
   { path: '/search/:q', name: 'search-query', component: () => import('@/pages/SearchPage.vue') },
   { path: '/artist/:slug', name: 'artist', component: () => import('@/pages/ArtistPage.vue') },
   { path: '/artist/:slug/liked', name: 'artist-liked', component: () => import('@/pages/ArtistLikedPage.vue'), meta: { auth: true } },
+  { path: '/artist/:slug/discography', name: 'discography', component: () => import('@/pages/DiscographyPage.vue') },
   { path: '/release/:slug', name: 'release', component: () => import('@/pages/ReleasePage.vue') },
   { path: '/playlist/:id', name: 'playlist', component: () => import('@/pages/PlaylistPage.vue') },
   { path: '/liked', name: 'liked', component: () => import('@/pages/LikedSongsPage.vue'), meta: { auth: true } },

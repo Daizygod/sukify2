@@ -54,6 +54,13 @@ function onRowClick(e) {
   play()
 }
 
+// Иконка ▶: сколько бы раз ни кликнули подряд — трек играет, а не пикает
+// play/pause (повторные клики даблклика игнорируются).
+function onPlayButton(e) {
+  if (e.detail > 1) return
+  play()
+}
+
 // Свайп строки вправо — «Добавить в очередь» (как в приложении Spotify).
 const toasts = useToastStore()
 const swipeX = ref(0)
@@ -108,7 +115,7 @@ function toggleLike() {
     @touchend.passive="onSwipeEnd"
   >
     <div class="row__index">
-      <button class="row__play" @click="play">
+      <button class="row__play" @click="onPlayButton">
         <Icon v-if="isPlayingThis" name="pause" :size="14" />
         <Icon v-else name="play" :size="14" />
       </button>

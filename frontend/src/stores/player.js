@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import api from '@/lib/api'
 import { buildCurve } from '@/lib/curves'
 // Циклический импорт (devices ↔ player) безопасен: стор берём лениво в экшенах.
@@ -189,6 +189,14 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
     if (!currentTrack.value) return
+    // Восстановленная сессия: трек есть, но аудио в дек ещё не загружено —
+    // первый ▶ загружает его и продолжает с сохранённой позиции.
+    if (!inited.value || !activeDeck().el.src) {
+      const resumeAt = positionMs.value
+      return loadAndPlay(currentTrack.value).then(() => {
+        if (resumeAt > 0) seek(resumeAt)
+      })
+    }
     const el = activeDeck().el
     if (el.paused) {
       ctx?.resume()
@@ -258,6 +266,11 @@ export const usePlayerStore = defineStore('player', () => {
     const d = remoteTarget()
     if (d) {
       d.sendCommand('seek', ms)
+      return
+    }
+    // Восстановленная сессия без загруженного аудио: двигаем только позицию.
+    if (!inited.value || !activeDeck()?.el?.src) {
+      if (isFinite(ms)) positionMs.value = Math.max(0, ms)
       return
     }
     const el = activeDeck().el
@@ -406,6 +419,90 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  // --- последняя сессия (как в Spotify: после перезагрузки плеер «помнит»
+  // последний трек и очередь и стоит на паузе) -----------------------------
+
+  const SESSION_KEY = 'sukify.playerSession'
+
+  function saveSession() {
+    if (!currentTrack.value) return
+    try {
+      localStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          queueIds: queue.value.map((t) => t.id),
+          manualIds: manualQueue.value.map((t) => t.id),
+          index: queueIndex.value,
+          pos: Math.round(positionMs.value),
+          name: contextName.value,
+          shuffle: shuffle.value,
+          repeat: repeat.value,
+          volume: volume.value,
+        })
+      )
+    } catch {
+      /* приватный режим и т.п. */
+    }
+  }
+
+  // Позиция меняется каждый кадр — пишем сессию по структурным изменениям
+  // и при уходе со страницы (там же захватывается свежая позиция).
+  watch(
+    () => [
+      currentTrack.value?.id,
+      queueIndex.value,
+      queue.value.length,
+      manualQueue.value.length,
+      shuffle.value,
+      repeat.value,
+    ],
+    () => saveSession()
+  )
+  window.addEventListener('beforeunload', saveSession)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveSession()
+  })
+
+  /**
+   * Поднять последнюю сессию: очередь и трек встают на место, но звук не
+   * трогаем — деки загрузятся при первом нажатии ▶ (см. togglePlay).
+   */
+  async function restoreSession() {
+    if (currentTrack.value) return
+    let s = null
+    try {
+      s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
+    } catch {
+      return
+    }
+    if (!s?.queueIds?.length) return
+    try {
+      const ids = [...new Set([...s.queueIds, ...(s.manualIds || [])])]
+      const { data } = await api.get('/tracks-bulk', { params: { ids: ids.join(',') } })
+      const byId = new Map(data.data.map((t) => [t.id, t]))
+      const tracks = s.queueIds.map((id) => byId.get(id)).filter(Boolean)
+      // Пока грузили, пользователь мог уже что-то включить.
+      if (!tracks.length || currentTrack.value) return
+      queue.value = tracks
+      queueIndex.value = Math.min(Math.max(s.index || 0, 0), tracks.length - 1)
+      manualQueue.value = (s.manualIds || [])
+        .map((id) => byId.get(id))
+        .filter(Boolean)
+        .map((t) => ({ ...t, __qid: ++qidCounter }))
+      contextName.value = s.name || ''
+      shuffle.value = !!s.shuffle
+      repeat.value = s.repeat || 'off'
+      if (typeof s.volume === 'number') volume.value = Math.min(Math.max(s.volume, 0), 1)
+      const t = queue.value[queueIndex.value]
+      currentTrack.value = t
+      durationMs.value = t.duration_ms || 0
+      positionMs.value = Math.min(s.pos || 0, durationMs.value)
+      isPlaying.value = false
+    } catch {
+      /* не вышло — просто пустой плеер */
+    }
+  }
+
   // --- shuffle -------------------------------------------------------------
 
   let originalOrder = null
@@ -483,19 +580,21 @@ export const usePlayerStore = defineStore('player', () => {
     transitionCache.clear()
   }
 
-  async function resolveTransition(from, to) {
-    if (!from || !to) return null
+  function resolveTransition(from, to) {
+    if (!from || !to) return Promise.resolve(null)
     const key = `${from.id}:${to.id}`
-    if (transitionCache.has(key)) return transitionCache.get(key)
-    let t = null
-    try {
-      const { data } = await api.get('/transitions', { params: { from: from.id, to: to.id } })
-      t = data.data || null
-    } catch {
-      t = null
+    // Кэшируем сам промис: maybeCrossfade дёргается каждый кадр, и пока первый
+    // запрос в полёте, без этого улетали десятки одинаковых запросов.
+    if (!transitionCache.has(key)) {
+      transitionCache.set(
+        key,
+        api
+          .get('/transitions', { params: { from: from.id, to: to.id } })
+          .then(({ data }) => data.data || null)
+          .catch(() => null)
+      )
     }
-    transitionCache.set(key, t)
-    return t
+    return transitionCache.get(key)
   }
 
   async function startCrossfade(nextTrack, transition, fadeOutLen) {
@@ -694,6 +793,7 @@ export const usePlayerStore = defineStore('player', () => {
     // actions
     init, playContext, playTrack, togglePlay, pauseLocal, fadeOutAndPause, seek, setVolume, toggleMute,
     next, prev, stop, loadSettings, setShuffle, setRepeat, cycleRepeat, hydrate, invalidateTransitions,
+    restoreSession,
     addToQueue, removeFromManualQueue, removeUpcoming, clearManualQueue,
     playManualItem, playUpcomingItem, setManualQueue, setUpcoming,
   }

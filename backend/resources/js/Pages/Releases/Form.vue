@@ -7,12 +7,14 @@ const props = defineProps({ release: Object, artists: Array })
 
 const form = useForm({
   // Несколько создателей релиза; первый в списке — основной.
+  // Новый релиз начинается без артистов — их выбирают явно через поиск.
   artist_ids: props.release?.artist_ids?.length
     ? [...props.release.artist_ids]
-    : [props.release?.artist_id || props.artists[0]?.id].filter(Boolean),
+    : [props.release?.artist_id].filter(Boolean),
   title: props.release?.title || '',
   type: props.release?.type || 'album',
-  release_date: props.release?.release_date || '',
+  // <input type=date> понимает только YYYY-MM-DD, из API может прийти ISO-datetime.
+  release_date: (props.release?.release_date || '').slice(0, 10),
   cover: null,
 })
 
@@ -25,7 +27,6 @@ function addArtist(a) {
 }
 
 function removeArtist(id) {
-  if (form.artist_ids.length <= 1) return
   form.artist_ids = form.artist_ids.filter((x) => x !== id)
 }
 
@@ -57,7 +58,7 @@ function submit() {
             :class="i === 0 ? 'bg-accent text-black font-bold' : 'bg-neutral-800'"
           >
             {{ artistName(id) }}
-            <button v-if="form.artist_ids.length > 1" type="button" class="opacity-70 hover:opacity-100" @click="removeArtist(id)">✕</button>
+            <button type="button" class="opacity-70 hover:opacity-100" @click="removeArtist(id)">✕</button>
           </span>
         </div>
         <ArtistPicker :exclude="form.artist_ids" placeholder="+ Найти и добавить исполнителя…" @pick="addArtist" />

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/lib/api'
 import Icon from '../Icon.vue'
@@ -77,14 +77,23 @@ watch(
 )
 const aboutImage = computed(() => aboutArtist.value?.banner_url || aboutArtist.value?.avatar_url || null)
 
-// Свайп обложки: карусель — текущая уезжает, соседняя обложка въезжает следом.
+// Свайп обложки: карусель из трёх слайдов (пред|текущий|след). Палец тянет
+// ленту — видно сразу две обложки; на отпускании лента доезжает до соседа и,
+// когда трек реально сменился, мгновенно (без анимации) центрируется уже с
+// новой обложкой в центре — переход получается бесшовным.
 const swipeX = ref(0)
-const swiping = ref(false)
-const settling = ref(false)
+const swiping = ref(false) // палец на экране — transition выключен
+const settling = ref(false) // лента едет к соседнему слайду
 const stripEl = ref(null)
 let touchX = 0
 let touchY = 0
 let horizontal = null
+let pendingDir = null // 'next' | 'prev' — куда доезжаем
+let settleGuard = null
+
+function stripWidth() {
+  return stripEl.value?.clientWidth || 320
+}
 function onTouchStart(e) {
   if (settling.value) return
   touchX = e.touches[0].clientX
@@ -100,10 +109,10 @@ function onTouchMove(e) {
     horizontal = Math.abs(dx) > Math.abs(dy)
   }
   if (!horizontal) return
-  // Не даём утащить в сторону, где нет трека.
+  // Сопротивление в сторону, где трека нет.
   let x = dx
-  if (x < 0 && !nextTrack.value && !remote.value) x = Math.max(x, -30)
-  if (x > 0 && !prevTrack.value && !remote.value) x = Math.min(x, 30)
+  if (x < 0 && !canNext.value) x = Math.max(x, -40)
+  if (x > 0 && !canPrev.value) x = Math.min(x, 40)
   swipeX.value = x
 }
 function onTouchEnd() {
@@ -113,42 +122,58 @@ function onTouchEnd() {
     swipeX.value = 0
     return
   }
-  const w = stripEl.value?.clientWidth || 300
-  const goNext = dx < -60 && (nextTrack.value || remote.value)
-  const goPrev = dx > 60 && (prevTrack.value || remote.value)
+  const goNext = dx < -60 && canNext.value
+  const goPrev = dx > 60 && canPrev.value
   if (!goNext && !goPrev) {
-    swipeX.value = 0
+    swipeX.value = 0 // не дотянул — плавно назад (transition включён)
     return
   }
-  // Доводим карусель до соседнего слайда и держим её там, пока трек
-  // реально не сменится (locally мгновенно, на пульте — по бродкасту),
-  // иначе обложка «отпрыгивает» назад до смены.
+  pendingDir = goNext ? 'next' : 'prev'
   settling.value = true
-  swipeX.value = goNext ? -w : w
-  setTimeout(() => (goNext ? next() : prev()), 230)
-  // Страховка: трек не сменился (конец очереди и т.п.) — вернуть плавно.
+  swipeX.value = goNext ? -stripWidth() : stripWidth()
+  // На пульте команда уходит сразу, локально — по окончании анимации слайда
+  // (тогда currentTrack сменится ровно в момент бесшовной центровки).
+  if (remote.value) {
+    goNext ? next() : prev()
+  }
+  // Страховка: трек не сменился (конец очереди / нет ответа) — вернуть.
   clearTimeout(settleGuard)
-  settleGuard = setTimeout(() => {
-    if (settling.value) {
-      settling.value = false
-      swipeX.value = 0
-    }
-  }, 4000)
+  settleGuard = setTimeout(() => reset(), 3000)
 }
 
-// Как только показываемый трек сменился — мгновенно центрируем ленту
-// (в центре уже новая обложка, боковые слайды пересчитались).
-let settleGuard = null
+// Анимация доводки закончилась — локально меняем трек и мгновенно центрируем.
+function onStripTransitionEnd() {
+  if (!settling.value || !pendingDir) return
+  if (remote.value) return // ждём бродкаст — центровка в watch(trackKey)
+  const dir = pendingDir
+  pendingDir = null
+  dir === 'next' ? next() : prev() // currentTrack меняется синхронно (ctx запущен)
+  recenter()
+}
+
+// Мгновенная центровка ленты без анимации (в центре — уже новая обложка).
+function recenter() {
+  clearTimeout(settleGuard)
+  swiping.value = true // выключаем transition на кадр
+  swipeX.value = 0
+  settling.value = false
+  nextTick(() => requestAnimationFrame(() => (swiping.value = false)))
+}
+function reset() {
+  pendingDir = null
+  settling.value = false
+  swipeX.value = 0
+}
+
+const canNext = computed(() => remote.value || !!nextTrack.value)
+const canPrev = computed(() => remote.value || !!prevTrack.value)
+
+// На пульте трек меняется по бродкасту — тогда и центрируем.
 const trackKey = computed(() =>
   remote.value ? devices.remoteState?.track?.id ?? view.value?.title : localTrack.value?.id
 )
 watch(trackKey, () => {
-  if (!settling.value) return
-  clearTimeout(settleGuard)
-  settling.value = false
-  swiping.value = true // выключаем transition на один кадр
-  swipeX.value = 0
-  requestAnimationFrame(() => (swiping.value = false))
+  if (settling.value) recenter()
 })
 
 // Нижние шиты.
@@ -195,9 +220,16 @@ const previewLines = computed(() => {
         @touchend.passive="onTouchEnd"
       >
         <!-- Лента: предыдущая | текущая | следующая обложка -->
-        <div class="mnp__strip" :class="{ 'mnp__strip--drag': swiping }" :style="{ transform: `translateX(calc(-100% + ${swipeX}px))` }">
+        <div
+          class="mnp__strip"
+          :class="{ 'mnp__strip--drag': swiping }"
+          :style="{ transform: `translateX(calc(-100% + ${swipeX}px))` }"
+          @transitionend="onStripTransitionEnd"
+        >
           <div class="mnp__slide">
             <CoverImage v-if="prevTrack" :cover="prevTrack.cover" :size="1000" class="mnp__cover" />
+            <!-- На пульте соседних обложек не знаем — показываем текущую, чтобы не мигало пустотой -->
+            <img v-else-if="remote && view.coverBigUrl" :src="view.coverBigUrl" class="mnp__cover mnp__cover--img" alt="" />
           </div>
           <div class="mnp__slide">
             <img v-if="view.coverBigUrl" :src="view.coverBigUrl" class="mnp__cover mnp__cover--img" alt="" />
@@ -205,6 +237,7 @@ const previewLines = computed(() => {
           </div>
           <div class="mnp__slide">
             <CoverImage v-if="nextTrack" :cover="nextTrack.cover" :size="1000" class="mnp__cover" />
+            <img v-else-if="remote && view.coverBigUrl" :src="view.coverBigUrl" class="mnp__cover mnp__cover--img" alt="" />
           </div>
         </div>
       </div>

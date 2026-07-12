@@ -76,7 +76,8 @@ watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 const isThisPlaying = computed(
   () => player.currentTrack?.release?.slug === release.value?.slug && player.isPlaying
 )
-function playAll() {
+function playAll(e) {
+  if (e && e.detail > 1) return // повторный клик даблклика — не пауза
   if (isThisPlaying.value) return player.togglePlay()
   if (release.value?.tracks?.length) player.playContext(release.value.tracks, 0, { name: release.value.title })
 }
@@ -115,7 +116,7 @@ async function toggleLike() {
     <div class="release__body" :style="{ '--body-bg': release.colors?.background || '#222' }">
       <div class="release__actions">
         <div class="release__actions-left">
-          <button class="play-btn play-btn--lg" @click="playAll"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
+          <button class="play-btn play-btn--lg" @click="playAll($event)"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
           <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
           <button
             v-if="auth.isAuthenticated"

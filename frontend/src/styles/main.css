@@ -24,6 +24,25 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Сайт ведёт себя как приложение: текст и элементы не выделяются. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Поля ввода — единственное место, где выделение осмысленно. */
+input,
+textarea,
+[contenteditable],
+[contenteditable] * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Никаких фокус-обводок у кнопок, ссылок и прочих элементов. */
+:focus,
+:focus-visible {
+  outline: none;
 }
 
 html,

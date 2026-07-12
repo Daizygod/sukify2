@@ -131,7 +131,7 @@ async function playMix(m) {
           </div>
           <CoverImage v-else :cover="s.cover" :size="64" class="shortcut__cover" />
           <span class="shortcut__title">{{ s.title }}</span>
-          <button class="play-btn shortcut__play" @click.prevent="playShortcut(s)">
+          <button class="play-btn shortcut__play" @click.prevent="$event.detail > 1 ? null : playShortcut(s)">
             <Icon name="playBig" :size="20" />
           </button>
         </RouterLink>

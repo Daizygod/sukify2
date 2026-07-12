@@ -61,6 +61,10 @@ export const useAuthStore = defineStore('auth', {
     async logout() {
       await api.post('/logout')
       this.user = null
+      // Чужая сессия не должна всплыть у следующего пользователя.
+      try {
+        localStorage.removeItem('sukify.playerSession')
+      } catch {}
     },
   },
 })
