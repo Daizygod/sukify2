@@ -101,7 +101,7 @@ async function toggleLike() {
       <template #meta>
         <template v-for="(a, i) in (release.artists?.length ? release.artists : [release.artist]).filter(Boolean)" :key="a.id">
           <RouterLink :to="{ name: 'artist', params: { slug: a.slug } }" class="release__artistchip">
-            <img v-if="a.avatar_url" :src="a.avatar_url" class="release__avatar" alt="" />
+            <img v-if="a.avatar_url || a.banner_url" :src="a.avatar_url || a.banner_url" class="release__avatar" alt="" />
             <strong>{{ a.name }}</strong>
           </RouterLink>
           <span v-if="i < (release.artists?.length || 1) - 1" class="release__sep">,</span>

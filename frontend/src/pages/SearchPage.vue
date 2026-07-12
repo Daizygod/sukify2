@@ -107,6 +107,18 @@ function playTop() {
   else if (tr.type === 'artist') playArtist(tr.item)
   else playRelease(tr.item)
 }
+
+/** Клик по карточке топ-результата — переход на страницу, а не воспроизведение. */
+function openTop() {
+  const tr = topResult.value
+  if (!tr) return
+  if (tr.type === 'artist') return router.push({ name: 'artist', params: { slug: tr.item.slug } })
+  if (tr.type === 'release') return router.push({ name: 'release', params: { slug: tr.item.slug } })
+  if (tr.type === 'track' && tr.item.release) {
+    return router.push({ name: 'release', params: { slug: tr.item.release.slug } })
+  }
+  playTop()
+}
 async function playArtist(a) {
   const { data } = await api.get(`/artists/${a.slug}/top-tracks`)
   if (data.data.length) player.playContext(data.data, 0, { name: a.name })
@@ -174,9 +186,9 @@ function tileColor(i) {
       <div v-if="topResult && chip === 'all'" class="search__toprow">
         <section class="search__top">
           <h2 class="section-title">Топ-результат</h2>
-          <div class="topcard" @click="playTop">
+          <div class="topcard" @click="openTop">
             <template v-if="topResult.type === 'artist'">
-              <img v-if="topResult.item.avatar_url" :src="topResult.item.avatar_url" class="topcard__img topcard__img--round" alt="" />
+              <img v-if="topResult.item.avatar_url || topResult.item.banner_url" :src="topResult.item.avatar_url || topResult.item.banner_url" class="topcard__img topcard__img--round" alt="" />
               <div v-else class="topcard__img topcard__img--round topcard__ph"><Icon name="person" :size="40" /></div>
               <div class="topcard__name">{{ topResult.item.name }}</div>
               <div class="topcard__kind">Исполнитель</div>
@@ -191,7 +203,7 @@ function tileColor(i) {
               <div class="topcard__name">{{ topResult.item.title }}</div>
               <div class="topcard__kind">Альбом</div>
             </template>
-            <button class="play-btn topcard__play"><Icon name="playBig" :size="20" /></button>
+            <button class="play-btn topcard__play" @click.stop="playTop"><Icon name="playBig" :size="20" /></button>
           </div>
         </section>
 
@@ -227,7 +239,7 @@ function tileColor(i) {
             v-for="a in results.artists"
             :key="a.id"
             :to="{ name: 'artist', params: { slug: a.slug } }"
-            :cover="a.avatar_url ? { 300: a.avatar_url } : null"
+            :cover="a.avatar_url || a.banner_url ? { 300: a.avatar_url || a.banner_url } : null"
             :title="a.name"
             subtitle="Исполнитель"
             round
@@ -241,7 +253,7 @@ function tileColor(i) {
             v-for="a in results.artists"
             :key="a.id"
             :to="{ name: 'artist', params: { slug: a.slug } }"
-            :cover="a.avatar_url ? { 300: a.avatar_url } : null"
+            :cover="a.avatar_url || a.banner_url ? { 300: a.avatar_url || a.banner_url } : null"
             :title="a.name"
             subtitle="Исполнитель"
             round

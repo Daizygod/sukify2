@@ -53,7 +53,7 @@ onMounted(async () => {
             class="stats__row"
           >
             <span class="stats__rank">{{ idx + 1 }}</span>
-            <CoverImage :cover="i.artist.avatar_url ? { 300: i.artist.avatar_url } : null" :size="40" rounded class="stats__cover" />
+            <CoverImage :cover="i.artist.avatar_url || i.artist.banner_url ? { 300: i.artist.avatar_url || i.artist.banner_url } : null" :size="40" rounded class="stats__cover" />
             <div class="stats__meta">
               <div class="stats__name">{{ i.artist.name }}</div>
             </div>

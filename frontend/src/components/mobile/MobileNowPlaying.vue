@@ -35,6 +35,31 @@ const bg = computed(() =>
 const { lyrics, lines, activeIndex, hasLyrics } = useLyrics()
 const showCards = computed(() => !remote.value && !!localTrack.value)
 
+// Живая строка текста под обложкой (как в приложении).
+const liveLine = computed(() =>
+  showCards.value && lines.value.length && activeIndex.value >= 0
+    ? lines.value[activeIndex.value].text || '♪'
+    : ''
+)
+
+// Соседние треки для карусели обложек.
+const nextTrack = computed(() =>
+  remote.value ? null : player.manualQueue[0] || player.upcoming[0] || null
+)
+const prevTrack = computed(() =>
+  remote.value ? null : player.queue[player.queueIndex - 1] || null
+)
+
+// Карточка «Текст» следует за перемоткой: активная строка держится по центру.
+const lyBox = ref(null)
+watch(activeIndex, (i) => {
+  if (i < 0 || !lyBox.value) return
+  const line = lyBox.value.querySelector(`[data-i="${i}"]`)
+  if (!line) return
+  // Скроллим только контейнер карточки, не всю страницу.
+  lyBox.value.scrollTo({ top: line.offsetTop - lyBox.value.clientHeight / 2 + line.clientHeight / 2, behavior: 'smooth' })
+})
+
 // Карточка «Об исполнителе».
 const aboutArtist = ref(null)
 watch(
@@ -51,33 +76,61 @@ watch(
 )
 const aboutImage = computed(() => aboutArtist.value?.banner_url || aboutArtist.value?.avatar_url || null)
 
-// Свайп обложки: влево — следующий, вправо — предыдущий.
+// Свайп обложки: карусель — текущая уезжает, соседняя обложка въезжает следом.
 const swipeX = ref(0)
 const swiping = ref(false)
+const settling = ref(false)
+const stripEl = ref(null)
 let touchX = 0
 let touchY = 0
 let horizontal = null
 function onTouchStart(e) {
+  if (settling.value) return
   touchX = e.touches[0].clientX
   touchY = e.touches[0].clientY
   horizontal = null
   swiping.value = true
 }
 function onTouchMove(e) {
+  if (settling.value) return
   const dx = e.touches[0].clientX - touchX
   const dy = e.touches[0].clientY - touchY
   if (horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
     horizontal = Math.abs(dx) > Math.abs(dy)
   }
-  if (horizontal) swipeX.value = Math.max(-140, Math.min(140, dx))
+  if (!horizontal) return
+  // Не даём утащить в сторону, где нет трека.
+  let x = dx
+  if (x < 0 && !nextTrack.value && !remote.value) x = Math.max(x, -30)
+  if (x > 0 && !prevTrack.value && !remote.value) x = Math.min(x, 30)
+  swipeX.value = x
 }
 function onTouchEnd() {
   swiping.value = false
   const dx = swipeX.value
-  swipeX.value = 0
-  if (!horizontal) return
-  if (dx < -60) next()
-  else if (dx > 60) prev()
+  if (!horizontal) {
+    swipeX.value = 0
+    return
+  }
+  const w = stripEl.value?.clientWidth || 300
+  const goNext = dx < -60 && (nextTrack.value || remote.value)
+  const goPrev = dx > 60 && (prevTrack.value || remote.value)
+  if (!goNext && !goPrev) {
+    swipeX.value = 0
+    return
+  }
+  // Доводим карусель до соседнего слайда, потом переключаем трек.
+  settling.value = true
+  swipeX.value = goNext ? -w : w
+  setTimeout(async () => {
+    if (goNext) await next()
+    else await prev()
+    // Мгновенно возвращаем ленту в центр уже с новой обложкой.
+    settling.value = false
+    swiping.value = true // отключает transition на один кадр
+    swipeX.value = 0
+    requestAnimationFrame(() => (swiping.value = false))
+  }, 240)
 }
 
 // Нижние шиты.
@@ -120,16 +173,29 @@ const previewLines = computed(() => {
 
     <div class="mnp__scroll">
       <div
+        ref="stripEl"
         class="mnp__coverwrap"
         @touchstart.passive="onTouchStart"
         @touchmove.passive="onTouchMove"
         @touchend.passive="onTouchEnd"
       >
-        <div class="mnp__coverslide" :class="{ 'mnp__coverslide--drag': swiping }" :style="{ transform: `translateX(${swipeX}px) rotate(${swipeX / 30}deg)` }">
-          <img v-if="view.coverUrl" :src="view.coverUrl" class="mnp__cover mnp__cover--img" alt="" />
-          <CoverImage v-else :cover="view.cover" :size="1000" class="mnp__cover" />
+        <!-- Лента: предыдущая | текущая | следующая обложка -->
+        <div class="mnp__strip" :class="{ 'mnp__strip--drag': swiping }" :style="{ transform: `translateX(calc(-100% + ${swipeX}px))` }">
+          <div class="mnp__slide">
+            <CoverImage v-if="prevTrack" :cover="prevTrack.cover" :size="1000" class="mnp__cover" />
+          </div>
+          <div class="mnp__slide">
+            <img v-if="view.coverUrl" :src="view.coverUrl" class="mnp__cover mnp__cover--img" alt="" />
+            <CoverImage v-else :cover="view.cover" :size="1000" class="mnp__cover" />
+          </div>
+          <div class="mnp__slide">
+            <CoverImage v-if="nextTrack" :cover="nextTrack.cover" :size="1000" class="mnp__cover" />
+          </div>
         </div>
       </div>
+
+      <!-- Живая строка текста под обложкой, как в приложении -->
+      <div v-if="liveLine" class="mnp__liveline">{{ liveLine }}</div>
 
       <div class="mnp__titlerow">
         <div class="mnp__titles">
@@ -188,12 +254,13 @@ const previewLines = computed(() => {
           <h3>Текст</h3>
           <button class="mnp__expand" @click="ui.lyricsOpen = true"><Icon name="expand" :size="16" /></button>
         </div>
-        <div class="mnp__lyrics">
+        <div ref="lyBox" class="mnp__lyrics">
           <p
             v-for="(l, i) in previewLines"
             :key="i"
             class="mnp__line"
             :class="{ on: lines.length && i === activeIndex, past: lines.length && i < activeIndex }"
+            :data-i="i"
             @click="lines.length && player.seek(lines[i].ms)"
           >
             {{ l || ' ' }}
@@ -267,18 +334,25 @@ const previewLines = computed(() => {
   display: none;
 }
 .mnp__coverwrap {
-  display: grid;
-  place-items: center;
-  padding: 4vh 0 5vh;
+  padding: 4vh 0 4vh;
   touch-action: pan-y;
   overflow: hidden;
 }
-.mnp__coverslide {
-  transition: transform 0.25s ease;
+/* Лента из трёх слайдов: transform -100% центрирует текущий. */
+.mnp__strip {
+  display: flex;
+  width: 100%;
+  transition: transform 0.24s ease;
   will-change: transform;
 }
-.mnp__coverslide--drag {
+.mnp__strip--drag {
   transition: none;
+}
+.mnp__slide {
+  flex: 0 0 100%;
+  display: grid;
+  place-items: center;
+  padding: 0 6px;
 }
 .mnp__cover {
   width: min(100%, 42vh);
@@ -289,6 +363,14 @@ const previewLines = computed(() => {
   aspect-ratio: 1;
   object-fit: cover;
   width: min(78vw, 42vh);
+}
+/* Текущая строка текста под обложкой */
+.mnp__liveline {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: -8px 0 20px;
+  min-height: 26px;
 }
 .mnp__titlerow {
   display: flex;
@@ -437,9 +519,13 @@ const previewLines = computed(() => {
 }
 .mnp__lyrics {
   max-height: 240px;
-  overflow: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
   -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
   mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+}
+.mnp__lyrics::-webkit-scrollbar {
+  display: none;
 }
 .mnp__line {
   font-size: 20px;

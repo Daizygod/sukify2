@@ -1,6 +1,8 @@
 <script setup>
+import { ref, computed, watch } from 'vue'
 import Icon from '../Icon.vue'
 import CoverImage from '../CoverImage.vue'
+import api from '@/lib/api'
 import { usePlayerStore } from '@/stores/player'
 import { useDeviceStore } from '@/stores/devices'
 
@@ -9,6 +11,36 @@ const devices = useDeviceStore()
 const emit = defineEmits(['close'])
 
 const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
+
+// Пульт: очередь активного устройства из его state-бродкастов (как QueuePanel).
+const remote = computed(() => devices.isRemote)
+const rs = computed(() => devices.remoteState)
+const remoteManual = ref([])
+const remoteUpcoming = ref([])
+const cache = new Map()
+
+watch(
+  () => (remote.value && rs.value ? JSON.stringify([rs.value.man, rs.value.up]) : ''),
+  resolveRemote,
+  { immediate: true }
+)
+
+async function resolveRemote() {
+  if (!remote.value || !rs.value) return
+  const man = rs.value.man || []
+  const up = rs.value.up || []
+  const missing = [...new Set([...man.map((m) => m.id), ...up])].filter((id) => !cache.has(id))
+  if (missing.length) {
+    try {
+      const { data } = await api.get('/tracks-bulk', { params: { ids: missing.join(',') } })
+      data.data.forEach((t) => cache.set(t.id, t))
+    } catch {
+      /* следующий бродкаст попробует снова */
+    }
+  }
+  remoteManual.value = man.map((m) => ({ ...(cache.get(m.id) || { id: m.id, title: '…', artists: [] }), __qid: m.q }))
+  remoteUpcoming.value = up.map((id) => cache.get(id)).filter(Boolean)
+}
 </script>
 
 <template>
@@ -23,10 +55,51 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
       </div>
 
       <div class="sheet__scroll">
-        <p v-if="devices.isRemote" class="sheet__hint">
-          Музыка играет на «{{ devices.activeDevice?.name || 'другом устройстве' }}» — очередь
-          смотри там или перенеси воспроизведение сюда.
-        </p>
+        <!-- Пульт: очередь активного устройства, управляем командами -->
+        <template v-if="remote">
+          <p class="sheet__hint">Очередь устройства «{{ devices.activeDevice?.name || 'другое устройство' }}»</p>
+
+          <section v-if="rs?.track" class="sheet__section">
+            <h4>Сейчас играет</h4>
+            <div class="qrow">
+              <img v-if="rs.track.cover" :src="rs.track.cover" class="qrow__cover qrow__cover--img" alt="" />
+              <div class="qrow__meta">
+                <div class="qrow__title qrow__title--green">{{ rs.track.title }}</div>
+                <div class="qrow__artists">{{ rs.track.artists }}</div>
+              </div>
+            </div>
+          </section>
+
+          <section v-if="remoteManual.length" class="sheet__section">
+            <h4>Дальше в очереди</h4>
+            <div v-for="m in remoteManual" :key="m.__qid" class="qrow" @click="devices.sendCommand('play-manual', m.__qid)">
+              <CoverImage :cover="m.cover" :size="48" class="qrow__cover" />
+              <div class="qrow__meta">
+                <div class="qrow__title">{{ m.title }}</div>
+                <div class="qrow__artists">{{ names(m) }}</div>
+              </div>
+              <button class="qrow__x" @click.stop="devices.sendCommand('queue-remove-manual', m.__qid)">
+                <Icon name="plus" :size="14" style="transform: rotate(45deg)" />
+              </button>
+            </div>
+          </section>
+
+          <section v-if="remoteUpcoming.length" class="sheet__section">
+            <h4>Далее: {{ rs?.ctx || 'текущий список' }}</h4>
+            <div v-for="(t, i) in remoteUpcoming" :key="`${t.id}-${i}`" class="qrow" @click="devices.sendCommand('play-upcoming', i)">
+              <CoverImage :cover="t.cover" :size="48" class="qrow__cover" />
+              <div class="qrow__meta">
+                <div class="qrow__title">{{ t.title }}</div>
+                <div class="qrow__artists">{{ names(t) }}</div>
+              </div>
+              <button class="qrow__x" @click.stop="devices.sendCommand('queue-remove-upcoming', i)">
+                <Icon name="plus" :size="14" style="transform: rotate(45deg)" />
+              </button>
+            </div>
+          </section>
+
+          <p v-if="!rs?.track" class="sheet__hint">Жду состояние с активного устройства…</p>
+        </template>
 
         <template v-else>
           <section v-if="player.currentTrack" class="sheet__section">
@@ -158,6 +231,10 @@ const names = (t) => (t.artists || []).map((a) => a.name).join(', ')
   width: 44px;
   flex: 0 0 44px;
   border-radius: 4px;
+}
+.qrow__cover--img {
+  height: 44px;
+  object-fit: cover;
 }
 .qrow__meta {
   flex: 1;

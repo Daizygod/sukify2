@@ -81,7 +81,7 @@ const items = computed(() => {
         pinType: 'artist',
         pinId: a.id,
         to: { name: 'artist', params: { slug: a.slug } },
-        cover: a.avatar_url ? { 300: a.avatar_url } : null,
+        cover: a.avatar_url || a.banner_url ? { 300: a.avatar_url || a.banner_url } : null,
         round: true,
         title: a.name,
         sub: 'Исполнитель',
