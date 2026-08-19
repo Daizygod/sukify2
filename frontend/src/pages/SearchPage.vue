@@ -6,6 +6,7 @@ import Icon from '@/components/Icon.vue'
 import MediaCard from '@/components/MediaCard.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import PlayButton from '@/components/PlayButton.vue'
+import ReleaseGrid from '@/components/ReleaseGrid.vue'
 import { usePlayerStore } from '@/stores/player'
 
 const route = useRoute()
@@ -38,6 +39,14 @@ const CHIPS = [
 ]
 
 const TILE_COLORS = ['#e13300', '#1e3264', '#8d67ab', '#e8115b', '#148a08', '#503750', '#477d95', '#ba5d07', '#0d73ec', '#af2896']
+
+// Каталог под плитками обзора.
+const releaseSort = ref('added')
+const RELEASE_SORTS = [
+  { value: 'added', label: 'Недавно в Sukify' },
+  { value: 'date', label: 'Дата выхода' },
+  { value: 'name', label: 'По алфавиту' },
+]
 
 async function runSearch() {
   const query = q.value.trim()
@@ -181,6 +190,25 @@ function tileColor(i) {
           <Icon name="heartFill" :size="72" class="tile__art" />
         </RouterLink>
       </div>
+
+      <!-- Под подборками — весь каталог, догружается при прокрутке. -->
+      <section class="search__all">
+        <div class="search__allhead">
+          <h2 class="section-title">Все релизы</h2>
+          <div class="search__allchips">
+            <button
+              v-for="s in RELEASE_SORTS"
+              :key="s.value"
+              class="chip"
+              :class="{ 'chip--active': releaseSort === s.value }"
+              @click="releaseSort = s.value"
+            >
+              {{ s.label }}
+            </button>
+          </div>
+        </div>
+        <ReleaseGrid :sort="releaseSort" />
+      </section>
     </template>
 
     <!-- Результаты -->
@@ -357,6 +385,22 @@ function tileColor(i) {
   }
 }
 
+.search__all {
+  margin-top: 40px;
+}
+.search__allhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.search__allchips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
 .search__tiles {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

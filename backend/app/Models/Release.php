@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Query\Expression;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Scout\Searchable;
 
@@ -32,6 +34,16 @@ class Release extends Model
             'cover_status' => ProcessingStatus::class,
             'release_date' => 'date',
         ];
+    }
+
+    /**
+     * «Свежесть» релиза в Sukify: когда его добавили или последний раз правили.
+     * По ней строится подборка «Недавно в Sukify» и сортировка каталога —
+     * это не дата выхода альбома, а дата появления/обновления у нас.
+     */
+    public static function freshnessExpression(): Expression
+    {
+        return DB::raw('GREATEST(releases.updated_at, releases.created_at)');
     }
 
     // --- Relations ---------------------------------------------------------

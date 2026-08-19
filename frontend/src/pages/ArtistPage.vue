@@ -221,6 +221,24 @@ function openLikedMenu(e) {
           />
         </div>
       </section>
+
+      <!-- Чужие релизы, где артист звучит гостем (фиты, сборники). -->
+      <section v-if="artist.appears_on?.length" style="margin-top:36px">
+        <h2 class="section-title">С участием {{ artist.name }}</h2>
+        <div class="grid-cards">
+          <MediaCard
+            v-for="r in artist.appears_on"
+            :key="r.id"
+            :to="{ name: 'release', params: { slug: r.slug } }"
+            :cover="r.cover"
+            :title="r.title"
+            :subtitle="`${r.year || ''} • ${r.artist?.name || ''}`"
+            :context-key="`release:${r.slug}`"
+            :tracks="() => releaseTracks(r)"
+            :context-name="r.title"
+          />
+        </div>
+      </section>
     </div>
   </div>
 </template>

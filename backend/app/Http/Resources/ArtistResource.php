@@ -26,6 +26,8 @@ class ArtistResource extends JsonResource
             'role' => $this->whenPivotLoaded('track_artist', fn () => $this->pivot->role),
             'is_followed' => $this->when(isset($this->is_followed), fn () => (bool) $this->is_followed),
             'releases' => ReleaseResource::collection($this->whenLoaded('releases')),
+            // Релизы других исполнителей, где артист участвовал (фиты, сборники).
+            'appears_on' => ReleaseResource::collection($this->whenLoaded('appearsOn')),
         ];
     }
 }

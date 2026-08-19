@@ -48,6 +48,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/artists/{artist:slug}/top-tracks', [ArtistController::class, 'topTracks']);
     Route::get('/artists/{artist:slug}/releases', [ArtistController::class, 'releases']);
 
+    Route::get('/releases', [ReleaseController::class, 'index']);
     Route::get('/releases/{release:slug}', [ReleaseController::class, 'show']);
     Route::get('/tracks-bulk', [TrackController::class, 'bulk']);
     Route::get('/tracks/{track}', [TrackController::class, 'show']);

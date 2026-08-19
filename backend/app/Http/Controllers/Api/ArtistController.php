@@ -8,6 +8,7 @@ use App\Http\Resources\ArtistResource;
 use App\Http\Resources\ReleaseResource;
 use App\Http\Resources\TrackResource;
 use App\Models\Artist;
+use App\Models\Release;
 use Illuminate\Http\Request;
 
 class ArtistController extends Controller
@@ -30,6 +31,23 @@ class ArtistController extends Controller
         $artist->load(['releases' => fn ($q) => $q->orderByDesc('release_date')]);
         $this->markFollowedArtists([$artist], $request->user());
         $this->markLikedReleases($artist->releases, $request->user());
+
+        // «С участием»: релизы чужих исполнителей, где артист либо указан
+        // соавтором релиза, либо звучит хотя бы на одном треке (фиты).
+        $appearsOn = Release::query()
+            ->where('artist_id', '!=', $artist->id)
+            ->where(function ($q) use ($artist) {
+                $q->whereHas('artists', fn ($a) => $a->where('artists.id', $artist->id))
+                    ->orWhereHas('tracks.artists', fn ($a) => $a->where('artists.id', $artist->id));
+            })
+            ->with('artist')
+            ->withCount('tracks')
+            ->orderByDesc('release_date')
+            ->limit(30)
+            ->get();
+        $this->markLikedReleases($appearsOn, $request->user());
+
+        $artist->setRelation('appearsOn', $appearsOn);
 
         return new ArtistResource($artist);
     }

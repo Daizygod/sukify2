@@ -18,6 +18,7 @@ const menu = useMenuStore()
 const recentlyPlayed = ref([])
 const popular = ref([])
 const newReleases = ref([])
+const recentlyAdded = ref([])
 const mixes = ref([])
 const loading = ref(true)
 
@@ -99,6 +100,7 @@ onMounted(async () => {
     recentlyPlayed.value = data.recently_played
     popular.value = data.popular_tracks
     newReleases.value = data.new_releases
+    recentlyAdded.value = data.recently_added || []
   } finally {
     loading.value = false
   }
@@ -219,6 +221,26 @@ onMounted(async () => {
         <div class="grid-cards">
           <MediaCard
             v-for="r in newReleases.slice(0, 8)"
+            :key="r.id"
+            :to="{ name: 'release', params: { slug: r.slug } }"
+            :cover="r.cover"
+            :title="r.title"
+            :subtitle="`${r.year || ''} · ${r.artist?.name || ''}`"
+            :context-key="`release:${r.slug}`"
+            :tracks="() => releaseTracks(r)"
+            :context-name="r.title"
+          />
+        </div>
+      </section>
+
+      <section v-if="recentlyAdded.length" class="home__section">
+        <div class="shelf__head">
+          <h2 class="section-title">Недавно в Sukify</h2>
+          <RouterLink :to="{ name: 'releases' }" class="shelf__all">Показать все</RouterLink>
+        </div>
+        <div class="grid-cards">
+          <MediaCard
+            v-for="r in recentlyAdded.slice(0, 8)"
             :key="r.id"
             :to="{ name: 'release', params: { slug: r.slug } }"
             :cover="r.cover"

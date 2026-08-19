@@ -58,10 +58,22 @@ class HomeController extends Controller
             ->get();
         $this->markLikedReleases($newReleases, $user);
 
+        // «Недавно в Sukify» — что мы сами недавно залили или обновили
+        // (в отличие от «Новых релизов», которые сортируются по дате выхода).
+        $recentlyAdded = Release::query()
+            ->with('artist')
+            ->withCount('tracks')
+            ->orderByDesc(Release::freshnessExpression())
+            ->orderByDesc('id')
+            ->limit(12)
+            ->get();
+        $this->markLikedReleases($recentlyAdded, $user);
+
         return response()->json([
             'recently_played' => TrackResource::collection($recentlyPlayed),
             'popular_tracks' => TrackResource::collection($popularTracks),
             'new_releases' => ReleaseResource::collection($newReleases),
+            'recently_added' => ReleaseResource::collection($recentlyAdded),
         ]);
     }
 }
