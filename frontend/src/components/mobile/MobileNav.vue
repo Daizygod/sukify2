@@ -1,8 +1,10 @@
 <script setup>
 import { useRoute, RouterLink } from 'vue-router'
 import Icon from '../Icon.vue'
+import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
+const ui = useUiStore()
 
 const items = [
   { to: '/', label: 'Главная', icon: 'home', iconActive: 'homeFill', match: ['home', 'section', 'genre', 'mix'] },
@@ -16,9 +18,14 @@ const isOn = (i) => i.match.includes(route.name)
 <template>
   <nav class="mnav">
     <RouterLink v-for="i in items" :key="i.to" :to="i.to" class="mnav__item" :class="{ on: isOn(i) }">
-      <Icon :name="isOn(i) && i.iconActive ? i.iconActive : i.icon" :size="24" />
+      <Icon :name="isOn(i) && i.iconActive ? i.iconActive : i.icon" :size="26" />
       <span>{{ i.label }}</span>
     </RouterLink>
+    <!-- Четвёртая вкладка, как в приложении Spotify: «Создать» -->
+    <button class="mnav__item" @click="ui.createPlaylistOpen = true">
+      <Icon name="plus" :size="26" />
+      <span>Создать</span>
+    </button>
   </nav>
 </template>
 
@@ -39,11 +46,14 @@ const isOn = (i) => i.match.includes(route.name)
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 0 8px;
+  /* Замерено по скриншоту приложения: подпись крупнее и ниже иконки. */
+  gap: 6px;
+  padding: 8px 0 10px;
   color: var(--text-subdued);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
+  background: transparent;
+  white-space: nowrap;
 }
 .mnav__item.on {
   color: #fff;

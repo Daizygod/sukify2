@@ -51,6 +51,44 @@ const prevTrack = computed(() =>
   remote.value ? null : player.queue[player.queueIndex - 1] || null
 )
 
+/**
+ * Один и тот же URL обложки для всех трёх слайдов карусели.
+ *
+ * Раньше центр брал coverBigUrl, а соседи — <CoverImage> со своим srcset и
+ * loading="lazy": после свайпа в центре оказывалась другая ссылка, картинка
+ * грузилась заново, и на пару кадров было видно две обложки сразу.
+ */
+function bigCover(track) {
+  const c = track?.cover
+  if (!c) return null
+  const arr = Array.isArray(c)
+    ? c
+    : Object.entries(c).map(([size, url]) => ({ size: Number(size), url }))
+  const sorted = arr.filter((x) => x?.url).sort((a, b) => a.size - b.size)
+  if (!sorted.length) return null
+  return (sorted.find((x) => x.size >= 640) || sorted[sorted.length - 1]).url
+}
+
+const centerCover = computed(() =>
+  remote.value ? view.value?.coverBigUrl || null : bigCover(localTrack.value)
+)
+const prevCover = computed(() => (remote.value ? null : bigCover(prevTrack.value)))
+const nextCover = computed(() => (remote.value ? null : bigCover(nextTrack.value)))
+
+// Соседние обложки заранее в кэше браузера — иначе после свайпа центр моргает.
+watch(
+  () => [prevCover.value, nextCover.value],
+  ([p, n]) => {
+    for (const url of [p, n]) {
+      if (url) {
+        const img = new Image()
+        img.src = url
+      }
+    }
+  },
+  { immediate: true }
+)
+
 // Карточка «Текст» следует за перемоткой: активная строка держится по центру.
 const lyBox = ref(null)
 watch(activeIndex, (i) => {
@@ -226,24 +264,31 @@ const previewLines = computed(() => {
           :style="{ transform: `translateX(calc(-100% + ${swipeX}px))` }"
           @transitionend="onStripTransitionEnd"
         >
+          <!-- Все три слайда — обычные <img> с одинаковым источником, иначе
+               центр после свайпа перезагружает картинку и моргает. -->
           <div class="mnp__slide">
-            <CoverImage v-if="prevTrack" :cover="prevTrack.cover" :size="1000" class="mnp__cover" />
+            <img v-if="prevCover" :src="prevCover" class="mnp__cover" alt="" />
             <!-- На пульте соседних обложек не знаем — показываем текущую, чтобы не мигало пустотой -->
-            <img v-else-if="remote && view.coverBigUrl" :src="view.coverBigUrl" class="mnp__cover mnp__cover--img" alt="" />
+            <img v-else-if="remote && centerCover" :src="centerCover" class="mnp__cover" alt="" />
           </div>
           <div class="mnp__slide">
-            <img v-if="view.coverBigUrl" :src="view.coverBigUrl" class="mnp__cover mnp__cover--img" alt="" />
+            <img v-if="centerCover" :src="centerCover" class="mnp__cover" alt="" />
             <CoverImage v-else :cover="view.cover" :size="1000" class="mnp__cover" />
           </div>
           <div class="mnp__slide">
-            <CoverImage v-if="nextTrack" :cover="nextTrack.cover" :size="1000" class="mnp__cover" />
-            <img v-else-if="remote && view.coverBigUrl" :src="view.coverBigUrl" class="mnp__cover mnp__cover--img" alt="" />
+            <img v-if="nextCover" :src="nextCover" class="mnp__cover" alt="" />
+            <img v-else-if="remote && centerCover" :src="centerCover" class="mnp__cover" alt="" />
           </div>
         </div>
       </div>
 
-      <!-- Живая строка текста под обложкой, как в приложении -->
-      <div v-if="liveLine" class="mnp__liveline">{{ liveLine }}</div>
+      <!-- Живая строка текста под обложкой: старая уезжает вверх и тает,
+           новая приходит снизу — как в приложении. -->
+      <div v-if="liveLine" class="mnp__livewrap">
+        <Transition name="lyricline">
+          <div :key="liveLine" class="mnp__liveline">{{ liveLine }}</div>
+        </Transition>
+      </div>
 
       <div class="mnp__titlerow">
         <div class="mnp__titles">
@@ -400,25 +445,45 @@ const previewLines = computed(() => {
   flex: 0 0 100%;
   display: grid;
   place-items: center;
-  padding: 0 6px;
+  padding: 0 4px;
 }
+/* Обложка почти во всю ширину, как в приложении: поля по 20px. */
 .mnp__cover {
-  width: min(100%, 42vh);
+  width: min(calc(100vw - 40px), 46vh);
+  aspect-ratio: 1;
+  object-fit: cover;
   border-radius: 8px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
-.mnp__cover--img {
-  aspect-ratio: 1;
-  object-fit: cover;
-  width: min(78vw, 42vh);
-}
 /* Текущая строка текста под обложкой */
+/* Окно под одну строку: внутри неё старая и новая строки разъезжаются. */
+.mnp__livewrap {
+  position: relative;
+  height: 52px;
+  margin: -8px 0 12px;
+  overflow: hidden;
+}
 .mnp__liveline {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
   font-size: 19px;
   font-weight: 700;
   line-height: 1.35;
-  margin: -8px 0 20px;
-  min-height: 26px;
+}
+.lyricline-enter-active,
+.lyricline-leave-active {
+  transition: transform 0.42s cubic-bezier(0.3, 0, 0.2, 1), opacity 0.3s ease;
+}
+/* Новая строка выплывает снизу, отработавшая улетает вверх. */
+.lyricline-enter-from {
+  transform: translateY(90%);
+  opacity: 0;
+}
+.lyricline-leave-to {
+  transform: translateY(-90%);
+  opacity: 0;
 }
 .mnp__titlerow {
   display: flex;

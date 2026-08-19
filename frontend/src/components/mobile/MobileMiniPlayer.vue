@@ -14,7 +14,6 @@ const { player, devices, remote, localTrack, view, hasPlayback, shownPlaying, sh
 
 // Свайп по мини-плееру влево/вправо переключает трек (как в приложении).
 const miniX = ref(0)
-const miniDrag = ref(false)
 let sx = 0
 let sy = 0
 let horiz = null
@@ -24,16 +23,16 @@ function onTouchStart(e) {
   sy = e.touches[0].clientY
   horiz = null
   swiped = false
-  miniDrag.value = true
 }
 function onTouchMove(e) {
   const dx = e.touches[0].clientX - sx
   const dy = e.touches[0].clientY - sy
   if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy)
+  // Сама плашка не ездит — в приложении Spotify она стоит на месте, меняются
+  // только текст и цвет. Жест копим, но карточку не двигаем.
   if (horiz) miniX.value = Math.max(-120, Math.min(120, dx))
 }
 function onTouchEnd() {
-  miniDrag.value = false
   const dx = miniX.value
   miniX.value = 0
   if (!horiz) return
@@ -62,21 +61,30 @@ const deviceLabel = computed(() =>
   <div
     v-if="hasPlayback"
     class="mini"
-    :class="{ 'mini--drag': miniDrag }"
-    :style="{ '--mini-bg': bg, transform: miniX ? `translateX(${miniX}px)` : '' }"
+    :style="{ '--mini-bg': bg }"
     @click="onOpen"
     @touchstart.passive="onTouchStart"
     @touchmove.passive="onTouchMove"
     @touchend.passive="onTouchEnd"
   >
-    <img v-if="view.coverUrl" :src="view.coverUrl" class="mini__cover mini__cover--img" alt="" />
-    <CoverImage v-else :cover="view.cover" :size="80" class="mini__cover" />
+    <Transition name="minifade" mode="out-in">
+      <img
+        v-if="view.coverUrl"
+        :key="view.coverUrl"
+        :src="view.coverUrl"
+        class="mini__cover mini__cover--img"
+        alt=""
+      />
+      <CoverImage v-else :key="view.title" :cover="view.cover" :size="80" class="mini__cover" />
+    </Transition>
     <div class="mini__meta">
-      <div class="mini__line">
-        <span class="mini__title">{{ view.title }}</span>
-        <span class="mini__sep"> • </span>
-        <span class="mini__artists">{{ view.artists }}</span>
-      </div>
+      <Transition name="minifade" mode="out-in">
+        <div :key="view.title" class="mini__line">
+          <span class="mini__title">{{ view.title }}</span>
+          <span class="mini__sep"> • </span>
+          <span class="mini__artists">{{ view.artists }}</span>
+        </div>
+      </Transition>
       <div class="mini__device" :class="{ 'mini__device--remote': remote }">
         <Icon v-if="remote" name="devices" :size="11" />
         {{ deviceLabel }}
@@ -112,10 +120,17 @@ const deviceLabel = computed(() =>
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   touch-action: pan-y;
-  transition: transform 0.22s ease;
+  /* Плашка стоит на месте: при смене трека переливается только цвет. */
+  transition: background 0.45s ease;
 }
-.mini--drag {
-  transition: none;
+/* Обложка и подпись меняются короткой растворяющей сменой, без рывка. */
+.minifade-enter-active,
+.minifade-leave-active {
+  transition: opacity 0.16s ease;
+}
+.minifade-enter-from,
+.minifade-leave-to {
+  opacity: 0;
 }
 .mini__cover {
   width: 40px;
