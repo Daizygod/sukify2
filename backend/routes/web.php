@@ -34,6 +34,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('releases/{release}/tracks/order', [TrackController::class, 'reorder'])->name('tracks.reorder');
         Route::get('tracks/{track}/status', [TrackController::class, 'status'])->name('tracks.status');
 
+        // Текст трека: свой вариант, публикация и жалоба на LRCLIB.
+        Route::get('tracks/{track}/lyrics', [\App\Http\Controllers\Admin\TrackLyricsController::class, 'edit'])->name('tracks.lyrics');
+        Route::put('tracks/{track}/lyrics', [\App\Http\Controllers\Admin\TrackLyricsController::class, 'update'])->name('tracks.lyrics.update');
+        Route::post('tracks/{track}/lyrics/publish', [\App\Http\Controllers\Admin\TrackLyricsController::class, 'publish'])->name('tracks.lyrics.publish');
+        Route::post('tracks/{track}/lyrics/flag', [\App\Http\Controllers\Admin\TrackLyricsController::class, 'flag'])->name('tracks.lyrics.flag');
+
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::put('users/{user}/ban', [UserController::class, 'toggleBan'])->name('users.ban');
         Route::put('users/{user}/admin', [UserController::class, 'toggleAdmin'])->name('users.admin');

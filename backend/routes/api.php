@@ -54,6 +54,11 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/tracks/{track}', [TrackController::class, 'show']);
     Route::get('/tracks/{track}/radio', [\App\Http\Controllers\Api\MixController::class, 'trackRadio']);
     Route::get('/tracks/{track}/lyrics', [\App\Http\Controllers\Api\LyricsController::class, 'show']);
+    // Правка/публикация текста и жалоба на чужой — только для админов
+    // (проверка внутри контроллера).
+    Route::put('/tracks/{track}/lyrics', [\App\Http\Controllers\Api\LyricsController::class, 'store']);
+    Route::post('/tracks/{track}/lyrics/flag', [\App\Http\Controllers\Api\LyricsController::class, 'flag']);
+    Route::post('/tracks/{track}/lyrics/publish', [\App\Http\Controllers\Api\LyricsController::class, 'publish']);
 
     Route::get('/transitions', [TransitionController::class, 'forPair']);
     Route::get('/transitions/all', [TransitionController::class, 'index']);

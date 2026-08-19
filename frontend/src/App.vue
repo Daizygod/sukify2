@@ -70,12 +70,12 @@ function onHotkey(e) {
     case 'f':
     case 'F':
     case 'а':
-      ui.fullscreenOpen = !ui.fullscreenOpen
+      ui.toggleFullscreen()
       break
     case 't':
     case 'T':
     case 'е':
-      ui.lyricsOpen = !ui.lyricsOpen
+      ui.toggleLyrics()
       break
   }
 }

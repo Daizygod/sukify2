@@ -1,12 +1,17 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import Icon from './Icon.vue'
+import api from '@/lib/api'
 import { usePlayerStore } from '@/stores/player'
 import { useUiStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toasts'
 import { useLyrics } from '@/composables/useLyrics'
 
 const player = usePlayerStore()
 const ui = useUiStore()
+const auth = useAuthStore()
+const toasts = useToastStore()
 
 const { lyrics, lines, activeIndex } = useLyrics()
 const listEl = ref(null)
@@ -23,18 +28,51 @@ watch(activeIndex, async (i) => {
 function seekTo(line) {
   player.seek(line.ms)
 }
+
+// «Текст неверный» — жалоба на запись LRCLIB, откуда он пришёл.
+const reporting = ref(false)
+async function reportLyrics() {
+  const track = player.currentTrack
+  if (!track || reporting.value) return
+  reporting.value = true
+  try {
+    const reason = window.prompt('Что не так с текстом? (необязательно)') ?? ''
+    const { data } = await api.post(`/tracks/${track.id}/lyrics/flag`, { reason })
+    toasts.show(data.message || 'Жалоба отправлена')
+  } catch (e) {
+    toasts.show(e?.response?.data?.message || 'Не удалось отправить жалобу')
+  } finally {
+    reporting.value = false
+  }
+}
 </script>
 
 <template>
   <div class="ly" :style="{ '--ly-bg': bg }">
     <div class="ly__top">
       <span class="ly__context">{{ player.currentTrack?.title || 'Текст' }}</span>
-      <button class="ly__btn" title="Закрыть" @click="ui.lyricsOpen = false">
-        <Icon name="plus" :size="18" style="transform: rotate(45deg)" />
-      </button>
+      <div class="ly__actions">
+        <!-- Жалоба уходит на LRCLIB, откуда мы берём текст (только админ). -->
+        <button
+          v-if="auth.isAdmin && lyrics?.found"
+          class="ly__report"
+          :disabled="reporting"
+          title="Сообщить на LRCLIB, что текст неверный"
+          @click="reportLyrics"
+        >
+          {{ reporting ? 'Отправляем…' : 'Текст неверный' }}
+        </button>
+        <button class="ly__btn" title="Закрыть" @click="ui.lyricsOpen = false">
+          <Icon name="close" :size="16" />
+        </button>
+      </div>
     </div>
 
     <div ref="listEl" class="ly__scroll">
+      <!-- Как в Spotify: честно предупреждаем, что тайм-кодов нет. -->
+      <p v-if="!lines.length && lyrics?.plain" class="ly__notice">
+        Этот текст ещё не синхронизирован с треком.
+      </p>
       <template v-if="lines.length">
         <p
           v-for="(l, i) in lines"
@@ -84,6 +122,26 @@ function seekTo(line) {
   font-weight: 700;
   font-size: 16px;
 }
+.ly__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ly__report {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 14px;
+}
+.ly__report:hover:not(:disabled) {
+  border-color: #fff;
+  background: rgba(0, 0, 0, 0.2);
+}
+.ly__report:disabled {
+  opacity: 0.6;
+}
 .ly__btn {
   width: 36px;
   height: 36px;
@@ -102,16 +160,22 @@ function seekTo(line) {
   overflow-y: auto;
   padding: 24px 64px 40vh;
 }
+.ly__notice {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 28px;
+}
+/* Размер строк снят с оригинала: текст крупный, почти как заголовок. */
 .ly__line {
-  font-size: clamp(24px, 3vw, 36px);
+  font-size: clamp(28px, 3.6vw, 54px);
   font-weight: 800;
   letter-spacing: -0.01em;
-  line-height: 1.3;
-  margin-bottom: 18px;
+  line-height: 1.22;
+  margin-bottom: 30px;
   color: rgba(0, 0, 0, 0.6);
   cursor: pointer;
   transition: color 0.2s ease;
-  max-width: 900px;
+  max-width: 1100px;
 }
 .ly__line:hover {
   color: #fff;
@@ -146,7 +210,7 @@ function seekTo(line) {
   }
   .ly__line {
     font-size: 26px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
 }
 </style>

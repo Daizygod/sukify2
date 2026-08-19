@@ -73,6 +73,21 @@ export const useUiStore = defineStore('ui', {
     toggleRight() {
       this.openRight('nowplaying')
     },
+    /**
+     * Полноэкранный режим и окно текста — взаимоисключающие: показывают одно
+     * и то же место экрана. Открывая полный экран, закрываем текст, чтобы не
+     * пришлось закрывать его вторым действием после выхода.
+     */
+    toggleFullscreen() {
+      this.fullscreenOpen = !this.fullscreenOpen
+      if (this.fullscreenOpen) this.lyricsOpen = false
+    },
+
+    toggleLyrics() {
+      this.lyricsOpen = !this.lyricsOpen
+      if (this.lyricsOpen) this.fullscreenOpen = false
+    },
+
     toggleListCompact() {
       this.listCompact = !this.listCompact
       localStorage.setItem('ui.listCompact', this.listCompact ? '1' : '0')

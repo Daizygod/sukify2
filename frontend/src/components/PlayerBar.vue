@@ -136,13 +136,13 @@ function onVol(frac) {
       <!-- Right: view toggles + volume -->
       <div class="player__right">
         <button class="ctl ctl--dot" :class="{ on: ui.rightOpen && ui.rightView === 'nowplaying' }" title="Экран «Сейчас играет»" @click="ui.openRight('nowplaying')"><Icon name="nowplaying" :size="16" /></button>
-        <button class="ctl ctl--dot" :class="{ on: ui.lyricsOpen }" title="Текст" @click="ui.lyricsOpen = !ui.lyricsOpen"><Icon name="lyrics" :size="16" /></button>
+        <button class="ctl ctl--dot" :class="{ on: ui.lyricsOpen }" title="Текст" @click="ui.toggleLyrics()"><Icon name="lyrics" :size="16" /></button>
         <button class="ctl ctl--dot" :class="{ on: ui.rightOpen && ui.rightView === 'queue' }" title="Очередь" @click="ui.openRight('queue')"><Icon name="queue" :size="16" /></button>
         <button class="ctl ctl--dot" :class="{ on: (ui.rightOpen && ui.rightView === 'connect') || remote }" title="Подключение к устройству" @click="ui.openRight('connect')"><Icon name="devices" :size="16" /></button>
         <button class="ctl" title="Громкость" @click="remote ? null : player.toggleMute()"><Icon name="volume" :size="16" /></button>
         <div class="player__vol"><DragBar :value="shownVolume" @input="onVol" /></div>
         <button class="ctl" title="Мини-плеер" @click="onMiniplayer"><Icon name="miniplayer" :size="16" /></button>
-        <button class="ctl" :class="{ on: ui.fullscreenOpen }" title="Полноэкранный режим" @click="ui.fullscreenOpen = !ui.fullscreenOpen"><Icon name="fullscreen" :size="16" /></button>
+        <button class="ctl" :class="{ on: ui.fullscreenOpen }" title="Полноэкранный режим" @click="ui.toggleFullscreen()"><Icon name="fullscreen" :size="16" /></button>
       </div>
     </div>
 

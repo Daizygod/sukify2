@@ -241,7 +241,8 @@ const badge = {
               @change="toggleUnofficial(t, $event.target.checked)"
             />
           </td>
-          <td class="px-4 py-3 text-right">
+          <td class="px-4 py-3 text-right whitespace-nowrap">
+            <Link :href="`/admin/tracks/${t.id}/lyrics`" class="text-neutral-300 hover:text-white hover:underline mr-3">Текст</Link>
             <button class="text-red-400 hover:underline" @click="destroy(t)">Delete</button>
           </td>
         </tr>
