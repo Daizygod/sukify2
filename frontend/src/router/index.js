@@ -52,6 +52,11 @@ router.afterEach((to, from) => {
     const ui = useUiStore()
     ui.lyricsOpen = false
     ui.mobileNowOpen = false
+    // Панель «Добавить в плейлист» живёт только на странице своего плейлиста.
+    if (ui.rightView === 'add-tracks' && to.name !== 'playlist') {
+      ui.rightView = 'nowplaying'
+      ui.addTracksPlaylist = null
+    }
   }
 })
 

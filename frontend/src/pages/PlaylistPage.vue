@@ -16,6 +16,7 @@ import { useToastStore } from '@/stores/toasts'
 import { useLibraryStore } from '@/stores/library'
 import { downloadTracks } from '@/lib/download'
 import HeroMenu from '@/components/HeroMenu.vue'
+import PlaylistEditModal from '@/components/PlaylistEditModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -81,6 +82,14 @@ watch(
   { immediate: true }
 )
 
+const editOpen = ref(false)
+
+// Треки добавили из правой панели — перечитываем состав.
+watch(
+  () => ui.playlistRevision,
+  () => route.params.id && load(route.params.id)
+)
+
 const ctxKey = computed(() => `playlist:${route.params.id}`)
 function playAll() {
   if (items.value.length) {
@@ -139,11 +148,21 @@ async function removePlaylist() {
       :bg="heroBg"
     >
       <template #meta>
-        <strong>{{ playlist.owner?.name }}</strong>
-        <span>• {{ trackCount(items.length) }},</span>
-        <span class="muted">{{ formatTotalDuration(totalMs, true) }}</span>
+        <div v-if="playlist.description" class="playlist__desc">{{ playlist.description }}</div>
+        <div class="playlist__metaline">
+          <strong>{{ playlist.owner?.name }}</strong>
+          <span>• {{ trackCount(items.length) }},</span>
+          <span class="muted">{{ formatTotalDuration(totalMs, true) }}</span>
+        </div>
       </template>
     </CollectionHero>
+
+    <PlaylistEditModal
+      v-if="editOpen"
+      :playlist="playlist"
+      @close="editOpen = false"
+      @saved="load(route.params.id)"
+    />
 
     <div class="playlist__body" :style="{ '--body-bg': heroBg }">
       <div class="playlist__actions">
@@ -156,6 +175,22 @@ async function removePlaylist() {
         <button class="playlist__view" @click="ui.toggleListCompact()">
           <span>{{ ui.listCompact ? 'Компактный' : 'Список' }}</span>
           <Icon name="list" :size="16" />
+        </button>
+      </div>
+
+      <!-- Ряд правки — как в Spotify, под кнопкой ▶ -->
+      <div v-if="isOwner || playlist.is_collaborator" class="playlist__edit">
+        <button
+          class="playlist__pill"
+          :class="{ on: ui.rightView === 'add-tracks' && ui.rightOpen }"
+          @click="ui.toggleAddTracks(playlist.id)"
+        >
+          <Icon name="plus" :size="14" />
+          <span>Добавить</span>
+        </button>
+        <button v-if="isOwner" class="playlist__pill" @click="editOpen = true">
+          <Icon name="edit" :size="14" />
+          <span>Название и описание</span>
         </button>
       </div>
 
@@ -251,6 +286,45 @@ async function removePlaylist() {
 .ctl-lg:hover {
   color: #fff;
   transform: scale(1.04);
+}
+/* Описание над строкой автора — как в Spotify. */
+.playlist__desc {
+  flex-basis: 100%;
+  color: var(--text-subdued);
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.playlist__metaline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.playlist__edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.playlist__pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  line-height: 1;
+}
+.playlist__pill:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.playlist__pill.on {
+  background: #fff;
+  color: #000;
 }
 .playlist__view {
   display: flex;

@@ -6,11 +6,13 @@ import CoverImage from './CoverImage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLibraryStore } from '@/stores/library'
 import { useMenuStore } from '@/stores/menu'
+import { useUiStore } from '@/stores/ui'
 import { trackCount } from '@/lib/format'
 
 const auth = useAuthStore()
 const library = useLibraryStore()
 const menuStore = useMenuStore()
+const ui = useUiStore()
 const route = useRoute()
 const filter = ref('')
 const searchOpen = ref(false)
@@ -138,8 +140,8 @@ async function openSearch() {
   }
 }
 
-async function createPlaylist() {
-  await library.createPlaylist('Мой плейлист №' + (library.playlists.length + 1))
+function createPlaylist() {
+  ui.createPlaylistOpen = true
 }
 </script>
 

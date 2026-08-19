@@ -14,7 +14,11 @@ class PlaylistResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'description' => $this->description,
-            'cover_url' => $this->cover_path ? Storage::disk('s3')->url($this->cover_path) : null,
+            // ?v= — обложка всегда лежит по одному пути, без версии браузер
+            // продолжал бы показывать прежнюю картинку из кэша.
+            'cover_url' => $this->cover_path
+                ? Storage::disk('s3')->url($this->cover_path).'?v='.$this->updated_at?->timestamp
+                : null,
             'is_public' => $this->is_public,
             'is_owner' => $request->user()?->id === $this->user_id,
             'is_collaborator' => $this->when(

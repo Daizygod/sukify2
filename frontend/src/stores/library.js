@@ -101,8 +101,11 @@ export const useLibraryStore = defineStore('library', {
       }
     },
 
-    async createPlaylist(title = 'Мой плейлист') {
-      const { data } = await api.post('/playlists', { title })
+    async createPlaylist(title = 'Мой плейлист', description = '') {
+      const { data } = await api.post('/playlists', {
+        title,
+        description: description || null,
+      })
       await this.refreshPlaylists()
       return data.data
     },

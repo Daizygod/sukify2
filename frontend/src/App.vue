@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import { usePlayerStore } from '@/stores/player'
 import Sidebar from '@/components/Sidebar.vue'
 import TopBar from '@/components/TopBar.vue'
@@ -14,6 +14,7 @@ import TransitionPicker from '@/components/TransitionPicker.vue'
 import MobileNav from '@/components/mobile/MobileNav.vue'
 import MobileMiniPlayer from '@/components/mobile/MobileMiniPlayer.vue'
 import MobileNowPlaying from '@/components/mobile/MobileNowPlaying.vue'
+import PlaylistEditModal from '@/components/PlaylistEditModal.vue'
 import { useUiStore } from '@/stores/ui'
 import { useDeviceStore } from '@/stores/devices'
 import { useAuthStore } from '@/stores/auth'
@@ -25,6 +26,14 @@ const player = usePlayerStore()
 const auth = useAuthStore()
 const isMobile = useIsMobile()
 const route = useRoute()
+
+const router = useRouter()
+
+/** Создали плейлист из модалки — открываем его страницу. */
+function openNewPlaylist(playlist) {
+  ui.createPlaylistOpen = false
+  if (playlist?.id) router.push({ name: 'playlist', params: { id: playlist.id } })
+}
 
 // На мобильном контент скроллится внутри .appm__main — сбрасываем вручную.
 const mobileScroll = ref(null)
@@ -135,6 +144,7 @@ function startRight(e) {
     <MobileNowPlaying v-if="ui.mobileNowOpen" />
     <LyricsView v-if="ui.lyricsOpen" />
     <TransitionPicker v-if="ui.transitionFrom" />
+    <PlaylistEditModal v-if="ui.createPlaylistOpen" @close="ui.createPlaylistOpen = false" @saved="openNewPlaylist" />
     <ContextMenu />
     <ToastHost />
   </div>
@@ -162,6 +172,7 @@ function startRight(e) {
     <FullscreenView v-if="ui.fullscreenOpen" />
     <LyricsView v-if="ui.lyricsOpen" />
     <TransitionPicker v-if="ui.transitionFrom" />
+    <PlaylistEditModal v-if="ui.createPlaylistOpen" @close="ui.createPlaylistOpen = false" @saved="openNewPlaylist" />
     <ContextMenu />
     <ToastHost />
   </div>

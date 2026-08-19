@@ -6,11 +6,13 @@ import CoverImage from '@/components/CoverImage.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLibraryStore } from '@/stores/library'
 import { useMenuStore } from '@/stores/menu'
+import { useUiStore } from '@/stores/ui'
 import { trackCount } from '@/lib/format'
 
 const auth = useAuthStore()
 const library = useLibraryStore()
 const menuStore = useMenuStore()
+const ui = useUiStore()
 const route = useRoute()
 
 const activeTab = ref('') // '' | 'playlists' | 'artists' | 'albums'
@@ -93,8 +95,8 @@ function openItemMenu(e, item) {
   })
 }
 
-async function createPlaylist() {
-  await library.createPlaylist('Мой плейлист №' + (library.playlists.length + 1))
+function createPlaylist() {
+  ui.createPlaylistOpen = true
 }
 
 const initial = computed(() => (auth.user?.name || '?').slice(0, 1).toUpperCase())

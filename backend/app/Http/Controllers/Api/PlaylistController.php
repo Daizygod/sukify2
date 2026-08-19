@@ -10,6 +10,10 @@ use App\Models\Playlist;
 use App\Models\Track;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
+use Intervention\Image\Encoders\WebpEncoder;
+use Intervention\Image\ImageManager;
 
 class PlaylistController extends Controller
 {
@@ -110,6 +114,39 @@ class PlaylistController extends Controller
         $playlist->update($data);
 
         return new PlaylistResource($playlist->load('owner'));
+    }
+
+    /** Своя обложка плейлиста (как «Choose photo» в Spotify). */
+    public function uploadCover(Request $request, Playlist $playlist)
+    {
+        $this->authorize('update', $playlist);
+
+        $request->validate([
+            'cover' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:8192'],
+        ]);
+
+        $manager = new ImageManager(new ImagickDriver());
+        // Intervention v4: только decode(), метода read() тут нет.
+        $image = $manager->decode(file_get_contents($request->file('cover')->getRealPath()))
+            ->coverDown(640, 640);
+
+        $key = "playlists/{$playlist->id}/cover.webp";
+        Storage::disk('s3')->put($key, (string) $image->encode(new WebpEncoder(quality: 85)));
+
+        $playlist->update(['cover_path' => $key, 'cover_is_custom' => true]);
+
+        return new PlaylistResource($playlist->fresh()->load('owner'));
+    }
+
+    /** Убрать свою обложку — вернуться к автоколлажу из обложек треков. */
+    public function deleteCover(Request $request, Playlist $playlist)
+    {
+        $this->authorize('update', $playlist);
+
+        $playlist->update(['cover_path' => null, 'cover_is_custom' => false]);
+        GeneratePlaylistCollage::dispatch($playlist->id);
+
+        return new PlaylistResource($playlist->fresh()->load('owner'));
     }
 
     public function destroy(Request $request, Playlist $playlist)

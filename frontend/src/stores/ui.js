@@ -16,8 +16,14 @@ export const useUiStore = defineStore('ui', {
     leftWidth: load('ui.leftWidth', 420, LEFT_MAX),
     rightWidth: load('ui.rightWidth', 420, RIGHT_MAX),
     rightOpen: localStorage.getItem('ui.rightOpen') !== '0',
-    // What the right panel shows: 'nowplaying' | 'queue' | 'connect' | 'friends'
+    // What the right panel shows: 'nowplaying' | 'queue' | 'connect' | 'friends' | 'add-tracks'
     rightView: localStorage.getItem('ui.rightView') || 'nowplaying',
+    // Плейлист, в который добавляем треки из правой панели ('add-tracks').
+    addTracksPlaylist: null,
+    // Счётчик правок плейлиста: открытая страница по нему перечитывает состав.
+    playlistRevision: 0,
+    // Модалка «Новый плейлист» (название + описание) — открывается отовсюду.
+    createPlaylistOpen: false,
     fullscreenOpen: false,
     lyricsOpen: false,
     // Мобильный экран «Сейчас играет» (тап по мини-плееру).
@@ -47,7 +53,22 @@ export const useUiStore = defineStore('ui', {
     },
     closeRight() {
       this.rightOpen = false
+      this.addTracksPlaylist = null
       this.persist()
+    },
+
+    /** Панель «Добавить в этот плейлист» (кнопка «Добавить» на его странице). */
+    toggleAddTracks(playlistId) {
+      if (this.rightOpen && this.rightView === 'add-tracks' && this.addTracksPlaylist === playlistId) {
+        this.rightOpen = false
+        this.addTracksPlaylist = null
+      } else {
+        this.rightOpen = true
+        this.rightView = 'add-tracks'
+        this.addTracksPlaylist = playlistId
+      }
+      // Саму панель не запоминаем: она живёт только рядом со своим плейлистом.
+      localStorage.setItem('ui.rightOpen', this.rightOpen ? '1' : '0')
     },
     toggleRight() {
       this.openRight('nowplaying')

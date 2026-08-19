@@ -115,6 +115,8 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::post('/playlists/{playlist}/tracks', [PlaylistController::class, 'addTrack']);
     Route::delete('/playlists/{playlist}/tracks/{item}', [PlaylistController::class, 'removeTrack']);
     Route::put('/playlists/{playlist}/order', [PlaylistController::class, 'reorder']);
+    Route::post('/playlists/{playlist}/cover', [PlaylistController::class, 'uploadCover']);
+    Route::delete('/playlists/{playlist}/cover', [PlaylistController::class, 'deleteCover']);
 
     // Transitions (crossfade).
     Route::post('/transitions', [TransitionController::class, 'store']);
