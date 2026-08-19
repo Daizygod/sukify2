@@ -19,9 +19,10 @@ async function load(name) {
 }
 watch(() => route.params.name, (n) => n && load(n), { immediate: true })
 
-async function playRelease(r) {
+/** Треклист релиза грузим только по нажатию ▶ на его карточке. */
+async function releaseTracks(r) {
   const { data } = await api.get(`/releases/${r.slug}`)
-  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0, { name: r.title })
+  return data.data.tracks || []
 }
 </script>
 
@@ -57,7 +58,9 @@ async function playRelease(r) {
             :cover="r.cover"
             :title="r.title"
             :subtitle="`${r.year || ''} · ${r.artist?.name || ''}`"
-            @play="playRelease(r)"
+            :context-key="`release:${r.slug}`"
+            :tracks="() => releaseTracks(r)"
+            :context-name="r.title"
           />
         </div>
       </section>

@@ -41,9 +41,9 @@ function playTrackCard(t) {
   if (player.currentTrack?.id === t.id) return player.togglePlay()
   player.playTrack(t, meta.value.items, { name: meta.value.title })
 }
-async function playRelease(r) {
+async function releaseTracks(r) {
   const { data: d } = await api.get(`/releases/${r.slug}`)
-  if (d.data.tracks?.length) player.playContext(d.data.tracks, 0, { name: r.title })
+  return d.data.tracks || []
 }
 </script>
 
@@ -71,7 +71,9 @@ async function playRelease(r) {
           :cover="r.cover"
           :title="r.title"
           :subtitle="`${r.year || ''} · ${r.artist?.name || ''}`"
-          @play="playRelease(r)"
+          :context-key="`release:${r.slug}`"
+          :tracks="() => releaseTracks(r)"
+          :context-name="r.title"
         />
       </template>
     </div>

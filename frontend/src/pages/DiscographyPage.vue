@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import Icon from '@/components/Icon.vue'
 import MediaCard from '@/components/MediaCard.vue'
 import CoverImage from '@/components/CoverImage.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { usePlayerStore } from '@/stores/player'
 
 const route = useRoute()
@@ -60,15 +61,11 @@ function pickSort(value) {
   sortOpen.value = false
 }
 
-async function playRelease(r) {
-  if (player.currentTrack?.release?.slug === r.slug && player.isPlaying) return player.togglePlay()
+async function releaseTracks(r) {
   const { data } = await api.get(`/releases/${r.slug}`)
-  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0, { name: r.title })
+  return data.data.tracks || []
 }
 
-function isReleasePlaying(r) {
-  return player.currentTrack?.release?.slug === r.slug && player.isPlaying
-}
 function openRelease(r) {
   router.push({ name: 'release', params: { slug: r.slug } })
 }
@@ -127,8 +124,9 @@ function openRelease(r) {
         :cover="r.cover"
         :title="r.title"
         :subtitle="`${r.year || ''} • ${typeLabel[r.type] || r.type}`"
-        :playing="isReleasePlaying(r)"
-        @play="playRelease(r)"
+        :context-key="`release:${r.slug}`"
+        :tracks="() => releaseTracks(r)"
+        :context-name="r.title"
       />
     </div>
 
@@ -137,9 +135,13 @@ function openRelease(r) {
       <div v-for="r in releases" :key="r.id" class="disco__row" @click="openRelease(r)">
         <div class="disco__rowart">
           <CoverImage :cover="r.cover" :size="80" />
-          <button class="play-btn disco__rowplay" :class="{ 'disco__rowplay--on': isReleasePlaying(r) }" @click.stop="playRelease(r)">
-            <Icon :name="isReleasePlaying(r) ? 'pauseBig' : 'playBig'" :size="20" />
-          </button>
+          <PlayButton
+            class="disco__rowplay"
+            :context-key="`release:${r.slug}`"
+            :tracks="() => releaseTracks(r)"
+            :context-name="r.title"
+            :size="20"
+          />
         </div>
         <div class="disco__rowmeta">
           <div class="disco__rowtitle">{{ r.title }}</div>
@@ -294,7 +296,7 @@ function openRelease(r) {
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .disco__row:hover .disco__rowplay,
-.disco__rowplay--on {
+.disco__rowplay.play-btn--on {
   opacity: 1;
   transform: none;
 }

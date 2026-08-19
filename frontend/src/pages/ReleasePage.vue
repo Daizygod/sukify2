@@ -7,6 +7,7 @@ import CoverLightbox from '@/components/CoverLightbox.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import TransitionSpot from '@/components/TransitionSpot.vue'
 import Icon from '@/components/Icon.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { useTransitionInfo } from '@/lib/useTransitions'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
@@ -73,13 +74,11 @@ async function load(slug) {
 }
 watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 
-const isThisPlaying = computed(
-  () => player.currentTrack?.release?.slug === release.value?.slug && player.isPlaying
-)
-function playAll(e) {
-  if (e && e.detail > 1) return // повторный клик даблклика — не пауза
-  if (isThisPlaying.value) return player.togglePlay()
-  if (release.value?.tracks?.length) player.playContext(release.value.tracks, 0, { name: release.value.title })
+const ctxKey = computed(() => `release:${route.params.slug}`)
+function playAll() {
+  if (release.value?.tracks?.length) {
+    player.playContext(release.value.tracks, 0, { name: release.value.title, key: ctxKey.value })
+  }
 }
 async function toggleLike() {
   if (!auth.isAuthenticated || !release.value) return
@@ -116,7 +115,7 @@ async function toggleLike() {
     <div class="release__body" :style="{ '--body-bg': release.colors?.background || '#222' }">
       <div class="release__actions">
         <div class="release__actions-left">
-          <button class="play-btn play-btn--lg" @click="playAll($event)"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
+          <PlayButton class="play-btn--lg" :context-key="ctxKey" :tracks="release.tracks" :name="release.title" />
           <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
           <button
             v-if="auth.isAuthenticated"
@@ -149,6 +148,7 @@ async function toggleLike() {
             variant="album"
             :context-tracks="release.tracks"
             :context-name="release.title"
+            :context-key="ctxKey"
           />
           <TransitionSpot
             v-if="i < release.tracks.length - 1"

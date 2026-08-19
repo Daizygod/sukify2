@@ -23,6 +23,10 @@ export const usePlayerStore = defineStore('player', () => {
   // Tracks explicitly queued by the user; they play before the context resumes.
   const manualQueue = ref([])
   const contextName = ref('')
+  // Стабильный идентификатор играющего контекста ('release:slug', 'liked',
+  // 'playlist:12'…). По нему кнопки ▶ на страницах понимают, играет ли
+  // сейчас именно их подборка — и показывают ⏸ вместо ▶.
+  const contextKey = ref('')
   const isPlaying = ref(false)
   const positionMs = ref(0)
   const durationMs = ref(0)
@@ -44,6 +48,9 @@ export const usePlayerStore = defineStore('player', () => {
   let fadeTimer = null // глушит уходящий дек в конце кроссфейда
   let rafId = null
   let onEndedHandler = null
+  // Счётчик намеренных пауз: loadAndPlay по нему отличает «паузу попросили»
+  // (пользователь или Connect) от гонки браузера при смене src.
+  let pauseIntent = 0
 
   const inited = ref(false)
 
@@ -119,6 +126,7 @@ export const usePlayerStore = defineStore('player', () => {
         ids: tracks.filter((t) => t.stream_url).map((t) => t.id),
         index: startIndex,
         name: meta.name || '',
+        key: meta.key || '',
       })
       return
     }
@@ -126,6 +134,7 @@ export const usePlayerStore = defineStore('player', () => {
     queue.value = tracks.filter((t) => t.stream_url)
     queueIndex.value = Math.min(startIndex, queue.value.length - 1)
     contextName.value = meta.name || ''
+    contextKey.value = meta.key || ''
     originalOrder = null
     if (shuffle.value) reshuffleUpcoming()
     if (queueIndex.value < 0) return
@@ -144,9 +153,16 @@ export const usePlayerStore = defineStore('player', () => {
     init()
     if (ctx.state === 'suspended') await ctx.resume()
 
+    // Ручное переключение посреди кроссфейда: снимаем висящий таймер, иначе
+    // он позже глушит дек и оставляет crossfading=true навсегда.
+    clearTimeout(fadeTimer)
+    crossfading = false
+
     active = deckIndex
     const deck = decks[active]
     idleDeck().el.pause()
+    idleDeck().gain.gain.cancelScheduledValues(ctx.currentTime)
+    idleDeck().gain.gain.value = 0
     // Локальный запуск отменяет возможное затухание передачи.
     clearTimeout(fadeOutTimer)
     setMasterVolume()
@@ -161,12 +177,26 @@ export const usePlayerStore = defineStore('player', () => {
     deck.gain.gain.cancelScheduledValues(ctx.currentTime)
     deck.gain.gain.value = normGain(track)
 
+    const pauseMark = pauseIntent
     try {
       await deck.el.play()
       isPlaying.value = true
       logPlay(track)
     } catch (e) {
-      isPlaying.value = false
+      // Гонка «сменили src, и тут же прилетел pause()» — браузер отклоняет
+      // play() с AbortError. Если паузы никто не просил, а трек всё ещё этот,
+      // повторяем: иначе трек молча повисает загруженным, но на паузе.
+      if (e?.name === 'AbortError' && pauseIntent === pauseMark && currentTrack.value === track) {
+        try {
+          await deck.el.play()
+          isPlaying.value = true
+          logPlay(track)
+        } catch {
+          isPlaying.value = false
+        }
+      } else {
+        isPlaying.value = false
+      }
     }
     setMediaPlaybackState()
     bindEnded()
@@ -209,6 +239,7 @@ export const usePlayerStore = defineStore('player', () => {
       })
       isPlaying.value = true
     } else {
+      pauseIntent++
       el.pause()
       // Пауза во время кроссфейда: старый дек ещё дозатухает по таймеру и без
       // этого доиграл бы до конца. Обрываем фейд и глушим его сразу.
@@ -224,6 +255,7 @@ export const usePlayerStore = defineStore('player', () => {
    */
   function pauseLocal() {
     if (!inited.value) return
+    pauseIntent++
     const el = activeDeck().el
     if (!el.paused) el.pause()
     if (crossfading) cancelCrossfade()
@@ -340,6 +372,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function stop() {
+    pauseIntent++
     decks.forEach((d) => d.el?.pause())
     isPlaying.value = false
     positionMs.value = 0
@@ -401,12 +434,13 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   /** Restore a full playback snapshot (Connect transfer onto this device). */
-  async function hydrate({ tracks, index = 0, manual = [], positionMs = 0, playing = true, name = '' }) {
+  async function hydrate({ tracks, index = 0, manual = [], positionMs = 0, playing = true, name = '', key = '' }) {
     init()
     queue.value = tracks.filter((t) => t.stream_url)
     queueIndex.value = Math.min(index, queue.value.length - 1)
     manualQueue.value = manual.map((t) => ({ ...t, __qid: ++qidCounter }))
     contextName.value = name
+    contextKey.value = key
     originalOrder = null
     const t = queue.value[queueIndex.value]
     if (!t) return
@@ -435,6 +469,7 @@ export const usePlayerStore = defineStore('player', () => {
           index: queueIndex.value,
           pos: Math.round(positionMs.value),
           name: contextName.value,
+          key: contextKey.value,
           shuffle: shuffle.value,
           repeat: repeat.value,
           volume: volume.value,
@@ -490,6 +525,7 @@ export const usePlayerStore = defineStore('player', () => {
         .filter(Boolean)
         .map((t) => ({ ...t, __qid: ++qidCounter }))
       contextName.value = s.name || ''
+      contextKey.value = s.key || ''
       shuffle.value = !!s.shuffle
       repeat.value = s.repeat || 'off'
       if (typeof s.volume === 'number') volume.value = Math.min(Math.max(s.volume, 0), 1)
@@ -785,7 +821,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   return {
     // state
-    currentTrack, queue, queueIndex, manualQueue, contextName, isPlaying,
+    currentTrack, queue, queueIndex, manualQueue, contextName, contextKey, isPlaying,
     positionMs, durationMs,
     volume, muted, repeat, shuffle, targetLufs, defaultCrossfadeSeconds, inited,
     // getters

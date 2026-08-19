@@ -20,6 +20,8 @@ const props = defineProps({
   variant: { type: String, default: 'playlist' },
   contextTracks: { type: Array, default: null },
   contextName: { type: String, default: '' },
+  // Ключ подборки, из которой играет строка, — чтобы её кнопка ▶ показала ⏸.
+  contextKey: { type: String, default: '' },
 })
 
 const player = usePlayerStore()
@@ -42,13 +44,21 @@ const addedAt = computed(() => props.track.added_at || props.track.liked_at)
 
 function play() {
   if (isCurrent.value) return player.togglePlay()
-  player.playTrack(props.track, props.contextTracks, { name: props.contextName })
+  player.playTrack(props.track, props.contextTracks, {
+    name: props.contextName,
+    key: props.contextKey,
+  })
 }
 
 // Строка играет по одиночному клику/тапу (и на ПК, и на мобильном).
 const isMobile = useIsMobile()
 function onRowClick(e) {
-  if (e.target.closest('a, button')) return
+  // Внутренние кнопки/ссылки обрабатывают клик сами. Проверять только
+  // e.target.closest() нельзя: пока событие всплывает, Vue успевает
+  // перерисовать иконку кнопки, и её старый <svg> оказывается вне DOM —
+  // closest() возвращает null, и строка играла клик второй раз (трек
+  // включался и тут же вставал на паузу).
+  if (!e.currentTarget.contains(e.target) || e.target.closest('a, button')) return
   // Второй клик даблклика игнорируем, иначе трек тут же встанет на паузу.
   if (e.detail > 1) return
   play()
@@ -115,7 +125,7 @@ function toggleLike() {
     @touchend.passive="onSwipeEnd"
   >
     <div class="row__index">
-      <button class="row__play" @click="onPlayButton">
+      <button class="row__play" @click.stop="onPlayButton">
         <Icon v-if="isPlayingThis" name="pause" :size="14" />
         <Icon v-else name="play" :size="14" />
       </button>
@@ -156,7 +166,7 @@ function toggleLike() {
         class="row__add"
         :class="{ 'row__add--on': liked }"
         :title="liked ? 'Добавлено в медиатеку' : 'Добавить в медиатеку'"
-        @click="toggleLike"
+        @click.stop="toggleLike"
       >
         <Icon :name="liked ? 'checkCircle' : 'plusCircle'" :size="16" />
       </button>

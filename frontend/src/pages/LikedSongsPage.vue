@@ -5,6 +5,7 @@ import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import TransitionSpot from '@/components/TransitionSpot.vue'
 import Icon from '@/components/Icon.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { useTransitionInfo } from '@/lib/useTransitions'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
@@ -64,7 +65,7 @@ watch(
 )
 
 function playAll() {
-  if (tracks.value.length) player.playContext(tracks.value, 0, { name: 'Любимые треки' })
+  if (tracks.value.length) player.playContext(tracks.value, 0, { name: 'Любимые треки', key: 'liked' })
 }
 </script>
 
@@ -84,7 +85,7 @@ function playAll() {
     <div class="liked__body">
       <div class="liked__actions">
         <div class="liked__actions-left">
-          <button class="play-btn play-btn--lg" @click="playAll"><Icon name="playBig" :size="24" /></button>
+          <PlayButton class="play-btn--lg" context-key="liked" :tracks="tracks" name="Любимые треки" />
           <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
           <button class="ctl-lg" title="Скачать" @click="download"><Icon name="downloadCircle" :size="32" /></button>
           <HeroMenu :tracks="tracks" :link="likedLink" />
@@ -108,6 +109,7 @@ function playAll() {
             :index="i"
             :context-tracks="tracks"
             context-name="Любимые треки"
+            context-key="liked"
           />
           <TransitionSpot
             v-if="i < tracks.length - 1"

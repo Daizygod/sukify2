@@ -80,12 +80,25 @@ async function entityQueue() {
   }
 }
 
+/** Тот же ключ, что у кнопок ▶ на страницах — чтобы они показали ⏸. */
+function entityKey(e) {
+  switch (e.type) {
+    case 'release': return `release:${e.slug}`
+    case 'playlist': return `playlist:${e.id}`
+    case 'mix': return `mix:${e.n}`
+    case 'artist': return `artist:${e.slug}`
+    case 'liked': return 'liked'
+    case 'artist-liked': return `artist-liked:${e.slug}`
+    default: return ''
+  }
+}
+
 async function entityPlay() {
   const e = entity.value
   menu.close()
   try {
     const tracks = await entityTracks(e)
-    if (tracks.length) player.playContext(tracks, 0, { name: e.title })
+    if (tracks.length) player.playContext(tracks, 0, { name: e.title, key: entityKey(e) })
   } catch {
     toasts.show('Не получилось включить')
   }

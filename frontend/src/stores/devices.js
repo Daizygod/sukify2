@@ -142,6 +142,7 @@ export const useDeviceStore = defineStore('devices', () => {
       up: player.upcoming.slice(0, 60).map((t) => t.id),
       man: player.manualQueue.map((t) => ({ q: t.__qid, id: t.id })),
       ctx: player.contextName,
+      ctxKey: player.contextKey,
       shuffle: player.shuffle,
       repeat: player.repeat,
       ts: Date.now(),
@@ -264,9 +265,9 @@ export const useDeviceStore = defineStore('devices', () => {
         break
       case 'play-context': {
         // Пульт включил трек/альбом: играем этот контекст здесь.
-        const { ids = [], index = 0, name = '' } = msg.value || {}
+        const { ids = [], index = 0, name = '', key = '' } = msg.value || {}
         const tracks = await fetchTracksOrdered(ids)
-        if (tracks.length) await player.playContext(tracks, Math.min(index, tracks.length - 1), { name })
+        if (tracks.length) await player.playContext(tracks, Math.min(index, tracks.length - 1), { name, key })
         broadcastState()
         break
       }
@@ -309,6 +310,7 @@ export const useDeviceStore = defineStore('devices', () => {
         positionMs: state.pos,
         playing: state.playing,
         name: state.contextName,
+        key: state.contextKey,
       })
       activeDeviceId.value = myId
       remoteState.value = null
@@ -357,6 +359,7 @@ export const useDeviceStore = defineStore('devices', () => {
       pos: Math.round(player.positionMs),
       playing: player.isPlaying,
       contextName: player.contextName,
+      contextKey: player.contextKey,
     }
   }
 

@@ -4,6 +4,7 @@ import api from '@/lib/api'
 import Icon from '@/components/Icon.vue'
 import CoverImage from '@/components/CoverImage.vue'
 import MediaCard from '@/components/MediaCard.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
@@ -23,26 +24,34 @@ const loading = ref(true)
 function isTrackPlaying(t) {
   return player.currentTrack?.id === t.id && player.isPlaying
 }
-function isReleasePlaying(r) {
-  return player.currentTrack?.release?.slug === r.slug && player.isPlaying
-}
 
 function playTrackCard(t, list) {
   if (player.currentTrack?.id === t.id) return player.togglePlay()
   player.playTrack(t, list)
 }
-async function playRelease(r) {
-  if (isReleasePlaying(r)) return player.togglePlay()
+/** Загрузчики треков для самодостаточных кнопок ▶ (грузим по клику). */
+async function releaseTracks(r) {
   const { data } = await api.get(`/releases/${r.slug}`)
-  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0, { name: r.title })
+  return data.data.tracks || []
 }
-async function playPlaylist(p) {
+async function playlistTracks(p) {
   const { data } = await api.get(`/playlists/${p.id}`)
-  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0, { name: p.title })
+  return data.data.tracks || []
 }
-async function playLiked() {
+async function likedTracks() {
   const { data } = await api.get('/library/liked-tracks')
-  if (data.data.length) player.playContext(data.data, 0, { name: 'Любимые треки' })
+  return data.data || []
+}
+async function mixTracks(m) {
+  const { data } = await api.get(`/mixes/daily/${m.n}`)
+  return data.tracks || []
+}
+
+/** Ключ и загрузчик для плитки быстрого доступа. */
+function shortcutContext(s) {
+  if (s.liked) return { key: 'liked', tracks: likedTracks, name: 'Любимые треки' }
+  if (s.playlist) return { key: `playlist:${s.playlist.id}`, tracks: () => playlistTracks(s.playlist), name: s.title }
+  return { key: `release:${s.release.slug}`, tracks: () => releaseTracks(s.release), name: s.title }
 }
 
 // The 2x4 shortcut grid: Liked Songs, then playlists, padded with albums.
@@ -73,12 +82,6 @@ const shortcuts = computed(() => {
   return tiles.slice(0, 8)
 })
 
-function playShortcut(s) {
-  if (s.liked) return playLiked()
-  if (s.playlist) return playPlaylist(s.playlist)
-  if (s.release) return playRelease(s.release)
-}
-
 function openShortcutMenu(e, s) {
   if (s.liked) return menu.openEntityMenu(e, { type: 'liked', title: 'Любимые треки' })
   if (s.playlist) {
@@ -104,10 +107,6 @@ onMounted(async () => {
   }
 })
 
-async function playMix(m) {
-  const { data } = await api.get(`/mixes/daily/${m.n}`)
-  if (data.tracks.length) player.playContext(data.tracks, 0, { name: m.title })
-}
 </script>
 
 <template>
@@ -131,9 +130,14 @@ async function playMix(m) {
           </div>
           <CoverImage v-else :cover="s.cover" :size="64" class="shortcut__cover" />
           <span class="shortcut__title">{{ s.title }}</span>
-          <button class="play-btn shortcut__play" @click.prevent="$event.detail > 1 ? null : playShortcut(s)">
-            <Icon name="playBig" :size="20" />
-          </button>
+          <PlayButton
+            class="shortcut__play"
+            :context-key="shortcutContext(s).key"
+            :tracks="shortcutContext(s).tracks"
+            :name="shortcutContext(s).name"
+            :size="20"
+            @click.prevent
+          />
         </RouterLink>
       </div>
 
@@ -151,9 +155,14 @@ async function playMix(m) {
             <div class="mixcard__art" :style="{ background: m.color }">
               <Icon name="nowplaying" :size="40" />
               <span class="mixcard__tag">{{ m.genre }}</span>
-              <button class="play-btn mixcard__play" @click.prevent="playMix(m)">
-                <Icon name="playBig" :size="20" />
-              </button>
+              <PlayButton
+                class="mixcard__play"
+                :context-key="`mix:${m.n}`"
+                :tracks="() => mixTracks(m)"
+                :name="m.title"
+                :size="20"
+                @click.prevent
+              />
             </div>
             <div class="mixcard__title">{{ m.title }}</div>
             <div class="mixcard__sub">{{ m.artists.join(', ') }} и не только</div>
@@ -215,8 +224,9 @@ async function playMix(m) {
             :cover="r.cover"
             :title="r.title"
             :subtitle="`${r.year || ''} · ${r.artist?.name || ''}`"
-            :playing="isReleasePlaying(r)"
-            @play="playRelease(r)"
+            :context-key="`release:${r.slug}`"
+            :tracks="() => releaseTracks(r)"
+            :context-name="r.title"
           />
         </div>
       </section>

@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
 import { useMenuStore } from '@/stores/menu'
+import { usePlayContext } from '@/composables/usePlayContext'
 
 const props = defineProps({
   to: { type: [Object, String], required: true },
@@ -13,8 +14,21 @@ const props = defineProps({
   round: { type: Boolean, default: false },
   playable: { type: Boolean, default: true },
   playing: { type: Boolean, default: false },
+  // Самодостаточный режим: карточка сама знает свой контекст и треки —
+  // иконка ▶/⏸ и клик работают без обвязки на странице.
+  contextKey: { type: String, default: '' },
+  tracks: { type: [Array, Function], default: null },
+  contextName: { type: String, default: '' },
 })
 const emit = defineEmits(['play'])
+
+const self = usePlayContext({
+  key: () => props.contextKey,
+  tracks: () => (typeof props.tracks === 'function' ? props.tracks() : props.tracks || []),
+  name: () => props.contextName || props.title,
+})
+const selfManaged = computed(() => !!props.contextKey && !!props.tracks)
+const isPlaying = computed(() => (selfManaged.value ? self.isPlaying.value : props.playing))
 
 const menu = useMenuStore()
 
@@ -43,6 +57,7 @@ function onContext(e) {
 function onPlay(e) {
   // Повторный клик даблклика игнорируем — иначе трек тут же встаёт на паузу.
   if (e.detail > 1) return
+  if (selfManaged.value) return self.toggle(e)
   emit('play')
 }
 </script>
@@ -54,10 +69,11 @@ function onPlay(e) {
       <button
         v-if="playable"
         class="play-btn card__play"
-        :class="{ 'card__play--visible': playing }"
-        @click.prevent="onPlay"
+        :class="{ 'card__play--visible': isPlaying }"
+        :title="isPlaying ? 'Пауза' : 'Слушать'"
+        @click.prevent.stop="onPlay"
       >
-        <Icon :name="playing ? 'pauseBig' : 'playBig'" :size="24" />
+        <Icon :name="isPlaying ? 'pauseBig' : 'playBig'" :size="24" />
       </button>
     </div>
     <div class="card__title">{{ title }}</div>

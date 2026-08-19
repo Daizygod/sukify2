@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import Icon from '@/components/Icon.vue'
 import MediaCard from '@/components/MediaCard.vue'
 import TrackRow from '@/components/TrackRow.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { usePlayerStore } from '@/stores/player'
 
 const route = useRoute()
@@ -100,12 +101,25 @@ function show(section) {
   return chip.value === 'all' || chip.value === section
 }
 
+/** Контекст для ▶ на карточке топ-результата: ключ + ленивый треклист. */
+const topContext = computed(() => {
+  const tr = topResult.value
+  if (!tr) return { key: '', tracks: [], name: '' }
+  if (tr.type === 'artist') {
+    return { key: `artist:${tr.item.slug}`, tracks: () => artistTracks(tr.item), name: tr.item.name }
+  }
+  if (tr.type === 'release') {
+    return { key: `release:${tr.item.slug}`, tracks: () => releaseTracks(tr.item), name: tr.item.title }
+  }
+  // Трек играет с себя, а очередь продолжают остальные результаты поиска.
+  const rest = results.value.tracks.filter((t) => t.id !== tr.item.id)
+  return { key: `track:${tr.item.id}`, tracks: () => [tr.item, ...rest], name: 'Поиск' }
+})
+
 function playTop() {
   const tr = topResult.value
   if (!tr) return
   if (tr.type === 'track') player.playTrack(tr.item, results.value.tracks, { name: 'Поиск' })
-  else if (tr.type === 'artist') playArtist(tr.item)
-  else playRelease(tr.item)
 }
 
 /** Клик по карточке топ-результата — переход на страницу, а не воспроизведение. */
@@ -119,13 +133,13 @@ function openTop() {
   }
   playTop()
 }
-async function playArtist(a) {
+async function artistTracks(a) {
   const { data } = await api.get(`/artists/${a.slug}/top-tracks`)
-  if (data.data.length) player.playContext(data.data, 0, { name: a.name })
+  return data.data || []
 }
-async function playRelease(r) {
+async function releaseTracks(r) {
   const { data } = await api.get(`/releases/${r.slug}`)
-  if (data.data.tracks?.length) player.playContext(data.data.tracks, 0, { name: r.title })
+  return data.data.tracks || []
 }
 
 function tileColor(i) {
@@ -203,7 +217,13 @@ function tileColor(i) {
               <div class="topcard__name">{{ topResult.item.title }}</div>
               <div class="topcard__kind">Альбом</div>
             </template>
-            <button class="play-btn topcard__play" @click.stop="playTop"><Icon name="playBig" :size="20" /></button>
+            <PlayButton
+              class="topcard__play"
+              :context-key="topContext.key"
+              :tracks="topContext.tracks"
+              :name="topContext.name"
+              :size="20"
+            />
           </div>
         </section>
 
@@ -271,7 +291,9 @@ function tileColor(i) {
             :cover="r.cover"
             :title="r.title"
             :subtitle="`${r.year || ''} · ${r.artist?.name || ''}`"
-            @play="playRelease(r)"
+            :context-key="`release:${r.slug}`"
+            :tracks="() => releaseTracks(r)"
+            :context-name="r.title"
           />
         </div>
       </div>

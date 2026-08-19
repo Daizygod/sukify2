@@ -7,6 +7,7 @@ import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import TransitionSpot from '@/components/TransitionSpot.vue'
 import Icon from '@/components/Icon.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { useTransitionInfo } from '@/lib/useTransitions'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
@@ -80,8 +81,11 @@ watch(
   { immediate: true }
 )
 
+const ctxKey = computed(() => `playlist:${route.params.id}`)
 function playAll() {
-  if (items.value.length) player.playContext(items.value, 0, { name: playlist.value?.title })
+  if (items.value.length) {
+    player.playContext(items.value, 0, { name: playlist.value?.title, key: ctxKey.value })
+  }
 }
 
 async function onReorder() {
@@ -144,7 +148,7 @@ async function removePlaylist() {
     <div class="playlist__body" :style="{ '--body-bg': heroBg }">
       <div class="playlist__actions">
         <div class="playlist__actions-left">
-          <button class="play-btn play-btn--lg" @click="playAll"><Icon name="playBig" :size="24" /></button>
+          <PlayButton class="play-btn--lg" :context-key="ctxKey" :tracks="items" :name="playlist?.title || ''" />
           <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
           <button class="ctl-lg" title="Скачать" @click="download"><Icon name="downloadCircle" :size="32" /></button>
           <HeroMenu :tracks="items" :link="shareLink" :can-delete="isOwner" :can-invite="isOwner" @delete="removePlaylist" @invite="invitePeople" />
@@ -173,7 +177,7 @@ async function removePlaylist() {
         >
           <template #item="{ element, index }">
             <div class="pl-row">
-              <TrackRow :track="element" :index="index" :context-tracks="items" :context-name="playlist.title" />
+              <TrackRow :track="element" :index="index" :context-tracks="items" :context-name="playlist.title" :context-key="ctxKey" />
               <TransitionSpot
                 v-if="index < items.length - 1"
                 :from="element"
@@ -192,6 +196,7 @@ async function removePlaylist() {
               :index="i"
               :context-tracks="items"
               :context-name="playlist.title"
+              :context-key="ctxKey"
             />
             <TransitionSpot
               v-if="i < items.length - 1"

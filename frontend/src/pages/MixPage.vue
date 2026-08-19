@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import api from '@/lib/api'
 import TrackRow from '@/components/TrackRow.vue'
 import Icon from '@/components/Icon.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { trackCount, formatTotalDuration } from '@/lib/format'
 import { usePlayerStore } from '@/stores/player'
 import { useUiStore } from '@/stores/ui'
@@ -21,8 +22,11 @@ async function load(n) {
 }
 watch(() => route.params.n, (n) => n && load(n), { immediate: true })
 
+const ctxKey = computed(() => `mix:${route.params.n}`)
 function playAll() {
-  if (mix.value?.tracks?.length) player.playContext(mix.value.tracks, 0, { name: mix.value.title })
+  if (mix.value?.tracks?.length) {
+    player.playContext(mix.value.tracks, 0, { name: mix.value.title, key: ctxKey.value })
+  }
 }
 </script>
 
@@ -45,7 +49,7 @@ function playAll() {
 
     <div class="mix__body" :style="{ '--mix-bg': mix.color }">
       <div class="mix__actions">
-        <button class="play-btn play-btn--lg" @click="playAll"><Icon name="playBig" :size="24" /></button>
+        <PlayButton class="play-btn--lg" :context-key="ctxKey" :tracks="mix.tracks" :name="mix.title" />
       </div>
       <div class="tracklist" :class="{ 'tracklist--compact': ui.listCompact }">
         <div class="tracktable__head trackgrid trackgrid--playlist">
@@ -62,6 +66,7 @@ function playAll() {
           :index="i"
           :context-tracks="mix.tracks"
           :context-name="mix.title"
+          :context-key="ctxKey"
         />
       </div>
     </div>

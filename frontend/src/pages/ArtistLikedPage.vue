@@ -7,6 +7,7 @@ import TrackRow from '@/components/TrackRow.vue'
 import MediaCard from '@/components/MediaCard.vue'
 import HeroMenu from '@/components/HeroMenu.vue'
 import Icon from '@/components/Icon.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { usePlayerStore } from '@/stores/player'
 
 
@@ -30,7 +31,10 @@ watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 
 function playAll() {
   if (tracks.value.length) {
-    player.playContext(tracks.value, 0, { name: `Любимые треки: ${artist.value?.name}` })
+    player.playContext(tracks.value, 0, {
+      name: `Любимые треки: ${artist.value?.name}`,
+      key: `artist-liked:${artist.value?.slug}`,
+    })
   }
 }
 
@@ -42,7 +46,13 @@ const shareLink = computed(() =>
 <template>
   <div v-if="artist" class="aliked content-pad">
     <div class="aliked__head">
-      <button class="play-btn aliked__play" @click="playAll"><Icon name="playBig" :size="20" /></button>
+      <PlayButton
+        class="aliked__play"
+        :context-key="`artist-liked:${artist.slug}`"
+        :tracks="tracks"
+        :name="`Любимые треки: ${artist.name}`"
+        :size="20"
+      />
       <h1 class="aliked__title">Любимые треки: {{ artist.name }}</h1>
       <HeroMenu :tracks="tracks" :link="shareLink" />
     </div>
@@ -62,6 +72,7 @@ const shareLink = computed(() =>
         :index="i"
         :context-tracks="tracks"
         :context-name="`Любимые треки: ${artist.name}`"
+        :context-key="`artist-liked:${artist.slug}`"
       />
     </div>
 

@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import TrackRow from '@/components/TrackRow.vue'
 import MediaCard from '@/components/MediaCard.vue'
 import Icon from '@/components/Icon.vue'
+import PlayButton from '@/components/PlayButton.vue'
 import { formatListeners, plural } from '@/lib/format'
 import { RouterLink } from 'vue-router'
 import { usePlayerStore } from '@/stores/player'
@@ -79,13 +80,19 @@ async function load(slug) {
 }
 watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 
-const isThisPlaying = computed(
-  () => topTracks.value.some((t) => t.id === player.currentTrack?.id) && player.isPlaying
-)
-function playTop(e) {
-  if (e && e.detail > 1) return // повторный клик даблклика — не пауза
-  if (isThisPlaying.value) return player.togglePlay()
-  if (topTracks.value.length) player.playContext(topTracks.value, 0, { name: artist.value?.name })
+const ctxKey = computed(() => `artist:${route.params.slug}`)
+
+/** Слушать топ исполнителя вперемешку. */
+function playShuffled() {
+  if (!topTracks.value.length) return
+  player.setShuffle(true)
+  player.playContext(topTracks.value, 0, { name: artist.value?.name, key: ctxKey.value })
+}
+
+/** Плей на карточке релиза в дискографии: треклист подтягиваем на лету. */
+async function releaseTracks(r) {
+  const { data } = await api.get(`/releases/${r.slug}`)
+  return data.data.tracks || []
 }
 async function toggleFollow() {
   if (!auth.isAuthenticated) return
@@ -135,8 +142,8 @@ function openLikedMenu(e) {
 
     <div class="artist__body">
       <div class="artist__actions">
-        <button class="play-btn play-btn--lg" @click="playTop($event)"><Icon :name="isThisPlaying ? 'pauseBig' : 'playBig'" :size="24" /></button>
-        <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="player.setShuffle(true); playTop()"><Icon name="shuffleBig" :size="32" /></button>
+        <PlayButton class="play-btn--lg" :context-key="ctxKey" :tracks="topTracks" :name="artist.name" />
+        <button class="ctl-lg" :class="{ on: player.shuffle }" title="В случайном порядке" @click="playShuffled"><Icon name="shuffleBig" :size="32" /></button>
         <button v-if="auth.isAuthenticated" class="artist__follow" @click="toggleFollow">
           {{ artist.is_followed ? 'Уже подписаны' : 'Подписаться' }}
         </button>
@@ -154,6 +161,7 @@ function openLikedMenu(e) {
             variant="artist"
             :context-tracks="topTracks"
             :context-name="artist.name"
+            :context-key="ctxKey"
           />
           <button v-if="topTracks.length > 5" class="artist__more" @click="popularExpanded = !popularExpanded">
             {{ popularExpanded ? 'Свернуть' : 'Ещё' }}
@@ -207,6 +215,9 @@ function openLikedMenu(e) {
             :cover="r.cover"
             :title="r.title"
             :subtitle="`${r.year || ''} • ${typeLabel[r.type] || r.type}`"
+            :context-key="`release:${r.slug}`"
+            :tracks="() => releaseTracks(r)"
+            :context-name="r.title"
           />
         </div>
       </section>
