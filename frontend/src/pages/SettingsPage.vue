@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import api from '@/lib/api'
 import { usePlayerStore } from '@/stores/player'
 import { useUiStore } from '@/stores/ui'
 import { useToastStore } from '@/stores/toasts'
+import { useAuthStore } from '@/stores/auth'
 
 const player = usePlayerStore()
 const ui = useUiStore()
@@ -25,6 +26,64 @@ onMounted(async () => {
   }
 })
 
+// --- Профиль: имя, @handle, аватарка ---------------------------------------
+const auth = useAuthStore()
+const profileName = ref('')
+const profileHandle = ref('')
+const savingProfile = ref(false)
+const avatarInput = ref(null)
+const origin = location.origin
+
+watch(
+  () => auth.user,
+  (u) => {
+    profileName.value = u?.name || ''
+    profileHandle.value = u?.username || ''
+  },
+  { immediate: true }
+)
+
+async function saveProfile() {
+  savingProfile.value = true
+  try {
+    const { data } = await api.put('/me/profile', {
+      name: profileName.value.trim(),
+      username: profileHandle.value.trim(),
+    })
+    auth.user = data.data
+    toasts.show('Профиль обновлён')
+  } catch (e) {
+    toasts.show(
+      e?.response?.status === 422
+        ? 'Такой @handle уже занят или содержит недопустимые символы'
+        : 'Не удалось сохранить профиль'
+    )
+  } finally {
+    savingProfile.value = false
+  }
+}
+
+async function onAvatar(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const form = new FormData()
+  form.append('avatar', file)
+  try {
+    const { data } = await api.post('/me/avatar', form)
+    auth.user = data.data
+    toasts.show('Аватарка обновлена')
+  } catch {
+    toasts.show('Не подошёл файл — нужен JPEG, PNG или WebP до 8 МБ')
+  }
+  e.target.value = ''
+}
+
+async function removeAvatar() {
+  const { data } = await api.delete('/me/avatar')
+  auth.user = data.data
+  toasts.show('Аватарка удалена')
+}
+
 let saveTimer
 function save() {
   clearTimeout(saveTimer)
@@ -45,6 +104,51 @@ function save() {
 <template>
   <div class="content-pad settings">
     <h1 class="settings__title">Настройки</h1>
+
+    <section class="settings__group">
+      <h2>Профиль</h2>
+
+      <div class="setting">
+        <div class="setting__text">
+          <div class="setting__name">Аватарка</div>
+          <div class="setting__desc">Видна в профиле, у друзей и в поиске</div>
+        </div>
+        <div class="settings__avarow">
+          <div class="settings__ava">
+            <img v-if="auth.user?.avatar_url" :src="auth.user.avatar_url" alt="" />
+            <span v-else>{{ (auth.user?.name || '?')[0].toUpperCase() }}</span>
+          </div>
+          <button class="settings__btn" @click="avatarInput?.click()">Загрузить</button>
+          <button v-if="auth.user?.avatar_url" class="settings__btn" @click="removeAvatar">Убрать</button>
+          <input ref="avatarInput" type="file" accept="image/*" hidden @change="onAvatar" />
+        </div>
+      </div>
+
+      <div class="setting">
+        <div class="setting__text">
+          <div class="setting__name">Отображаемое имя</div>
+          <div class="setting__desc">Как тебя видят другие</div>
+        </div>
+        <input v-model="profileName" class="settings__input" maxlength="255" />
+      </div>
+
+      <div class="setting">
+        <div class="setting__text">
+          <div class="setting__name">Ссылка на профиль</div>
+          <div class="setting__desc">{{ origin }}/user/{{ profileHandle || '…' }}</div>
+        </div>
+        <div class="settings__handle">
+          <span>@</span>
+          <input v-model="profileHandle" class="settings__input" maxlength="30" placeholder="handle" />
+        </div>
+      </div>
+
+      <div class="settings__save">
+        <button class="settings__btn settings__btn--primary" :disabled="savingProfile" @click="saveProfile">
+          {{ savingProfile ? 'Сохраняем…' : 'Сохранить профиль' }}
+        </button>
+      </div>
+    </section>
 
     <section v-if="loaded" class="settings__group">
       <h2>Воспроизведение</h2>
@@ -151,6 +255,72 @@ function save() {
   color: var(--text-subdued);
   font-size: 14px;
   margin-top: 4px;
+}
+.settings__avarow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.settings__ava {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #333;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  font-weight: 700;
+  overflow: hidden;
+  flex: 0 0 64px;
+}
+.settings__ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.settings__btn {
+  border: 1px solid var(--text-muted);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.settings__btn:hover:not(:disabled) {
+  border-color: #fff;
+}
+.settings__btn--primary {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+.settings__btn:disabled {
+  opacity: 0.6;
+}
+.settings__input {
+  background: #2a2a2a;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 10px 12px;
+  min-width: 220px;
+}
+.settings__input:focus {
+  border-color: #727272;
+  outline: none;
+}
+.settings__handle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-subdued);
+}
+.settings__save {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 14px;
 }
 .setting__ctl--slider {
   display: flex;

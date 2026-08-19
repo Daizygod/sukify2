@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'username', 'email', 'password', 'avatar_path'])]
@@ -29,6 +31,53 @@ class User extends Authenticatable
             'is_banned' => 'boolean',
             'banned_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Свободный @handle для ссылки /user/{username}.
+     *
+     * Без него профиль был доступен только по числовому id, а роут искал
+     * строго по username — ссылка вида /user/3 отдавала пустой экран.
+     */
+    public static function generateUsername(string $name, string $email): string
+    {
+        $base = Str::slug(Str::ascii($name), '_');
+        if ($base === '') {
+            $base = Str::slug(Str::ascii(Str::before($email, '@')), '_');
+        }
+        $base = Str::limit(trim($base, '_') ?: 'user', 24, '');
+
+        $candidate = $base;
+        $n = 1;
+        while (static::where('username', $candidate)->exists()) {
+            $candidate = $base.'_'.(++$n);
+        }
+
+        return $candidate;
+    }
+
+    /** Профиль по @handle или по числовому id (старые ссылки). */
+    public static function findByHandle(string $handle): ?self
+    {
+        return static::where('username', $handle)
+            ->when(ctype_digit($handle), fn ($q) => $q->orWhere('id', (int) $handle))
+            ->first();
+    }
+
+    /** Взаимная подписка — «друзья» (как в активности друзей Spotify). */
+    public function isFriendOf(self $other): bool
+    {
+        return $this->following()->whereKey($other->id)->exists()
+            && $other->following()->whereKey($this->id)->exists();
+    }
+
+    /** Друзья: те, с кем подписки взаимны. */
+    public function friends(): BelongsToMany
+    {
+        return $this->following()->whereIn(
+            'users.id',
+            DB::table('user_follows')->where('followee_id', $this->id)->select('follower_id')
+        );
     }
 
     // --- Relations ---------------------------------------------------------

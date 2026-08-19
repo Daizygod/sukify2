@@ -16,7 +16,10 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'username' => $this->username,
-            'avatar_url' => $this->avatar_path ? Storage::disk('s3')->url($this->avatar_path) : null,
+            // ?v= — путь аватарки постоянный, без версии браузер держит старую.
+            'avatar_url' => $this->avatar_path
+                ? Storage::disk('s3')->url($this->avatar_path).'?v='.$this->updated_at?->timestamp
+                : null,
             // Only expose these to the account owner.
             'email' => $this->when($isSelf, $this->email),
             'is_admin' => $this->when($isSelf, fn () => (bool) $this->is_admin),

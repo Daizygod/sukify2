@@ -25,7 +25,7 @@ function onMobileSearch() {
 }
 
 const q = ref(route.params.q || '')
-const results = ref({ tracks: [], releases: [], artists: [], playlists: [] })
+const results = ref({ tracks: [], releases: [], artists: [], playlists: [], users: [] })
 const genres = ref([])
 const loading = ref(false)
 const chip = ref('all') // all | tracks | artists | albums | playlists
@@ -36,6 +36,7 @@ const CHIPS = [
   { id: 'artists', label: 'Исполнители' },
   { id: 'albums', label: 'Альбомы' },
   { id: 'playlists', label: 'Плейлисты' },
+  { id: 'users', label: 'Пользователи' },
 ]
 
 const TILE_COLORS = ['#e13300', '#1e3264', '#8d67ab', '#e8115b', '#148a08', '#503750', '#477d95', '#ba5d07', '#0d73ec', '#af2896']
@@ -51,7 +52,7 @@ const RELEASE_SORTS = [
 async function runSearch() {
   const query = q.value.trim()
   if (!query) {
-    results.value = { tracks: [], releases: [], artists: [], playlists: [] }
+    results.value = { tracks: [], releases: [], artists: [], playlists: [], users: [] }
     return
   }
   loading.value = true
@@ -103,7 +104,8 @@ const empty = computed(
     !results.value.tracks.length &&
     !results.value.artists.length &&
     !results.value.releases.length &&
-    !results.value.playlists.length
+    !results.value.playlists.length &&
+    !results.value.users?.length
 )
 
 function show(section) {
@@ -322,6 +324,23 @@ function tileColor(i) {
             :context-key="`release:${r.slug}`"
             :tracks="() => releaseTracks(r)"
             :context-name="r.title"
+          />
+        </div>
+      </div>
+
+      <!-- Люди Sukify -->
+      <div v-if="show('users') && results.users?.length" class="search__section">
+        <h2 v-if="chip === 'all'" class="section-title">Пользователи</h2>
+        <div class="grid-cards">
+          <MediaCard
+            v-for="u in results.users"
+            :key="u.id"
+            :to="{ name: 'profile', params: { username: u.username || u.id } }"
+            :cover="u.avatar_url ? { 300: u.avatar_url } : null"
+            :title="u.name"
+            :subtitle="u.username ? `@${u.username}` : 'Пользователь'"
+            round
+            :playable="false"
           />
         </div>
       </div>

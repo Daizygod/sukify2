@@ -25,7 +25,8 @@ class AuthController extends Controller
 
         $user = User::create([
             'name' => $data['name'],
-            'username' => $data['username'] ?? null,
+            // @handle нужен для ссылки на профиль — если не указали, делаем сами.
+            'username' => $data['username'] ?? User::generateUsername($data['name'], $data['email']),
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
         ]);
@@ -79,5 +80,27 @@ class AuthController extends Controller
     public function me(Request $request): UserResource
     {
         return new UserResource($request->user());
+    }
+
+    /** Отображаемое имя и @handle (ссылка на профиль). */
+    public function updateProfile(Request $request): UserResource
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'username' => [
+                'sometimes',
+                'string',
+                'alpha_dash',
+                'min:3',
+                'max:30',
+                'unique:users,username,'.$user->id,
+            ],
+        ]);
+
+        $user->update($data);
+
+        return new UserResource($user->fresh());
     }
 }

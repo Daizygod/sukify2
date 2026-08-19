@@ -59,6 +59,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/transitions/all', [TransitionController::class, 'index']);
     Route::get('/transitions/for-context', [TransitionController::class, 'forContext']);
 
+    Route::get('/users', [UserProfileController::class, 'search']);
     Route::get('/users/{username}', [UserProfileController::class, 'show']);
 
     // Playlist read is guarded per-policy (public or owner) inside the controller.
@@ -103,6 +104,11 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::post('/users/{username}/follow', [\App\Http\Controllers\Api\UserFollowController::class, 'follow']);
     Route::delete('/users/{username}/follow', [\App\Http\Controllers\Api\UserFollowController::class, 'unfollow']);
     Route::get('/me/friends-activity', [\App\Http\Controllers\Api\UserFollowController::class, 'friendsActivity']);
+
+    // Свой профиль: @handle, имя, аватарка.
+    Route::put('/me/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/me/avatar', [UserProfileController::class, 'uploadAvatar']);
+    Route::delete('/me/avatar', [UserProfileController::class, 'deleteAvatar']);
 
     Route::post('/artists/{artist:slug}/follow', [ArtistController::class, 'follow']);
     Route::delete('/artists/{artist:slug}/follow', [ArtistController::class, 'unfollow']);

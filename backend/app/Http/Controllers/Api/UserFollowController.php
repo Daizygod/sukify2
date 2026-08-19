@@ -11,7 +11,8 @@ class UserFollowController extends Controller
 {
     public function follow(Request $request, string $username)
     {
-        $user = User::where('username', $username)->firstOrFail();
+        $user = User::findByHandle($username);
+        abort_if(! $user, 404);
         abort_if($user->id === $request->user()->id, 422, 'Нельзя подписаться на себя.');
 
         $request->user()->following()->syncWithoutDetaching([$user->id]);
@@ -21,26 +22,54 @@ class UserFollowController extends Controller
 
     public function unfollow(Request $request, string $username)
     {
-        $user = User::where('username', $username)->firstOrFail();
+        $user = User::findByHandle($username);
+        abort_if(! $user, 404);
         $request->user()->following()->detach($user->id);
 
         return response()->json(['is_followed' => false]);
     }
 
-    /** Активность друзей: кто из подписок что слушает (кэш от logPlay). */
+    /**
+     * Активность друзей: кто что слушает (кэш от logPlay).
+     *
+     * Друг — это взаимная подписка; на кого подписан я один, тот идёт
+     * отдельным списком «Вы подписаны», а те, кто подписан на меня и ждёт
+     * ответной подписки, — в «Подписаны на вас».
+     */
     public function friendsActivity(Request $request)
     {
-        $friends = $request->user()->following()->get();
+        $me = $request->user();
 
-        $items = $friends->map(function (User $f) {
-            $activity = Cache::get("activity:user:{$f->id}");
+        $followingIds = $me->following()->pluck('users.id');
+        $followerIds = $me->followers()->pluck('users.id');
+        $friendIds = $followingIds->intersect($followerIds)->values();
 
-            return [
-                'user' => ['id' => $f->id, 'name' => $f->name, 'username' => $f->username],
-                'activity' => $activity,
-            ];
-        });
+        $users = User::whereIn('id', $followingIds->merge($followerIds)->unique())->get();
 
-        return response()->json(['data' => $items]);
+        $shape = fn (User $u, string $relation) => [
+            'user' => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'username' => $u->username,
+                'avatar_url' => (new \App\Http\Resources\UserResource($u))->toArray($request)['avatar_url'],
+            ],
+            'relation' => $relation, // friend | following | follower
+            // Что слушает — показываем только друзьям (взаимная подписка).
+            'activity' => $relation === 'friend' ? Cache::get("activity:user:{$u->id}") : null,
+        ];
+
+        $friends = $users->whereIn('id', $friendIds)->map(fn ($u) => $shape($u, 'friend'))->values();
+        $following = $users->whereIn('id', $followingIds->diff($friendIds))
+            ->map(fn ($u) => $shape($u, 'following'))->values();
+        $followers = $users->whereIn('id', $followerIds->diff($friendIds))
+            ->map(fn ($u) => $shape($u, 'follower'))->values();
+
+        return response()->json([
+            // data — как раньше (друзья с активностью), чтобы не ломать клиентов
+            'data' => $friends,
+            'friends' => $friends,
+            'following' => $following,
+            'followers' => $followers,
+        ]);
     }
 }

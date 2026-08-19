@@ -8,18 +8,29 @@ import { useUiStore } from '@/stores/ui'
 import { formatRelativeDate } from '@/lib/format'
 
 const ui = useUiStore()
+// Друг — только взаимная подписка: его активность и показываем.
 const items = ref([])
+// Односторонние связи: на кого подписан я / кто подписан на меня.
+const following = ref([])
+const followers = ref([])
 const loading = ref(true)
 let subs = []
 
 async function load() {
   try {
     const { data } = await api.get('/me/friends-activity')
-    items.value = data.data
+    items.value = data.friends || data.data || []
+    following.value = data.following || []
+    followers.value = data.followers || []
     await subscribeAll()
   } finally {
     loading.value = false
   }
+}
+
+async function followBack(user) {
+  await api.post(`/users/${user.username || user.id}/follow`)
+  await load()
 }
 
 /** Живая активность: канал activity:{friendId} каждого друга. */
@@ -66,8 +77,12 @@ onUnmounted(() => {
     </div>
     <div v-osbar class="fp__body">
       <template v-if="items.length">
+        <div class="fp__kicker">Друзья</div>
         <div v-for="i in items" :key="i.user.id" class="fp__friend">
-          <div class="fp__avatar">{{ (i.user.name || '?')[0].toUpperCase() }}</div>
+          <div class="fp__avatar">
+            <img v-if="i.user.avatar_url" :src="i.user.avatar_url" alt="" />
+            <span v-else>{{ (i.user.name || '?')[0].toUpperCase() }}</span>
+          </div>
           <div class="fp__meta">
             <RouterLink :to="{ name: 'profile', params: { username: i.user.username || i.user.id } }" class="fp__name">
               {{ i.user.name }}
@@ -91,10 +106,45 @@ onUnmounted(() => {
       <template v-else-if="!loading">
         <p class="fp__lead">Смотри, что слушают друзья.</p>
         <p class="muted fp__text">
-          Подпишись на друзей через их профиль — и здесь в реальном времени будет
-          видно, какие треки они включают.
+          Друзья — это взаимная подписка: активность видна, когда вы подписаны
+          друг на друга.
         </p>
       </template>
+
+      <!-- Подписаны на вас — одного нажатия не хватает до дружбы. -->
+      <section v-if="followers.length" class="fp__section">
+        <div class="fp__kicker">Подписаны на вас</div>
+        <div v-for="f in followers" :key="`fr-${f.user.id}`" class="fp__friend">
+          <div class="fp__avatar">
+            <img v-if="f.user.avatar_url" :src="f.user.avatar_url" alt="" />
+            <span v-else>{{ (f.user.name || '?')[0].toUpperCase() }}</span>
+          </div>
+          <div class="fp__meta">
+            <RouterLink :to="{ name: 'profile', params: { username: f.user.username || f.user.id } }" class="fp__name">
+              {{ f.user.name }}
+            </RouterLink>
+            <span class="fp__track muted">Подпишись в ответ — станете друзьями</span>
+          </div>
+          <button class="fp__followback" @click="followBack(f.user)">В ответ</button>
+        </div>
+      </section>
+
+      <!-- Односторонние подписки: активность недоступна, пока не взаимно. -->
+      <section v-if="following.length" class="fp__section">
+        <div class="fp__kicker">Вы подписаны</div>
+        <div v-for="f in following" :key="`fg-${f.user.id}`" class="fp__friend">
+          <div class="fp__avatar">
+            <img v-if="f.user.avatar_url" :src="f.user.avatar_url" alt="" />
+            <span v-else>{{ (f.user.name || '?')[0].toUpperCase() }}</span>
+          </div>
+          <div class="fp__meta">
+            <RouterLink :to="{ name: 'profile', params: { username: f.user.username || f.user.id } }" class="fp__name">
+              {{ f.user.name }}
+            </RouterLink>
+            <span class="fp__track muted">Активность появится, когда подпишутся в ответ</span>
+          </div>
+        </div>
+      </section>
     </div>
   </aside>
 </template>
@@ -156,6 +206,35 @@ onUnmounted(() => {
   place-items: center;
   font-weight: 700;
   font-size: 14px;
+  overflow: hidden;
+}
+.fp__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.fp__kicker {
+  color: var(--text-subdued);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 12px 8px 6px;
+}
+.fp__section {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 8px;
+}
+.fp__followback {
+  flex: 0 0 auto;
+  border: 1px solid var(--text-muted);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+}
+.fp__followback:hover {
+  border-color: #fff;
 }
 .fp__meta {
   min-width: 0;
