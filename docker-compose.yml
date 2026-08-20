@@ -204,6 +204,23 @@ services:
     networks:
       - sukify
 
+  # --------------------------------------------------------------------------
+  # Analyzer — BPM, сетка долей, тональность и пики волны (Essentia)
+  # --------------------------------------------------------------------------
+  analyzer:
+    build:
+      context: .
+      dockerfile: docker/analyzer/Dockerfile
+    image: sukify/analyzer
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8300/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - sukify
+
 networks:
   sukify:
     driver: bridge

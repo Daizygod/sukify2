@@ -19,6 +19,11 @@ use Laravel\Scout\Searchable;
     'audio_original_path', 'audio_stream_path', 'loudness_lufs',
     'file_size_original', 'cover_override_path',
     'processing_status', 'processing_error',
+    // Анализ аудио для микса: темп, сетка долей, тональность, пики волны.
+    'bpm', 'beat_offset_ms', 'beat_confidence', 'beats',
+    'musical_key', 'musical_scale', 'key_strength', 'camelot',
+    'waveform_full', 'waveform_bass', 'waveform_buckets',
+    'analysis_status', 'analysis_error', 'analyzed_at',
 ])]
 #[ObservedBy([TrackObserver::class])]
 class Track extends Model
@@ -34,6 +39,13 @@ class Track extends Model
             'file_size_original' => 'integer',
             'plays_count' => 'integer',
             'likes_count' => 'integer',
+            'bpm' => 'float',
+            'beat_offset_ms' => 'integer',
+            'beat_confidence' => 'float',
+            'beats' => 'array',
+            'key_strength' => 'float',
+            'waveform_buckets' => 'integer',
+            'analyzed_at' => 'datetime',
         ];
     }
 

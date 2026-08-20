@@ -292,6 +292,10 @@ img {
 .trackgrid--playlist {
   grid-template-columns: 16px 4fr 3fr 2fr minmax(120px, 160px);
 }
+/* Режим микса: к плейлистной раскладке добавлены BPM и тональность. */
+.trackgrid--mix {
+  grid-template-columns: 16px 4fr 56px 64px 3fr 2fr minmax(120px, 160px);
+}
 .trackgrid--artist {
   grid-template-columns: 16px 4fr 2fr minmax(120px, 160px);
 }
@@ -355,6 +359,7 @@ img {
   /* Строка трека: обложка + название/исполнители + кебаб. */
   .trackgrid--album,
   .trackgrid--playlist,
+  .trackgrid--mix,
   .trackgrid--artist,
   .trackgrid--search {
     grid-template-columns: 1fr auto;

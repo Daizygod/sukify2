@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
     'from_track_id', 'to_track_id', 'created_by_user_id',
     'fade_out_start_ms', 'fade_out_end_ms', 'fade_in_start_ms', 'fade_in_full_volume_ms',
     'curve_type',
+    'preset', 'volume_shape', 'eq_shape', 'filter_shape', 'bars',
 ])]
 class TrackTransition extends Model
 {
@@ -27,6 +28,7 @@ class TrackTransition extends Model
             'fade_in_start_ms' => 'integer',
             'fade_in_full_volume_ms' => 'integer',
             'likes_count' => 'integer',
+            'bars' => 'integer',
         ];
     }
 

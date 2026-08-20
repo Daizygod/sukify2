@@ -64,6 +64,10 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/transitions/all', [TransitionController::class, 'index']);
     Route::get('/transitions/for-context', [TransitionController::class, 'forContext']);
 
+    // Анализ для редактора микса: волна, сетка долей, темп, тональность.
+    Route::get('/analysis/pair', [\App\Http\Controllers\Api\TrackAnalysisController::class, 'pair']);
+    Route::get('/analysis/{track}', [\App\Http\Controllers\Api\TrackAnalysisController::class, 'show']);
+
     Route::get('/users', [UserProfileController::class, 'search']);
     Route::get('/users/{username}', [UserProfileController::class, 'show']);
 
@@ -128,6 +132,9 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::put('/playlists/{playlist}/order', [PlaylistController::class, 'reorder']);
     Route::post('/playlists/{playlist}/cover', [PlaylistController::class, 'uploadCover']);
     Route::delete('/playlists/{playlist}/cover', [PlaylistController::class, 'deleteCover']);
+    // Режим микса: колонки BPM/тональности и чипы переходов между строками.
+    Route::put('/playlists/{playlist}/mix', [PlaylistController::class, 'setMix']);
+    Route::post('/analysis/{track}/refresh', [\App\Http\Controllers\Api\TrackAnalysisController::class, 'refresh']);
 
     // Transitions (crossfade).
     Route::post('/transitions', [TransitionController::class, 'store']);

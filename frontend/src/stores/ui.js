@@ -30,6 +30,10 @@ export const useUiStore = defineStore('ui', {
     mobileNowOpen: false,
     // Трек-источник для «Создать переход…» из контекстного меню.
     transitionFrom: null,
+    // Редактор перехода в правой панели: пара треков { from, to }.
+    mixPair: null,
+    // Правки в редакторе не сохранены — уход спрашивает подтверждение.
+    mixDirty: false,
     listCompact: localStorage.getItem('ui.listCompact') === '1',
   }),
   actions: {
@@ -55,6 +59,30 @@ export const useUiStore = defineStore('ui', {
       this.rightOpen = false
       this.addTracksPlaylist = null
       this.persist()
+    },
+
+    /**
+     * Редактор перехода в правой панели. Открывается чипом между строками;
+     * повторный клик по тому же чипу закрывает, как и в оригинале.
+     */
+    openMixEditor(from, to) {
+      const same = this.mixPair?.from?.id === from.id && this.mixPair?.to?.id === to.id
+      if (this.rightOpen && this.rightView === 'mix' && same) {
+        this.closeMixEditor()
+
+        return
+      }
+      this.mixPair = { from, to }
+      this.mixDirty = false
+      this.rightOpen = true
+      this.rightView = 'mix'
+      localStorage.setItem('ui.rightOpen', '1')
+    },
+    closeMixEditor() {
+      this.mixPair = null
+      this.mixDirty = false
+      // Возвращаем ту панель, что была до редактора, а не пустоту.
+      this.rightView = localStorage.getItem('ui.rightView') || 'nowplaying'
     },
 
     /** Панель «Добавить в этот плейлист» (кнопка «Добавить» на его странице). */

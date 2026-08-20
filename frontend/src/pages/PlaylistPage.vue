@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import TransitionSpot from '@/components/TransitionSpot.vue'
+import MixChip from '@/components/mix/MixChip.vue'
 import Icon from '@/components/Icon.vue'
 import PlayButton from '@/components/PlayButton.vue'
 import { useTransitionInfo } from '@/lib/useTransitions'
@@ -41,6 +42,29 @@ const totalMs = computed(() => items.value.reduce((a, t) => a + (t.duration_ms |
 const { info: tinfo, load: loadTinfo, keyFor } = useTransitionInfo()
 
 const recs = ref([])
+
+// --- Режим микса -----------------------------------------------------------
+// «Создать микс» показывает темп и тональность каждого трека и ставит между
+// строками чипы переходов.
+const mixOn = computed(() => !!playlist.value?.mix_enabled)
+const rowVariant = computed(() => (mixOn.value ? 'mix' : 'playlist'))
+const mixBusy = ref(false)
+
+async function toggleMix() {
+  if (!playlist.value || mixBusy.value) return
+  mixBusy.value = true
+  const next = !mixOn.value
+  try {
+    const { data } = await api.put(`/playlists/${playlist.value.id}/mix`, { enabled: next })
+    playlist.value = { ...playlist.value, mix_enabled: data.data.mix_enabled }
+    if (!next) ui.closeMixEditor()
+    else toasts.show('Микс включён: видны BPM, тональность и переходы')
+  } catch (e) {
+    toasts.show(e?.response?.data?.message || 'Не удалось переключить микс')
+  } finally {
+    mixBusy.value = false
+  }
+}
 
 async function load(id) {
   loading.value = true
@@ -188,6 +212,16 @@ async function removePlaylist() {
           <Icon name="plus" :size="14" />
           <span>Добавить</span>
         </button>
+        <button
+          v-if="isOwner"
+          class="playlist__pill"
+          :class="{ on: mixOn }"
+          :disabled="mixBusy"
+          @click="toggleMix"
+        >
+          <Icon name="sparkle" :size="14" />
+          <span>{{ mixOn ? 'Микс включён' : 'Создать микс' }}</span>
+        </button>
         <button v-if="isOwner" class="playlist__pill" @click="editOpen = true">
           <Icon name="edit" :size="14" />
           <span>Название и описание</span>
@@ -195,9 +229,13 @@ async function removePlaylist() {
       </div>
 
       <div class="tracklist" :class="{ 'tracklist--compact': ui.listCompact }">
-        <div class="tracktable__head trackgrid trackgrid--playlist">
+        <div class="tracktable__head trackgrid" :class="`trackgrid--${rowVariant}`">
           <div>#</div>
           <div>Название</div>
+          <template v-if="mixOn">
+            <div>BPM</div>
+            <div>Тональность</div>
+          </template>
           <div>Альбом</div>
           <div>Дата добавления</div>
           <div class="th--right"><Icon name="clock" :size="16" /></div>
@@ -212,9 +250,15 @@ async function removePlaylist() {
         >
           <template #item="{ element, index }">
             <div class="pl-row">
-              <TrackRow :track="element" :index="index" :context-tracks="items" :context-name="playlist.title" :context-key="ctxKey" />
+              <TrackRow :track="element" :index="index" :variant="rowVariant" :context-tracks="items" :context-name="playlist.title" :context-key="ctxKey" />
+              <MixChip
+                v-if="mixOn && index < items.length - 1"
+                :from="element"
+                :to="items[index + 1]"
+                :info="tinfo[keyFor(element, items[index + 1])]"
+              />
               <TransitionSpot
-                v-if="index < items.length - 1"
+                v-else-if="index < items.length - 1"
                 :from="element"
                 :to="items[index + 1]"
                 :info="tinfo[keyFor(element, items[index + 1])]"
@@ -229,12 +273,19 @@ async function removePlaylist() {
             <TrackRow
               :track="t"
               :index="i"
+              :variant="rowVariant"
               :context-tracks="items"
               :context-name="playlist.title"
               :context-key="ctxKey"
             />
+            <MixChip
+              v-if="mixOn && i < items.length - 1"
+              :from="t"
+              :to="items[i + 1]"
+              :info="tinfo[keyFor(t, items[i + 1])]"
+            />
             <TransitionSpot
-              v-if="i < items.length - 1"
+              v-else-if="i < items.length - 1"
               :from="t"
               :to="items[i + 1]"
               :info="tinfo[keyFor(t, items[i + 1])]"

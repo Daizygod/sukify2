@@ -30,6 +30,8 @@ class PlaylistResource extends JsonResource
             'collaborators' => UserResource::collection($this->whenLoaded('collaborators')),
             'tracks_count' => $this->when(isset($this->tracks_count), fn () => $this->tracks_count),
             'tracks' => TrackResource::collection($this->whenLoaded('tracks')),
+            // Режим микса: колонки BPM/тональности и чипы переходов между строками.
+            'mix_enabled' => (bool) $this->mix_enabled,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

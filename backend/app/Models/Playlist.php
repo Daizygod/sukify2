@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Scout\Searchable;
 
-#[Fillable(['user_id', 'title', 'description', 'cover_path', 'cover_is_custom', 'is_public'])]
+#[Fillable(['user_id', 'title', 'description', 'cover_path', 'cover_is_custom', 'is_public', 'mix_enabled'])]
 class Playlist extends Model
 {
     use HasFactory, Searchable;
@@ -19,6 +19,7 @@ class Playlist extends Model
         return [
             'cover_is_custom' => 'boolean',
             'is_public' => 'boolean',
+            'mix_enabled' => 'boolean',
         ];
     }
 

@@ -150,14 +150,29 @@ class TransitionController extends Controller
             ->get()
             ->groupBy(fn ($t) => "{$t->from_track_id}:{$t->to_track_id}");
 
+        // Личный выбор перекрывает лучший переход сообщества: чип в списке
+        // должен показывать ровно тот переход, который и заиграет.
+        $preferred = collect();
+        if ($user = $request->user()) {
+            $preferred = \App\Models\TransitionPreference::query()
+                ->where('user_id', $user->id)
+                ->get()
+                ->keyBy(fn ($p) => "{$p->from_track_id}:{$p->to_track_id}");
+        }
+
         $out = [];
         foreach ($pairs as [$from, $to]) {
             $key = "{$from}:{$to}";
-            $best = $transitions->get($key)?->first();
+            $group = $transitions->get($key);
+            $mine = $preferred->get($key)?->transition_id;
+            $best = ($mine ? $group?->firstWhere('id', $mine) : null) ?? $group?->first();
             $out[$key] = $best ? [
                 'id' => $best->id,
+                'preset' => $best->preset,
+                'bars' => $best->bars,
                 'likes_count' => $best->likes_count,
-                'count' => $transitions->get($key)->count(),
+                'is_preferred' => $best->id === $mine,
+                'count' => $group->count(),
             ] : null;
         }
 
@@ -174,6 +189,13 @@ class TransitionController extends Controller
             'fade_in_start_ms' => ['required', 'integer', 'min:0'],
             'fade_in_full_volume_ms' => ['required', 'integer', 'gte:fade_in_start_ms'],
             'curve_type' => ['required', Rule::enum(\App\Enums\CurveType::class)],
+            // Формы кривых микса. Список идентификаторов повторяет
+            // frontend/src/lib/mix/shapes.js — там же лежит их математика.
+            'preset' => ['sometimes', Rule::in(self::PRESETS)],
+            'volume_shape' => ['sometimes', Rule::in(self::VOLUME_SHAPES)],
+            'eq_shape' => ['sometimes', Rule::in(self::EQ_SHAPES)],
+            'filter_shape' => ['sometimes', Rule::in(self::FILTER_SHAPES)],
+            'bars' => ['sometimes', 'nullable', 'integer', Rule::in([1, 2, 4, 8, 16, 32])],
         ]);
 
         $transition = TrackTransition::create([
@@ -181,8 +203,42 @@ class TransitionController extends Controller
             'created_by_user_id' => $request->user()->id,
         ]);
 
+        // Свой переход сразу становится личным выбором для этой пары — иначе
+        // сохранил, а играет по-прежнему чужой, самый залайканный.
+        \App\Models\TransitionPreference::updateOrCreate(
+            [
+                'user_id' => $request->user()->id,
+                'from_track_id' => $transition->from_track_id,
+                'to_track_id' => $transition->to_track_id,
+            ],
+            ['transition_id' => $transition->id]
+        );
+
+        $transition->is_preferred = true;
+        $transition->is_mine = true;
+
         return (new TransitionResource($transition))->response()->setStatusCode(201);
     }
+
+    private const PRESETS = [
+        'auto', 'fade', 'rise', 'blend', 'wave', 'dissolve',
+        'hit', 'melt', 'burst', 'shine', 'none', 'custom',
+    ];
+
+    private const VOLUME_SHAPES = [
+        'crossfade', 'slow_crossfade', 'overlap', 'rise_fade',
+        'cut_in_fade_out', 'rise_cut_out', 'hard_swap', 'rise_fast_out',
+    ];
+
+    private const EQ_SHAPES = [
+        'none', 'bass_swap_center', 'bass_swap_end', 'bass_swap_start',
+        'three_band', 'bass_cut_hard', 'bass_cut_soft', 'start_fade', 'bass_fade',
+    ];
+
+    private const FILTER_SHAPES = [
+        'none', 'lp_out', 'lp_in', 'lp_in_out', 'lp_in_hp_out',
+        'hp_out', 'hp_in', 'hp_in_out', 'hp_in_lp_out', 'hp_out_half', 'noise_fade_end',
+    ];
 
     public function like(Request $request, TrackTransition $transition)
     {

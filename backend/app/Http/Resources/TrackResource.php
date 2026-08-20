@@ -29,6 +29,12 @@ class TrackResource extends JsonResource
             'added_at' => $this->whenPivotLoaded('playlist_track', fn () => $this->pivot->added_at),
             'liked_at' => $this->whenPivotLoaded('liked_tracks', fn () => $this->pivot->created_at),
             'is_liked' => $this->when(isset($this->is_liked), fn () => (bool) $this->is_liked),
+            // Анализ для режима микса. Волну и сетку долей отдаём только по
+            // отдельному запросу — в списке треков это лишние килобайты.
+            'bpm' => $this->bpm !== null ? round((float) $this->bpm) : null,
+            'camelot' => $this->camelot,
+            'musical_key' => $this->musical_key,
+            'musical_scale' => $this->musical_scale,
         ];
     }
 }

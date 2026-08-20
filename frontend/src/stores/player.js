@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import api from '@/lib/api'
 import { buildCurve } from '@/lib/curves'
+import { buildChain, resetChain, scheduleTransition } from '@/lib/mix/engine'
+import { resolveShapes, beatsMatch } from '@/lib/mix/shapes'
 // Циклический импорт (devices ↔ player) безопасен: стор берём лениво в экшенах.
 import { useDeviceStore } from '@/stores/devices'
 
@@ -76,9 +78,12 @@ export const usePlayerStore = defineStore('player', () => {
       const source = ctx.createMediaElementSource(el)
       const gain = ctx.createGain()
       gain.gain.value = 0
-      source.connect(gain)
+      // Между источником и гейном — фильтр и трёхполосный эквалайзер: их ведут
+      // кривые перехода. В покое цепочка прозрачна.
+      const chain = buildChain(ctx, gain)
+      source.connect(chain.input)
       gain.connect(master)
-      return { el, source, gain }
+      return { el, source, gain, chain }
     })
     // Отладочный доступ (и для E2E-тестов): аудиоэлементы и гейны деков.
     window.__sukifyDecks = decks.map((d) => d.el)
@@ -176,6 +181,10 @@ export const usePlayerStore = defineStore('player', () => {
     deck.el.load()
     deck.gain.gain.cancelScheduledValues(ctx.currentTime)
     deck.gain.gain.value = normGain(track)
+    // Ручной запуск обрывает переход на полуслове — возвращаем обе деки в
+    // чистое звучание, иначе трек играл бы через недоведённый фильтр.
+    resetChain(deck.chain, ctx)
+    resetChain(idleDeck().chain, ctx)
 
     const pauseMark = pauseIntent
     try {
@@ -289,9 +298,11 @@ export const usePlayerStore = defineStore('player', () => {
     out.el.pause()
     out.gain.gain.cancelScheduledValues(ctx.currentTime)
     out.gain.gain.value = 0
+    resetChain(out.chain, ctx)
     const cur = activeDeck()
     cur.gain.gain.cancelScheduledValues(ctx.currentTime)
     cur.gain.gain.value = normGain(currentTrack.value)
+    resetChain(cur.chain, ctx)
   }
 
   function seek(ms) {
@@ -666,11 +677,27 @@ export const usePlayerStore = defineStore('player', () => {
     const targetIn = normGain(nextTrack)
     const fromOut = curOut.gain.gain.value
 
-    // Fade current out, next in — with the selected curve shape.
-    applyCurve(curOut.gain, fromOut, 0, now, fadeOutLen / 1000, curve)
-    applyCurve(incoming.gain, 0, targetIn, now, fadeInLen / 1000, curve)
-
-    debugCrossfade(curOut, incoming, fadeOutLen, curve, fromOut, targetIn)
+    // Переход микса (громкость + эквалайзер + фильтр) — только если он у пары
+    // задан. Без него остаётся прежний одиночный кроссфейд по curve_type.
+    if (transition?.preset) {
+      const matched = beatsMatch(currentTrack.value?.bpm, nextTrack?.bpm)
+      const shapes = resolveShapes(transition, matched)
+      scheduleTransition({
+        ctx,
+        startTime: now,
+        durationSec: fadeOutLen / 1000,
+        shapes,
+        out: { gain: curOut.gain, chain: curOut.chain, level: fromOut },
+        in: { gain: incoming.gain, chain: incoming.chain, level: targetIn },
+        noiseTarget: master,
+      })
+      debugCrossfade(curOut, incoming, fadeOutLen, `${shapes.volume}/${shapes.eq}/${shapes.filter}`, fromOut, targetIn)
+    } else {
+      // Fade current out, next in — with the selected curve shape.
+      applyCurve(curOut.gain, fromOut, 0, now, fadeOutLen / 1000, curve)
+      applyCurve(incoming.gain, 0, targetIn, now, fadeInLen / 1000, curve)
+      debugCrossfade(curOut, incoming, fadeOutLen, curve, fromOut, targetIn)
+    }
 
     // UI переключается сразу: играет уже новый трек (старый дозатухает фоном).
     active = incomingIndex
@@ -683,6 +710,9 @@ export const usePlayerStore = defineStore('player', () => {
     clearTimeout(fadeTimer)
     fadeTimer = setTimeout(() => {
       curOut.el.pause()
+      // Дек освобождается под следующий трек — снимаем с него остатки фильтра
+      // и эквалайзера, иначе они достанутся ни в чём не виноватой песне.
+      resetChain(curOut.chain, ctx)
       crossfading = false
     }, fadeOutLen)
   }

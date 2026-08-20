@@ -89,6 +89,10 @@ class ProcessTrackAudio implements ShouldQueue
                 'demo_audio' => false,
             ]);
 
+            // Темп, тональность и волну считаем отдельной задачей: она долгая, а
+            // трек уже готов играть.
+            AnalyzeTrackAudio::dispatch($track->id);
+
             $this->cleanupTmp();
         } catch (Throwable $e) {
             $track->update([

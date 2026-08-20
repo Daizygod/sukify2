@@ -116,6 +116,20 @@ class PlaylistController extends Controller
         return new PlaylistResource($playlist->load('owner'));
     }
 
+    /**
+     * «Создать микс» — включает у плейлиста колонки BPM и тональности и чипы
+     * переходов между строками.
+     */
+    public function setMix(Request $request, Playlist $playlist)
+    {
+        $this->authorize('update', $playlist);
+
+        $data = $request->validate(['enabled' => ['required', 'boolean']]);
+        $playlist->update(['mix_enabled' => $data['enabled']]);
+
+        return new PlaylistResource($playlist->load('owner'));
+    }
+
     /** Своя обложка плейлиста (как «Choose photo» в Spotify). */
     public function uploadCover(Request $request, Playlist $playlist)
     {

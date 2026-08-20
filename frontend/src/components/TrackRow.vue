@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
 import { formatDuration, formatNumber, formatRelativeDate } from '@/lib/format'
+import { camelotColor, CAMELOT_TEXT, camelotTitle } from '@/lib/mix/camelot'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
@@ -41,6 +42,8 @@ const isPlayingThis = computed(() =>
 )
 const liked = computed(() => library.isLiked(props.track.id))
 const addedAt = computed(() => props.track.added_at || props.track.liked_at)
+// Плейлист и микс делят «широкую» раскладку: альбом + дата добавления.
+const isWide = computed(() => props.variant === 'playlist' || props.variant === 'mix')
 
 function play() {
   if (isCurrent.value) return player.togglePlay()
@@ -174,14 +177,27 @@ function toggleLike() {
       </div>
     </div>
 
+    <!-- Режим микса: темп и тональность, как в редакторе Spotify. -->
+    <template v-if="variant === 'mix'">
+      <span class="row__bpm">{{ track.bpm ?? '—' }}</span>
+      <span class="row__key">
+        <span
+          v-if="track.camelot"
+          class="row__camelot"
+          :style="{ background: camelotColor(track.camelot), color: CAMELOT_TEXT }"
+          :title="camelotTitle(track.camelot, track.musical_key, track.musical_scale)"
+        >{{ track.camelot }}</span>
+      </span>
+    </template>
+
     <RouterLink
-      v-if="variant === 'playlist' && track.release"
+      v-if="isWide && track.release"
       :to="{ name: 'release', params: { slug: track.release.slug } }"
       class="row__album"
     >{{ track.release.title }}</RouterLink>
-    <span v-else-if="variant === 'playlist'" class="row__album"></span>
+    <span v-else-if="isWide" class="row__album"></span>
 
-    <span v-if="variant === 'playlist'" class="row__date">{{ formatRelativeDate(addedAt) }}</span>
+    <span v-if="isWide" class="row__date">{{ formatRelativeDate(addedAt) }}</span>
 
     <span v-if="variant === 'artist'" class="row__plays">{{ formatNumber(track.plays_count) }}</span>
 
@@ -333,6 +349,24 @@ function toggleLike() {
 }
 .row__plays {
   font-variant-numeric: tabular-nums;
+}
+.row__bpm {
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+.row__camelot {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 2px 5px;
+}
+/* На телефоне строка сжата до двух колонок — темпу и тональности там не место. */
+@media (max-width: 768px) {
+  .row__bpm,
+  .row__key {
+    display: none;
+  }
 }
 .row__end {
   display: flex;
