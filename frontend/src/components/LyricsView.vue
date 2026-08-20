@@ -99,13 +99,14 @@ async function reportLyrics() {
 </template>
 
 <style scoped>
+/* Занимает центральную колонку целиком — сайдбары и плеер остаются видны.
+   Размер строк считаем от ширины колонки (cqw), а не экрана: панели можно
+   растянуть, и текст должен ужиматься вместе с колонкой. */
 .ly {
-  position: fixed;
-  top: var(--topbar-height);
-  bottom: var(--player-height);
-  left: 8px;
-  right: 8px;
-  z-index: 58;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  container-type: inline-size;
   border-radius: var(--radius);
   background: var(--ly-bg);
   display: flex;
@@ -158,7 +159,7 @@ async function reportLyrics() {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 24px 64px 40vh;
+  padding: 24px clamp(24px, 6cqw, 64px) 40vh;
 }
 .ly__notice {
   font-size: 14px;
@@ -167,7 +168,7 @@ async function reportLyrics() {
 }
 /* Размер строк снят с оригинала: текст крупный, почти как заголовок. */
 .ly__line {
-  font-size: clamp(28px, 3.6vw, 54px);
+  font-size: clamp(26px, 7cqw, 52px);
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.22;
@@ -198,10 +199,8 @@ async function reportLyrics() {
 /* Мобильный: на весь экран, поверх мини-плеера и навигации. */
 @media (max-width: 768px) {
   .ly {
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: fixed;
+    inset: 0;
     border-radius: 0;
     z-index: 80;
   }

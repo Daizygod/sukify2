@@ -161,6 +161,9 @@ function startRight(e) {
       <div v-osbar class="app__scroll">
         <RouterView />
       </div>
+      <!-- Текст живёт в центральной колонке, как обычная страница: слева
+           медиатека, справа панель, снизу плеер — всё остаётся на месте. -->
+      <LyricsView v-if="ui.lyricsOpen" />
     </main>
 
     <div v-if="ui.rightOpen" class="app__right">
@@ -170,7 +173,6 @@ function startRight(e) {
 
     <PlayerBar class="app__player" />
     <FullscreenView v-if="ui.fullscreenOpen" />
-    <LyricsView v-if="ui.lyricsOpen" />
     <TransitionPicker v-if="ui.transitionFrom" />
     <PlaylistEditModal v-if="ui.createPlaylistOpen" @close="ui.createPlaylistOpen = false" @saved="openNewPlaylist" />
     <ContextMenu />

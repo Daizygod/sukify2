@@ -309,9 +309,13 @@ function toggleLike() {
   text-overflow: ellipsis;
   font-size: 14px;
 }
-.row__artist:hover {
-  text-decoration: underline;
-  color: #fff;
+/* Только для мыши: на тач-экране :hover залипает после тапа, и имя оставалось
+   белым с подчёркиванием, хотя никакой ссылки там уже нет. */
+@media (hover: hover) and (pointer: fine) {
+  .row__artist:hover {
+    text-decoration: underline;
+    color: #fff;
+  }
 }
 .row__album,
 .row__date,
@@ -321,9 +325,11 @@ function toggleLike() {
   text-overflow: ellipsis;
   font-size: 14px;
 }
-.row__album:hover {
-  text-decoration: underline;
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .row__album:hover {
+    text-decoration: underline;
+    color: #fff;
+  }
 }
 .row__plays {
   font-variant-numeric: tabular-nums;

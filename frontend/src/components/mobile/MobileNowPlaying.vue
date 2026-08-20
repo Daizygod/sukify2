@@ -187,17 +187,36 @@ function onTouchEnd() {
     swipeX.value = 0 // не дотянул — плавно назад (transition включён)
     return
   }
-  pendingDir = toNext ? 'next' : 'prev'
+  slideTo(toNext ? 'next' : 'prev')
+}
+
+/** Доводка ленты до соседнего слайда — и жестом, и кнопками ⏭/⏮. */
+function slideTo(dir) {
+  if (settling.value) return
+  if (dir === 'next' ? !canNext.value : !canPrev.value) return
+  pendingDir = dir
   settling.value = true
-  swipeX.value = toNext ? -stripWidth() : stripWidth()
+  swipeX.value = dir === 'next' ? -stripWidth() : stripWidth()
   // На пульте команда уходит сразу, локально — по окончании анимации слайда
   // (тогда currentTrack сменится ровно в момент бесшовной центровки).
   if (remote.value) {
-    toNext ? goNext() : goPrev(true)
+    dir === 'next' ? goNext() : goPrev(true)
   }
   // Страховка: трек не сменился (конец очереди / нет ответа) — вернуть.
   clearTimeout(settleGuard)
   settleGuard = setTimeout(() => reset(), 3000)
+}
+
+// Кнопки переключения листают ленту той же анимацией, что и жест.
+function onNextButton() {
+  if (!canNext.value) return next() // конец очереди — плеер остановится сам
+  slideTo('next')
+}
+function onPrevButton() {
+  // До третьей секунды ⏮ уходит на предыдущий трек, дальше — перезапускает
+  // текущий (как в приложении), и тогда ленту трогать не нужно.
+  if (!remote.value && (player.positionMs > 3000 || !canPrev.value)) return prev()
+  slideTo('prev')
 }
 
 // Анимация доводки закончилась — локально меняем трек и мгновенно центрируем.
@@ -213,12 +232,17 @@ function onStripTransitionEnd() {
 }
 
 // Мгновенная центровка ленты без анимации (в центре — уже новая обложка).
-function recenter() {
+async function recenter() {
   clearTimeout(settleGuard)
-  swiping.value = true // выключаем transition на кадр
+  swiping.value = true // выключаем transition
   swipeX.value = 0
   settling.value = false
-  nextTick(() => requestAnimationFrame(() => (swiping.value = false)))
+  await nextTick()
+  // Принудительный пересчёт стилей. Без него браузер видит смену transform
+  // (−200% → −100%) и возврат transition в одном пересчёте — и честно
+  // проигрывает возврат как анимацию: обложка «выезжает» обратно из центра.
+  void stripEl.value?.offsetWidth
+  swiping.value = false
 }
 function reset() {
   pendingDir = null
@@ -338,11 +362,11 @@ const previewLines = computed(() => {
         <button class="mnp__ctl" :class="{ on: shownShuffle }" @click="toggleShuffle">
           <Icon name="shuffle" :size="22" />
         </button>
-        <button class="mnp__ctl mnp__ctl--big" @click="goPrev"><Icon name="prev" :size="30" /></button>
+        <button class="mnp__ctl mnp__ctl--big" @click="onPrevButton"><Icon name="prev" :size="30" /></button>
         <button class="mnp__play" @click="togglePlay">
           <Icon :name="shownPlaying ? 'pauseBig' : 'playBig'" :size="30" />
         </button>
-        <button class="mnp__ctl mnp__ctl--big" @click="goNext"><Icon name="next" :size="30" /></button>
+        <button class="mnp__ctl mnp__ctl--big" @click="onNextButton"><Icon name="next" :size="30" /></button>
         <button class="mnp__ctl" :class="{ on: shownRepeat !== 'off' }" @click="cycleRepeat">
           <Icon name="repeat" :size="22" />
           <span v-if="shownRepeat === 'one'" class="mnp__one">1</span>
@@ -446,12 +470,15 @@ const previewLines = computed(() => {
   display: none;
 }
 /* Лента шире экрана: отменяем боковые поля .mnp__scroll, иначе слайд уже
-   обложки и картинка упирается в края своего контейнера. */
+   обложки и картинка упирается в края своего контейнера.
+   Режем только по горизонтали (соседние слайды): overflow: hidden обрубал бы
+   тень обложки по нижней кромке, и на общем градиенте была видна «заплатка». */
 .mnp__coverwrap {
   margin: 0 -24px;
   padding: 3vh 0 3vh;
   touch-action: pan-y;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 /* Лента из трёх слайдов: transform -100% центрирует текущий. */
 .mnp__strip {

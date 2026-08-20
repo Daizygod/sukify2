@@ -12,38 +12,39 @@ const ui = useUiStore()
 const { player, devices, remote, localTrack, view, hasPlayback, shownPlaying, shownProgress, togglePlay, next, prev } =
   usePlaybackControls()
 
-// --- Содержимое плашки: лента из трёх карточек (пред | текущая | след) ------
-// Сама плашка при свайпе стоит на месте — в приложении едет только содержимое,
-// а фон переливается в цвет нового трека.
+// --- Что едет, а что переливается ------------------------------------------
+// В приложении при свайпе двигается только подпись — название и исполнитель.
+// Обложка и цвет плашки не ездят, а меняются наплывом.
 const prevTrack = computed(() => (remote.value ? null : player.queue[player.queueIndex - 1] || null))
 const nextTrack = computed(() => (remote.value ? null : player.peekNext()))
 
-function cardOf(track) {
+function lineOf(track) {
   if (!track) return null
   return {
     title: track.title,
     artists: (track.artists || []).map((a) => a.name).join(', '),
-    cover: coverUrl(track.cover, 160),
   }
 }
-const centerCard = computed(() => {
+const centerLine = computed(() => {
   if (!hasPlayback.value) return null
-  if (remote.value) return { title: view.value.title, artists: view.value.artists, cover: view.value.coverUrl }
-  return cardOf(localTrack.value)
+  if (remote.value) return { title: view.value.title, artists: view.value.artists }
+  return lineOf(localTrack.value)
 })
-const prevCard = computed(() => cardOf(prevTrack.value))
-const nextCard = computed(() => cardOf(nextTrack.value))
+const cover = computed(() => {
+  if (!hasPlayback.value) return null
+  return remote.value ? view.value.coverUrl : coverUrl(localTrack.value?.cover, 160)
+})
 
 /**
- * Ключ карточки — позиция в ленте, а не трек: после свайпа Vue переносит уже
- * отрисованный DOM-узел в центральный слот, вместо того чтобы менять текст и
- * src той карточке, которую зритель прямо сейчас видит.
+ * Ключ подписи — позиция в ленте, а не трек: после свайпа Vue переносит уже
+ * отрисованный DOM-узел в центральный слот, вместо того чтобы менять текст
+ * той подписи, которую зритель прямо сейчас видит.
  */
 const pos = ref(0)
 const cards = computed(() => [
-  { key: pos.value - 1, data: prevCard.value },
-  { key: pos.value, data: centerCard.value },
-  { key: pos.value + 1, data: nextCard.value },
+  { key: pos.value - 1, data: lineOf(prevTrack.value) },
+  { key: pos.value, data: centerLine.value },
+  { key: pos.value + 1, data: lineOf(nextTrack.value) },
 ])
 
 const canNext = computed(() => !!nextTrack.value || remote.value)
@@ -52,7 +53,7 @@ const canPrev = computed(() => !!prevTrack.value || remote.value)
 // --- Жест ------------------------------------------------------------------
 const miniX = ref(0)
 const dragging = ref(false) // палец на экране — анимация выключена
-const settling = ref(false) // лента доезжает до соседней карточки
+const settling = ref(false) // лента доезжает до соседней подписи
 const viewportEl = ref(null)
 const stripEl = ref(null)
 let sx = 0
@@ -108,7 +109,7 @@ function onTouchEnd() {
   guard = setTimeout(reset, 3000) // трек не сменился — вернуть ленту на место
 }
 
-// Доводка закончилась: меняем трек и мгновенно центрируем ленту. Карточка,
+// Доводка закончилась: меняем трек и мгновенно центрируем ленту. Подпись,
 // которая уже стоит перед глазами, просто переезжает в центральный слот.
 function onStripEnd(e) {
   if (e.target !== stripEl.value || !settling.value || !pendingDir) return
@@ -132,12 +133,16 @@ function goPrev() {
   }
   prev(true)
 }
-function recenter() {
+async function recenter() {
   clearTimeout(guard)
-  dragging.value = true // выключаем transition на кадр
+  dragging.value = true // выключаем transition
   miniX.value = 0
   settling.value = false
-  nextTick(() => requestAnimationFrame(() => (dragging.value = false)))
+  await nextTick()
+  // Принудительный пересчёт стилей: иначе браузер видит смену transform и
+  // возврат transition в одном пересчёте и проигрывает возврат анимацией.
+  void stripEl.value?.offsetWidth
+  dragging.value = false
 }
 function reset() {
   pendingDir = null
@@ -152,7 +157,7 @@ const trackKey = computed(() =>
 )
 watch(trackKey, () => {
   // Трек доиграл сам — сдвигаем позицию, чтобы уже отрисованная правая
-  // карточка стала центральной, а не перерисовывалась на месте.
+  // подпись стала центральной, а не перерисовывалась на месте.
   if (posMoved) posMoved = false
   else pos.value++
   if (settling.value) recenter()
@@ -185,6 +190,15 @@ const deviceLabel = computed(() =>
     @touchmove.passive="onTouchMove"
     @touchend.passive="onTouchEnd"
   >
+    <!-- Обложка стоит на месте и меняется наплывом: обе картинки живут в
+         стопке, старая растворяется поверх новой. -->
+    <div class="mini__coverbox">
+      <Transition name="xfade">
+        <img v-if="cover" :key="cover" :src="cover" class="mini__cover" alt="" />
+        <div v-else class="mini__cover mini__cover--ph"></div>
+      </Transition>
+    </div>
+
     <div ref="viewportEl" class="mini__viewport">
       <div
         ref="stripEl"
@@ -194,22 +208,16 @@ const deviceLabel = computed(() =>
         @transitionend="onStripEnd"
       >
         <div v-for="c in cards" :key="c.key" class="mini__card">
-          <template v-if="c.data">
-            <img v-if="c.data.cover" :src="c.data.cover" class="mini__cover" alt="" />
-            <div v-else class="mini__cover mini__cover--ph"></div>
-            <div class="mini__meta">
-              <div class="mini__line">
-                <span class="mini__title">{{ c.data.title }}</span>
-                <span class="mini__sep"> • </span>
-                <span class="mini__artists">{{ c.data.artists }}</span>
-              </div>
-              <div class="mini__device" :class="{ 'mini__device--remote': remote }">
-                <Icon v-if="remote" name="devices" :size="11" />
-                {{ deviceLabel }}
-              </div>
-            </div>
-          </template>
+          <div v-if="c.data" class="mini__line">
+            <span class="mini__title">{{ c.data.title }}</span>
+            <span class="mini__sep"> • </span>
+            <span class="mini__artists">{{ c.data.artists }}</span>
+          </div>
         </div>
+      </div>
+      <div class="mini__device" :class="{ 'mini__device--remote': remote }">
+        <Icon v-if="remote" name="devices" :size="11" />
+        {{ deviceLabel }}
       </div>
     </div>
 
@@ -246,14 +254,39 @@ const deviceLabel = computed(() =>
   /* Плашка стоит на месте: при смене трека переливается только цвет. */
   transition: background 0.45s ease;
 }
-/* Окно ленты: соседние карточки живут за его краями. */
+.mini__coverbox {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #2a2a2a;
+}
+.mini__cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mini__cover--ph {
+  background: #333;
+}
+/* Наплыв: новая обложка проявляется поверх старой, без движения. */
+.xfade-enter-active,
+.xfade-leave-active {
+  transition: opacity 0.4s ease;
+}
+.xfade-enter-from,
+.xfade-leave-to {
+  opacity: 0;
+}
+/* Окно подписи: соседние подписи живут за его краями. */
 .mini__viewport {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  align-self: stretch;
-  display: flex;
-  align-items: center;
 }
 .mini__strip {
   display: flex;
@@ -266,26 +299,9 @@ const deviceLabel = computed(() =>
 }
 .mini__card {
   flex: 0 0 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
   min-width: 0;
-  /* Просвет между соседними карточками, чтобы они не слипались в жесте. */
-  padding-right: 10px;
-}
-.mini__cover {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  border-radius: 4px;
-  object-fit: cover;
-}
-.mini__cover--ph {
-  background: #333;
-}
-.mini__meta {
-  flex: 1;
-  min-width: 0;
+  /* Просвет между соседними подписями, чтобы они не слипались в жесте. */
+  padding-right: 12px;
 }
 .mini__line {
   white-space: nowrap;
