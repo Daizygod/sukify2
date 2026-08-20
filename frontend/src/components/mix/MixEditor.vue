@@ -126,11 +126,23 @@ function applyTransition(t) {
   eq.value = s.eq
   filter.value = s.filter
   bars.value = 4
-  lengthMs.value = matched && analysis.value.from?.bpm ? barMs(analysis.value.from.bpm) * 4 : 6000
+  // Всё в целых миллисекундах: такт при 151 BPM — дробный, а на бэк уходят
+  // целые поля, и валидация справедливо ругалась.
+  lengthMs.value = matched && analysis.value.from?.bpm
+    ? Math.round(barMs(analysis.value.from.bpm) * 4)
+    : 6000
   // По умолчанию перекрытие висит на самом хвосте уходящего трека и на первых
   // секундах нового — как и подставляет оригинал.
-  outStartMs.value = Math.max(0, dur - lengthMs.value)
-  inStartMs.value = analysis.value.to?.beat_offset_ms || 0
+  outStartMs.value = Math.max(0, Math.round(dur - lengthMs.value))
+  inStartMs.value = Math.round(analysis.value.to?.beat_offset_ms || 0)
+}
+
+/** Перекрытие не должно вылезать за конец трека — после смены тактов особенно. */
+function clampStarts() {
+  const outMax = Math.max(0, (analysis.value.from?.duration_ms || 0) - lengthMs.value)
+  const inMax = Math.max(0, (analysis.value.to?.duration_ms || 0) - lengthMs.value)
+  outStartMs.value = Math.min(outStartMs.value, outMax)
+  inStartMs.value = Math.min(inStartMs.value, inMax)
 }
 
 watch(() => [from.value?.id, to.value?.id], load, { immediate: true })
@@ -139,6 +151,7 @@ watch(() => [from.value?.id, to.value?.id], load, { immediate: true })
 watch([bars, beatMatched], () => {
   if (!beatMatched.value || !analysis.value.from?.bpm) return
   lengthMs.value = Math.round(barMs(analysis.value.from.bpm) * bars.value)
+  clampStarts()
 })
 
 function setBars(v) {
@@ -150,19 +163,15 @@ function setBars(v) {
 function setOutStart(ms) {
   const dur = analysis.value.from?.duration_ms || 0
   const max = Math.max(0, dur - lengthMs.value)
-  outStartMs.value = Math.min(
-    max,
-    beatMatched.value ? snapToBeat(analysis.value.from?.beats, ms) : ms
-  )
+  const snapped = beatMatched.value ? snapToBeat(analysis.value.from?.beats, ms) : ms
+  outStartMs.value = Math.max(0, Math.round(Math.min(max, snapped)))
   markCustom()
 }
 function setInStart(ms) {
   const dur = analysis.value.to?.duration_ms || 0
   const max = Math.max(0, dur - lengthMs.value)
-  inStartMs.value = Math.min(
-    max,
-    beatMatched.value ? snapToBeat(analysis.value.to?.beats, ms) : ms
-  )
+  const snapped = beatMatched.value ? snapToBeat(analysis.value.to?.beats, ms) : ms
+  inStartMs.value = Math.max(0, Math.round(Math.min(max, snapped)))
   markCustom()
 }
 
@@ -238,10 +247,10 @@ async function save() {
     await api.post('/transitions', {
       from_track_id: from.value.id,
       to_track_id: to.value.id,
-      fade_out_start_ms: outStartMs.value,
-      fade_out_end_ms: outStartMs.value + lengthMs.value,
-      fade_in_start_ms: inStartMs.value,
-      fade_in_full_volume_ms: inStartMs.value + lengthMs.value,
+      fade_out_start_ms: Math.round(outStartMs.value),
+      fade_out_end_ms: Math.round(outStartMs.value + lengthMs.value),
+      fade_in_start_ms: Math.round(inStartMs.value),
+      fade_in_full_volume_ms: Math.round(inStartMs.value + lengthMs.value),
       curve_type: 'equal_power',
       preset: preset.value,
       volume_shape: shapes.value.volume,
@@ -333,12 +342,11 @@ function bpmText(a) {
         :beat-matched="beatMatched"
         :playhead="playhead"
         :previewing="previewing"
-        tabindex="0"
         @update:outStartMs="setOutStart"
         @update:inStartMs="setInStart"
         @bars="setBars"
         @preview="togglePreview"
-        @keydown="nudge('out', $event)"
+        @nudge="nudge"
       />
 
       <div class="mx__track mx__track--in">

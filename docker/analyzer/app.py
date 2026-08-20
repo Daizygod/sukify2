@@ -51,22 +51,29 @@ def to_camelot(key: str, scale: str) -> str | None:
     return table.get(note)
 
 
-def peaks_of(samples: np.ndarray, buckets: int) -> str:
-    """Пики по корзинам, 0..255, отдаём base64 — так в разы компактнее JSON-массива."""
+def bucket_peaks(samples: np.ndarray, buckets: int) -> np.ndarray:
+    """Максимум модуля по корзинам — форма волны без нормировки."""
     if samples.size == 0:
-        return ""
+        return np.zeros(buckets, dtype=np.float32)
     # Ровно buckets корзин: хвост добиваем нулями, чтобы reshape не ронял.
     per = max(1, int(np.ceil(samples.size / buckets)))
     padded = np.zeros(per * buckets, dtype=np.float32)
     padded[: samples.size] = np.abs(samples)
-    grid = padded.reshape(buckets, per).max(axis=1)
 
-    top = float(grid.max())
+    return padded.reshape(buckets, per).max(axis=1)
+
+
+def encode_peaks(grid: np.ndarray, top: float) -> str:
+    """
+    Пики в base64 — так в разы компактнее JSON-массива.
+
+    Множитель общий для обеих полос: если нормировать бас отдельно, он
+    вырастет до той же высоты, что и полная полоса, и закроет её собой.
+    """
     if top <= 0:
-        return base64.b64encode(bytes(buckets)).decode()
-    scaled = np.clip(grid / top * 255.0, 0, 255).astype(np.uint8)
+        return base64.b64encode(bytes(len(grid))).decode()
 
-    return base64.b64encode(scaled.tobytes()).decode()
+    return base64.b64encode(np.clip(grid / top * 255.0, 0, 255).astype(np.uint8).tobytes()).decode()
 
 
 @app.get("/health")
@@ -110,6 +117,9 @@ async def analyze(file: UploadFile = File(...), buckets: int = DEFAULT_PEAKS):
 
         # --- Пики: полная полоса и бас -------------------------------------
         bass = LowPass(cutoffFrequency=BASS_CUTOFF_HZ, sampleRate=SAMPLE_RATE)(audio)
+        full_grid = bucket_peaks(np.asarray(audio), buckets)
+        bass_grid = bucket_peaks(np.asarray(bass), buckets)
+        top = float(full_grid.max())
 
         return JSONResponse(
             {
@@ -124,8 +134,8 @@ async def analyze(file: UploadFile = File(...), buckets: int = DEFAULT_PEAKS):
                 "camelot": to_camelot(key, scale),
                 "peaks_count": buckets,
                 "peaks": {
-                    "full": peaks_of(np.asarray(audio), buckets),
-                    "bass": peaks_of(np.asarray(bass), buckets),
+                    "full": encode_peaks(full_grid, top),
+                    "bass": encode_peaks(bass_grid, top),
                 },
             }
         )

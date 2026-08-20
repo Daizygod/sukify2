@@ -88,6 +88,9 @@ export const usePlayerStore = defineStore('player', () => {
     // Отладочный доступ (и для E2E-тестов): аудиоэлементы и гейны деков.
     window.__sukifyDecks = decks.map((d) => d.el)
     window.__sukifyGains = decks.map((d) => d.gain)
+    // Фильтр и полосы эквалайзера — чтобы можно было убедиться, что переход
+    // действительно ведёт их, а не только громкость.
+    window.__sukifyChains = decks.map((d) => d.chain)
     window.__sukifyNorm = () => ({ target: targetLufs.value, track: currentTrack.value?.loudness_lufs, active })
 
     inited.value = true

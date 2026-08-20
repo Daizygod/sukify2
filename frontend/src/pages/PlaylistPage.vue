@@ -236,8 +236,8 @@ async function removePlaylist() {
             <div>BPM</div>
             <div>Тональность</div>
           </template>
-          <div>Альбом</div>
-          <div>Дата добавления</div>
+          <div class="th--album">Альбом</div>
+          <div class="th--date">Дата добавления</div>
           <div class="th--right"><Icon name="clock" :size="16" /></div>
         </div>
 

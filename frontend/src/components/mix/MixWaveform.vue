@@ -21,7 +21,7 @@ const props = defineProps({
   playhead: { type: Number, default: -1 }, // 0..1 внутри перекрытия, -1 — не играет
   previewing: { type: Boolean, default: false },
 })
-const emit = defineEmits(['update:outStartMs', 'update:inStartMs', 'preview', 'bars'])
+const emit = defineEmits(['update:outStartMs', 'update:inStartMs', 'preview', 'bars', 'nudge'])
 
 const W = 1000 // внутренние координаты SVG, наружу растягивается по ширине
 const H = 150
@@ -130,6 +130,11 @@ function onUp() {
 }
 
 const barsOpen = ref(false)
+
+/** «1 bar», а дальше «bars» — иначе плашка читается как опечатка. */
+function barLabel(n) {
+  return n === 1 ? '1 bar' : `${n} bars`
+}
 </script>
 
 <template>
@@ -140,12 +145,15 @@ const barsOpen = ref(false)
       :aria-label="'Место перекрытия предыдущего трека'"
       :aria-valuenow="outStartMs"
       tabindex="0"
+      title="Стрелки — на секунду, Shift — на десять, Alt — на десять миллисекунд, Home/End — к краям"
       @pointerdown="onDown('out', $event)"
+      @keydown="emit('nudge', 'out', $event)"
     >
       <svg class="mw__svg" :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none">
+        <!-- Подложка перекрытия лежит под волной: поверх она красила бы её. -->
+        <rect class="mw__overlap" :x="overlapX" y="0" :width="overlapW" :height="H" rx="6" />
         <path :d="outPaths.full" :fill="WAVE_COLORS.full" />
         <path :d="outPaths.bass" :fill="WAVE_COLORS.bass" opacity="0.85" />
-        <rect class="mw__overlap" :x="overlapX" y="0" :width="overlapW" :height="H" />
         <line
           v-for="(b, i) in outBeats"
           :key="i"
@@ -182,12 +190,14 @@ const barsOpen = ref(false)
       :aria-label="'Место перекрытия нового трека'"
       :aria-valuenow="inStartMs"
       tabindex="0"
+      title="Стрелки — на секунду, Shift — на десять, Alt — на десять миллисекунд, Home/End — к краям"
       @pointerdown="onDown('in', $event)"
+      @keydown="emit('nudge', 'in', $event)"
     >
       <svg class="mw__svg" :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none">
+        <rect class="mw__overlap" :x="overlapX" y="0" :width="overlapW" :height="H" rx="6" />
         <path :d="inPaths.full" :fill="WAVE_COLORS.full" />
         <path :d="inPaths.bass" :fill="WAVE_COLORS.bass" opacity="0.85" />
-        <rect class="mw__overlap" :x="overlapX" y="0" :width="overlapW" :height="H" />
         <line
           v-for="(b, i) in inBeats"
           :key="i"
@@ -219,8 +229,8 @@ const barsOpen = ref(false)
 
     <!-- Длина в тактах: только когда темпы сходятся -->
     <div v-if="beatMatched && bars" class="mw__bars">
-      <button class="mw__barsbtn" :aria-label="`${bars} bars`" @click.stop="barsOpen = !barsOpen">
-        {{ bars }} bars
+      <button class="mw__barsbtn" :aria-label="barLabel(bars)" @click.stop="barsOpen = !barsOpen">
+        {{ barLabel(bars) }}
       </button>
       <div v-if="barsOpen" class="mw__barsmenu">
         <button
@@ -230,7 +240,7 @@ const barsOpen = ref(false)
           :class="{ on: b === bars }"
           @click.stop="emit('bars', b); barsOpen = false"
         >
-          {{ b }} bars
+          {{ barLabel(b) }}
           <Icon v-if="b === bars" name="check" :size="14" />
         </button>
       </div>
@@ -244,6 +254,8 @@ const barsOpen = ref(false)
   /* Фона нет намеренно: панель под ней уже залита градиентом, и любая
      подложка выдала бы себя видимой границей. */
   user-select: none;
+  /* Место под плашку тактов — иначе она ложится на строку нижнего трека. */
+  padding-bottom: 20px;
 }
 .mw--drag,
 .mw--drag * {
@@ -299,7 +311,7 @@ const barsOpen = ref(false)
 .mw__bars {
   position: absolute;
   left: 50%;
-  bottom: -14px;
+  bottom: 0;
   transform: translateX(-50%);
   z-index: 4;
 }

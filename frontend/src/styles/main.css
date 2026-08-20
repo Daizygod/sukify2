@@ -294,7 +294,7 @@ img {
 }
 /* Режим микса: к плейлистной раскладке добавлены BPM и тональность. */
 .trackgrid--mix {
-  grid-template-columns: 16px 4fr 56px 64px 3fr 2fr minmax(120px, 160px);
+  grid-template-columns: 16px 3fr 52px 92px 2fr 1.6fr minmax(110px, 150px);
 }
 .trackgrid--artist {
   grid-template-columns: 16px 4fr 2fr minmax(120px, 160px);
@@ -308,6 +308,29 @@ img {
   font-size: 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 16px;
+}
+/* Заголовки не переносим: перенос делает шапку двухэтажной и сбивает сетку. */
+.tracktable__head > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Список меряем по своей ширине, а не по окну: правая панель может открыться
+   и отобрать половину центральной колонки. */
+.tracklist {
+  container-type: inline-size;
+}
+/* Узкая колонка: альбом и дату убираем, темп и тональность важнее. */
+@container (max-width: 760px) {
+  .trackgrid--mix {
+    grid-template-columns: 16px 3fr 52px 92px minmax(96px, 130px);
+  }
+  .trackgrid--mix .row__album,
+  .trackgrid--mix .row__date,
+  .tracktable__head.trackgrid--mix .th--album,
+  .tracktable__head.trackgrid--mix .th--date {
+    display: none;
+  }
 }
 
 /* «Компактный» вид списка (переключатель «Список» на страницах). */
