@@ -74,8 +74,8 @@ export function usePlaybackControls() {
   function next() {
     player.next()
   }
-  function prev() {
-    player.prev()
+  function prev(force) {
+    player.prev(force)
   }
   function seek(frac) {
     player.seek(frac * shownDuration.value)

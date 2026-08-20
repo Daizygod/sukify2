@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import Icon from '../Icon.vue'
-import CoverImage from '../CoverImage.vue'
 import { useLibraryStore } from '@/stores/library'
 import { useUiStore } from '@/stores/ui'
+import { coverUrl } from '@/lib/cover'
 import { usePlaybackControls } from '@/composables/usePlaybackControls'
 
 const library = useLibraryStore()
@@ -12,34 +12,134 @@ const ui = useUiStore()
 const { player, devices, remote, localTrack, view, hasPlayback, shownPlaying, shownProgress, togglePlay, next, prev } =
   usePlaybackControls()
 
-// Свайп по мини-плееру влево/вправо переключает трек (как в приложении).
+// --- Содержимое плашки: лента из трёх карточек (пред | текущая | след) ------
+// Сама плашка при свайпе стоит на месте — в приложении едет только содержимое,
+// а фон переливается в цвет нового трека.
+const prevTrack = computed(() => (remote.value ? null : player.queue[player.queueIndex - 1] || null))
+const nextTrack = computed(() => (remote.value ? null : player.peekNext()))
+
+function cardOf(track) {
+  if (!track) return null
+  return {
+    title: track.title,
+    artists: (track.artists || []).map((a) => a.name).join(', '),
+    cover: coverUrl(track.cover, 160),
+  }
+}
+const centerCard = computed(() => {
+  if (!hasPlayback.value) return null
+  if (remote.value) return { title: view.value.title, artists: view.value.artists, cover: view.value.coverUrl }
+  return cardOf(localTrack.value)
+})
+const prevCard = computed(() => cardOf(prevTrack.value))
+const nextCard = computed(() => cardOf(nextTrack.value))
+
+/**
+ * Ключ карточки — позиция в ленте, а не трек: после свайпа Vue переносит уже
+ * отрисованный DOM-узел в центральный слот, вместо того чтобы менять текст и
+ * src той карточке, которую зритель прямо сейчас видит.
+ */
+const pos = ref(0)
+const cards = computed(() => [
+  { key: pos.value - 1, data: prevCard.value },
+  { key: pos.value, data: centerCard.value },
+  { key: pos.value + 1, data: nextCard.value },
+])
+
+const canNext = computed(() => !!nextTrack.value || remote.value)
+const canPrev = computed(() => !!prevTrack.value || remote.value)
+
+// --- Жест ------------------------------------------------------------------
 const miniX = ref(0)
+const dragging = ref(false) // палец на экране — анимация выключена
+const settling = ref(false) // лента доезжает до соседней карточки
+const viewportEl = ref(null)
+const stripEl = ref(null)
 let sx = 0
 let sy = 0
 let horiz = null
 let swiped = false
+let pendingDir = null
+let guard = null
+
+function width() {
+  return viewportEl.value?.clientWidth || 260
+}
 function onTouchStart(e) {
+  if (settling.value) return
   sx = e.touches[0].clientX
   sy = e.touches[0].clientY
   horiz = null
   swiped = false
+  dragging.value = true
 }
 function onTouchMove(e) {
+  if (settling.value) return
   const dx = e.touches[0].clientX - sx
   const dy = e.touches[0].clientY - sy
   if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy)
-  // Сама плашка не ездит — в приложении Spotify она стоит на месте, меняются
-  // только текст и цвет. Жест копим, но карточку не двигаем.
-  if (horiz) miniX.value = Math.max(-120, Math.min(120, dx))
+  if (!horiz) return
+  // Сопротивление там, где соседнего трека нет.
+  let x = dx
+  if (x < 0 && !canNext.value) x = Math.max(x, -40)
+  if (x > 0 && !canPrev.value) x = Math.min(x, 40)
+  miniX.value = x
 }
 function onTouchEnd() {
+  dragging.value = false
   const dx = miniX.value
-  miniX.value = 0
-  if (!horiz) return
-  if (Math.abs(dx) > 12) swiped = true // подавляем клик-открытие после свайпа
-  if (dx < -56) next()
-  else if (dx > 56) prev()
+  if (!horiz) {
+    miniX.value = 0
+    return
+  }
+  swiped = Math.abs(dx) > 12 // подавляем клик-открытие после свайпа
+  const toNext = dx < -56 && canNext.value
+  const toPrev = dx > 56 && canPrev.value
+  if (!toNext && !toPrev) {
+    miniX.value = 0 // не дотянул — плавно назад
+    return
+  }
+  pendingDir = toNext ? 'next' : 'prev'
+  settling.value = true
+  miniX.value = toNext ? -width() : width()
+  if (remote.value) toNext ? goNext() : goPrev()
+  clearTimeout(guard)
+  guard = setTimeout(reset, 3000) // трек не сменился — вернуть ленту на место
 }
+
+// Доводка закончилась: меняем трек и мгновенно центрируем ленту. Карточка,
+// которая уже стоит перед глазами, просто переезжает в центральный слот.
+function onStripEnd(e) {
+  if (e.target !== stripEl.value || !settling.value || !pendingDir) return
+  const dir = pendingDir
+  pendingDir = null
+  if (remote.value) return // команда уже ушла, ждём бродкаст
+  dir === 'next' ? goNext() : goPrev()
+  recenter()
+}
+function goNext() {
+  pos.value++
+  next()
+}
+// Свайп всегда уходит на предыдущий трек, даже если текущий играет дольше
+// трёх секунд (кнопка ⏮ в большом плеере в этом случае его перезапускает).
+function goPrev() {
+  if (canPrev.value) pos.value--
+  prev(true)
+}
+function recenter() {
+  clearTimeout(guard)
+  dragging.value = true // выключаем transition на кадр
+  miniX.value = 0
+  settling.value = false
+  nextTick(() => requestAnimationFrame(() => (dragging.value = false)))
+}
+function reset() {
+  pendingDir = null
+  settling.value = false
+  miniX.value = 0
+}
+
 function onOpen() {
   if (swiped) {
     swiped = false
@@ -67,29 +167,34 @@ const deviceLabel = computed(() =>
     @touchmove.passive="onTouchMove"
     @touchend.passive="onTouchEnd"
   >
-    <Transition name="minifade" mode="out-in">
-      <img
-        v-if="view.coverUrl"
-        :key="view.coverUrl"
-        :src="view.coverUrl"
-        class="mini__cover mini__cover--img"
-        alt=""
-      />
-      <CoverImage v-else :key="view.title" :cover="view.cover" :size="80" class="mini__cover" />
-    </Transition>
-    <div class="mini__meta">
-      <Transition name="minifade" mode="out-in">
-        <div :key="view.title" class="mini__line">
-          <span class="mini__title">{{ view.title }}</span>
-          <span class="mini__sep"> • </span>
-          <span class="mini__artists">{{ view.artists }}</span>
+    <div ref="viewportEl" class="mini__viewport">
+      <div
+        ref="stripEl"
+        class="mini__strip"
+        :class="{ 'mini__strip--drag': dragging }"
+        :style="{ transform: `translateX(calc(-100% + ${miniX}px))` }"
+        @transitionend="onStripEnd"
+      >
+        <div v-for="c in cards" :key="c.key" class="mini__card">
+          <template v-if="c.data">
+            <img v-if="c.data.cover" :src="c.data.cover" class="mini__cover" alt="" />
+            <div v-else class="mini__cover mini__cover--ph"></div>
+            <div class="mini__meta">
+              <div class="mini__line">
+                <span class="mini__title">{{ c.data.title }}</span>
+                <span class="mini__sep"> • </span>
+                <span class="mini__artists">{{ c.data.artists }}</span>
+              </div>
+              <div class="mini__device" :class="{ 'mini__device--remote': remote }">
+                <Icon v-if="remote" name="devices" :size="11" />
+                {{ deviceLabel }}
+              </div>
+            </div>
+          </template>
         </div>
-      </Transition>
-      <div class="mini__device" :class="{ 'mini__device--remote': remote }">
-        <Icon v-if="remote" name="devices" :size="11" />
-        {{ deviceLabel }}
       </div>
     </div>
+
     <button v-if="localTrack" class="mini__btn" :class="{ on: liked }" @click.stop="library.toggleLike(localTrack)">
       <Icon :name="liked ? 'checkCircleBig' : 'plusCircleBig'" :size="24" />
     </button>
@@ -123,23 +228,42 @@ const deviceLabel = computed(() =>
   /* Плашка стоит на месте: при смене трека переливается только цвет. */
   transition: background 0.45s ease;
 }
-/* Обложка и подпись меняются короткой растворяющей сменой, без рывка. */
-.minifade-enter-active,
-.minifade-leave-active {
-  transition: opacity 0.16s ease;
+/* Окно ленты: соседние карточки живут за его краями. */
+.mini__viewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
 }
-.minifade-enter-from,
-.minifade-leave-to {
-  opacity: 0;
+.mini__strip {
+  display: flex;
+  width: 100%;
+  transition: transform 0.24s ease;
+  will-change: transform;
+}
+.mini__strip--drag {
+  transition: none;
+}
+.mini__card {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  /* Просвет между соседними карточками, чтобы они не слипались в жесте. */
+  padding-right: 10px;
 }
 .mini__cover {
   width: 40px;
+  height: 40px;
   flex: 0 0 40px;
   border-radius: 4px;
-}
-.mini__cover--img {
-  height: 40px;
   object-fit: cover;
+}
+.mini__cover--ph {
+  background: #333;
 }
 .mini__meta {
   flex: 1;

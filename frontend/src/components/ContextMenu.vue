@@ -215,6 +215,16 @@ async function startRadio() {
   }
 }
 
+/**
+ * Клик по подложке закрывает меню — но не тот, что браузер синтезирует сразу
+ * после долгого нажатия, которым меню и открыли (палец отпустили уже над
+ * подложкой, и меню схлопывалось в тот же момент, что и появлялось).
+ */
+function closeBackdrop() {
+  if (Date.now() - menu.openedAt < 400) return
+  menu.close()
+}
+
 function goArtist() {
   menu.close()
   if (artist.value) router.push({ name: 'artist', params: { slug: artist.value.slug } })
@@ -243,7 +253,7 @@ async function copyLink() {
 <template>
   <Teleport to="body">
     <!-- Меню сущности: альбом/плейлист/микс/исполнитель/любимые -->
-    <div v-if="menu.open && entity" class="cm__backdrop" @click="menu.close()" @contextmenu.prevent="menu.close()">
+    <div v-if="menu.open && entity" class="cm__backdrop" @click="closeBackdrop" @contextmenu.prevent="menu.close()">
       <div ref="rootEl" class="cm" :style="{ left: pos.x + 'px', top: pos.y + 'px' }" @click.stop>
         <div class="cm__entityhead">{{ entity.title }}</div>
         <button class="cm__item" @click="entityPlay">
@@ -266,7 +276,7 @@ async function copyLink() {
       </div>
     </div>
 
-    <div v-else-if="menu.open && track" class="cm__backdrop" @click="menu.close()" @contextmenu.prevent="menu.close()">
+    <div v-else-if="menu.open && track" class="cm__backdrop" @click="closeBackdrop" @contextmenu.prevent="menu.close()">
       <div
         ref="rootEl"
         class="cm"

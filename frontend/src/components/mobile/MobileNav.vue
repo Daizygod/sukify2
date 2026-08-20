@@ -18,12 +18,12 @@ const isOn = (i) => i.match.includes(route.name)
 <template>
   <nav class="mnav">
     <RouterLink v-for="i in items" :key="i.to" :to="i.to" class="mnav__item" :class="{ on: isOn(i) }">
-      <Icon :name="isOn(i) && i.iconActive ? i.iconActive : i.icon" :size="26" />
+      <Icon :name="isOn(i) && i.iconActive ? i.iconActive : i.icon" :size="24" />
       <span>{{ i.label }}</span>
     </RouterLink>
     <!-- Четвёртая вкладка, как в приложении Spotify: «Создать» -->
     <button class="mnav__item" @click="ui.createPlaylistOpen = true">
-      <Icon name="plus" :size="26" />
+      <Icon name="plus" :size="24" />
       <span>Создать</span>
     </button>
   </nav>

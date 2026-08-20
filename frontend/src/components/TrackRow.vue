@@ -53,6 +53,11 @@ function play() {
 // Строка играет по одиночному клику/тапу (и на ПК, и на мобильном).
 const isMobile = useIsMobile()
 function onRowClick(e) {
+  // После долгого нажатия открылось меню — клик по строке уже не наш.
+  if (longPressed) {
+    longPressed = false
+    return
+  }
   // Внутренние кнопки/ссылки обрабатывают клик сами. Проверять только
   // e.target.closest() нельзя: пока событие всплывает, Vue успевает
   // перерисовать иконку кнопки, и её старый <svg> оказывается вне DOM —
@@ -78,12 +83,27 @@ const swipeDrag = ref(false)
 let sx = 0
 let sy = 0
 let sHoriz = null
+// Долгое нажатие на телефоне открывает меню трека — единственный путь к
+// странице исполнителя, обычный тап всегда только играет (п. 19).
+let pressTimer = null
+let longPressed = false
 function onSwipeStart(e) {
   if (!isMobile.value) return
   sx = e.touches[0].clientX
   sy = e.touches[0].clientY
   sHoriz = null
   swipeDrag.value = true
+  longPressed = false
+  clearTimeout(pressTimer)
+  const x = sx
+  const y = sy
+  pressTimer = setTimeout(() => {
+    longPressed = true
+    swipeX.value = 0
+    swipeDrag.value = false
+    navigator.vibrate?.(12)
+    menu.openMenu({ clientX: x, clientY: y }, props.track)
+  }, 450)
 }
 function onSwipeMove(e) {
   if (!isMobile.value) return
@@ -91,11 +111,14 @@ function onSwipeMove(e) {
   const dy = e.touches[0].clientY - sy
   if (sHoriz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
     sHoriz = Math.abs(dx) > Math.abs(dy)
+    clearTimeout(pressTimer) // палец поехал — это уже не удержание
   }
+  if (longPressed) return
   // Тянем только вправо.
   if (sHoriz) swipeX.value = Math.max(0, Math.min(dx, 140))
 }
 function onSwipeEnd() {
+  clearTimeout(pressTimer)
   swipeDrag.value = false
   const dx = swipeX.value
   swipeX.value = 0
@@ -142,8 +165,10 @@ function toggleLike() {
           <span v-if="track.unofficial" class="row__unofficial" title="Нет на официальных площадках">эксклюзив</span>
         </div>
         <div class="row__artists">
+          <!-- На телефоне имя исполнителя — не ссылка: тап по любой части
+               строки играет трек, к исполнителю уводит меню по удержанию. -->
           <template v-for="(a, i) in track.artists" :key="a.id">
-            <RouterLink :to="{ name: 'artist', params: { slug: a.slug } }" class="row__artist">{{ a.name }}</RouterLink><span v-if="i < track.artists.length - 1">, </span>
+            <span v-if="isMobile" class="row__artist">{{ a.name }}</span><RouterLink v-else :to="{ name: 'artist', params: { slug: a.slug } }" class="row__artist">{{ a.name }}</RouterLink><span v-if="i < track.artists.length - 1">, </span>
           </template>
         </div>
       </div>
@@ -206,6 +231,10 @@ function toggleLike() {
   background: transparent;
   transition: transform 0.22s ease;
   touch-action: pan-y;
+  /* Удержание открывает меню, а не выделяет текст и не зовёт меню браузера. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .row--drag {
   transition: none;

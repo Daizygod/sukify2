@@ -8,6 +8,7 @@ import DragBar from '../DragBar.vue'
 import MobileQueueSheet from './MobileQueueSheet.vue'
 import MobileDevicesSheet from './MobileDevicesSheet.vue'
 import { formatDuration, formatListeners } from '@/lib/format'
+import { coverUrl } from '@/lib/cover'
 import { useLibraryStore } from '@/stores/library'
 import { useUiStore } from '@/stores/ui'
 import { useMenuStore } from '@/stores/menu'
@@ -44,36 +45,23 @@ const liveLine = computed(() =>
 )
 
 // Соседние треки для карусели обложек.
-const nextTrack = computed(() =>
-  remote.value ? null : player.manualQueue[0] || player.upcoming[0] || null
-)
+const nextTrack = computed(() => (remote.value ? null : player.peekNext()))
 const prevTrack = computed(() =>
   remote.value ? null : player.queue[player.queueIndex - 1] || null
 )
 
-/**
- * Один и тот же URL обложки для всех трёх слайдов карусели.
- *
- * Раньше центр брал coverBigUrl, а соседи — <CoverImage> со своим srcset и
- * loading="lazy": после свайпа в центре оказывалась другая ссылка, картинка
- * грузилась заново, и на пару кадров было видно две обложки сразу.
- */
-function bigCover(track) {
-  const c = track?.cover
-  if (!c) return null
-  const arr = Array.isArray(c)
-    ? c
-    : Object.entries(c).map(([size, url]) => ({ size: Number(size), url }))
-  const sorted = arr.filter((x) => x?.url).sort((a, b) => a.size - b.size)
-  if (!sorted.length) return null
-  return (sorted.find((x) => x.size >= 640) || sorted[sorted.length - 1]).url
-}
-
+// Один и тот же файл обложки для всех трёх слайдов — см. lib/cover.js.
 const centerCover = computed(() =>
-  remote.value ? view.value?.coverBigUrl || null : bigCover(localTrack.value)
+  remote.value ? view.value?.coverBigUrl || null : coverUrl(localTrack.value?.cover)
 )
-const prevCover = computed(() => (remote.value ? null : bigCover(prevTrack.value)))
-const nextCover = computed(() => (remote.value ? null : bigCover(nextTrack.value)))
+// На пульте соседних треков не знаем — подставляем текущую обложку, чтобы
+// лента не проезжала пустотой.
+const prevCover = computed(() =>
+  remote.value ? centerCover.value : coverUrl(prevTrack.value?.cover)
+)
+const nextCover = computed(() =>
+  remote.value ? centerCover.value : coverUrl(nextTrack.value?.cover)
+)
 
 // Соседние обложки заранее в кэше браузера — иначе после свайпа центр моргает.
 watch(
@@ -88,6 +76,39 @@ watch(
   },
   { immediate: true }
 )
+
+/**
+ * Лента карусели. Ключ слайда — логическая позиция, а не URL и не id трека.
+ *
+ * Это важно: после свайпа Vue по ключам переносит уже показанный <img> из
+ * соседнего слайда в центр вместо того, чтобы менять src элементу, который
+ * зритель прямо сейчас видит. Смена src не мгновенна — браузер держит старую
+ * картинку на экране, пока не декодирует новую, и это выглядело так, будто
+ * «обложка прилетает сзади», а старая едет обратно в центр.
+ */
+const pos = ref(0)
+let posMoved = false // позицию уже сдвинули сами — watch(trackKey) не трогает
+const slides = computed(() => [
+  { key: pos.value - 1, url: prevCover.value },
+  { key: pos.value, url: centerCover.value },
+  { key: pos.value + 1, url: nextCover.value },
+])
+
+// Переключение кнопками/жестом: двигаем позицию карусели вместе с треком.
+function goNext() {
+  posMoved = true
+  pos.value++
+  next()
+}
+// force — свайпом всегда уходим на предыдущий трек; кнопка ⏮ после 3-й секунды
+// перезапускает текущий, и тогда позицию карусели трогать нельзя.
+function goPrev(force = false) {
+  if (canPrev.value && (force || remote.value || player.positionMs <= 3000)) {
+    posMoved = true
+    pos.value--
+  }
+  prev(force)
+}
 
 // Карточка «Текст» следует за перемоткой: активная строка держится по центру.
 const lyBox = ref(null)
@@ -160,19 +181,19 @@ function onTouchEnd() {
     swipeX.value = 0
     return
   }
-  const goNext = dx < -60 && canNext.value
-  const goPrev = dx > 60 && canPrev.value
-  if (!goNext && !goPrev) {
+  const toNext = dx < -60 && canNext.value
+  const toPrev = dx > 60 && canPrev.value
+  if (!toNext && !toPrev) {
     swipeX.value = 0 // не дотянул — плавно назад (transition включён)
     return
   }
-  pendingDir = goNext ? 'next' : 'prev'
+  pendingDir = toNext ? 'next' : 'prev'
   settling.value = true
-  swipeX.value = goNext ? -stripWidth() : stripWidth()
+  swipeX.value = toNext ? -stripWidth() : stripWidth()
   // На пульте команда уходит сразу, локально — по окончании анимации слайда
   // (тогда currentTrack сменится ровно в момент бесшовной центровки).
   if (remote.value) {
-    goNext ? next() : prev()
+    toNext ? goNext() : goPrev(true)
   }
   // Страховка: трек не сменился (конец очереди / нет ответа) — вернуть.
   clearTimeout(settleGuard)
@@ -185,7 +206,9 @@ function onStripTransitionEnd() {
   if (remote.value) return // ждём бродкаст — центровка в watch(trackKey)
   const dir = pendingDir
   pendingDir = null
-  dir === 'next' ? next() : prev() // currentTrack меняется синхронно (ctx запущен)
+  // Позиция карусели и трек меняются в одном такте: слайд, который уже стоит
+  // перед глазами, просто переезжает в центр вместе со своей картинкой.
+  dir === 'next' ? goNext() : goPrev(true) // currentTrack меняется синхронно
   recenter()
 }
 
@@ -211,6 +234,10 @@ const trackKey = computed(() =>
   remote.value ? devices.remoteState?.track?.id ?? view.value?.title : localTrack.value?.id
 )
 watch(trackKey, () => {
+  // Трек сменился сам (доиграл) — сдвигаем позицию, чтобы слайд «следующего»
+  // с уже загруженной картинкой стал центральным.
+  if (posMoved) posMoved = false
+  else pos.value++
   if (settling.value) recenter()
 })
 
@@ -265,19 +292,11 @@ const previewLines = computed(() => {
           @transitionend="onStripTransitionEnd"
         >
           <!-- Все три слайда — обычные <img> с одинаковым источником, иначе
-               центр после свайпа перезагружает картинку и моргает. -->
-          <div class="mnp__slide">
-            <img v-if="prevCover" :src="prevCover" class="mnp__cover" alt="" />
-            <!-- На пульте соседних обложек не знаем — показываем текущую, чтобы не мигало пустотой -->
-            <img v-else-if="remote && centerCover" :src="centerCover" class="mnp__cover" alt="" />
-          </div>
-          <div class="mnp__slide">
-            <img v-if="centerCover" :src="centerCover" class="mnp__cover" alt="" />
-            <CoverImage v-else :cover="view.cover" :size="1000" class="mnp__cover" />
-          </div>
-          <div class="mnp__slide">
-            <img v-if="nextCover" :src="nextCover" class="mnp__cover" alt="" />
-            <img v-else-if="remote && centerCover" :src="centerCover" class="mnp__cover" alt="" />
+               центр после свайпа перезагружает картинку и моргает. Ключ —
+               позиция в ленте: Vue переносит уже отрисованный слайд в центр. -->
+          <div v-for="s in slides" :key="s.key" class="mnp__slide">
+            <img v-if="s.url" :src="s.url" class="mnp__cover" alt="" />
+            <CoverImage v-else-if="s.key === pos" :cover="view.cover" :size="1000" class="mnp__cover" />
           </div>
         </div>
       </div>
@@ -319,11 +338,11 @@ const previewLines = computed(() => {
         <button class="mnp__ctl" :class="{ on: shownShuffle }" @click="toggleShuffle">
           <Icon name="shuffle" :size="22" />
         </button>
-        <button class="mnp__ctl mnp__ctl--big" @click="prev"><Icon name="prev" :size="30" /></button>
+        <button class="mnp__ctl mnp__ctl--big" @click="goPrev"><Icon name="prev" :size="30" /></button>
         <button class="mnp__play" @click="togglePlay">
           <Icon :name="shownPlaying ? 'pauseBig' : 'playBig'" :size="30" />
         </button>
-        <button class="mnp__ctl mnp__ctl--big" @click="next"><Icon name="next" :size="30" /></button>
+        <button class="mnp__ctl mnp__ctl--big" @click="goNext"><Icon name="next" :size="30" /></button>
         <button class="mnp__ctl" :class="{ on: shownRepeat !== 'off' }" @click="cycleRepeat">
           <Icon name="repeat" :size="22" />
           <span v-if="shownRepeat === 'one'" class="mnp__one">1</span>
@@ -426,8 +445,11 @@ const previewLines = computed(() => {
 .mnp__scroll::-webkit-scrollbar {
   display: none;
 }
+/* Лента шире экрана: отменяем боковые поля .mnp__scroll, иначе слайд уже
+   обложки и картинка упирается в края своего контейнера. */
 .mnp__coverwrap {
-  padding: 4vh 0 4vh;
+  margin: 0 -24px;
+  padding: 3vh 0 3vh;
   touch-action: pan-y;
   overflow: hidden;
 }
@@ -445,11 +467,11 @@ const previewLines = computed(() => {
   flex: 0 0 100%;
   display: grid;
   place-items: center;
-  padding: 0 4px;
 }
-/* Обложка почти во всю ширину, как в приложении: поля по 20px. */
+/* Обложка почти во всю ширину, как в приложении: поля по 22px. Высотное
+   ограничение — только страховка для совсем низких экранов. */
 .mnp__cover {
-  width: min(calc(100vw - 40px), 46vh);
+  width: min(calc(100vw - 44px), 50vh);
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 8px;
@@ -460,7 +482,8 @@ const previewLines = computed(() => {
 .mnp__livewrap {
   position: relative;
   height: 52px;
-  margin: -8px 0 12px;
+  /* Строка не липнет к обложке: сверху заметный отступ. */
+  margin: 8px 0 12px;
   overflow: hidden;
 }
 .mnp__liveline {

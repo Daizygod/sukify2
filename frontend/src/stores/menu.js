@@ -16,6 +16,9 @@ export const useMenuStore = defineStore('menu', {
     // { type, id?, slug?, n?, title, pinType?, pinId? }
     entity: null,
     opts: {},
+    // Момент открытия: клик, синтезированный браузером после долгого нажатия,
+    // прилетает уже на подложку меню и закрыл бы его в тот же кадр.
+    openedAt: 0,
   }),
   actions: {
     openMenu(event, track, opts = {}) {
@@ -24,6 +27,7 @@ export const useMenuStore = defineStore('menu', {
       this.opts = opts
       this.x = event.clientX
       this.y = event.clientY
+      this.openedAt = Date.now()
       this.open = true
     },
     openEntityMenu(event, entity) {
@@ -32,6 +36,7 @@ export const useMenuStore = defineStore('menu', {
       this.opts = {}
       this.x = event.clientX
       this.y = event.clientY
+      this.openedAt = Date.now()
       this.open = true
     },
     close() {

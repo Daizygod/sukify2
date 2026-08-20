@@ -358,11 +358,13 @@ export const usePlayerStore = defineStore('player', () => {
     await loadAndPlay(t)
   }
 
-  async function prev() {
+  // force — переключить на предыдущий трек, не перезапуская текущий: так
+  // работает свайп в мини- и полноэкранном плеере (кнопка ⏮ — как обычно).
+  async function prev(force = false) {
     const d = remoteTarget()
     if (d) return d.sendCommand('prev')
     // Restart current track if we're more than 3s in.
-    if (positionMs.value > 3000) return seek(0)
+    if (!force && positionMs.value > 3000) return seek(0)
     if (queueIndex.value > 0) {
       queueIndex.value--
       await loadAndPlay(queue.value[queueIndex.value])
@@ -826,6 +828,9 @@ export const usePlayerStore = defineStore('player', () => {
     volume, muted, repeat, shuffle, targetLufs, defaultCrossfadeSeconds, inited,
     // getters
     progress, upcoming,
+    // peekNext — какой трек пойдёт следующим (учитывает ручную очередь и повтор):
+    // им же живут карусели мини- и полноэкранного плеера.
+    peekNext,
     // actions
     init, playContext, playTrack, togglePlay, pauseLocal, fadeOutAndPause, seek, setVolume, toggleMute,
     next, prev, stop, loadSettings, setShuffle, setRepeat, cycleRepeat, hydrate, invalidateTransitions,
