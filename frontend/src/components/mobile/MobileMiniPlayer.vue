@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import Icon from '../Icon.vue'
 import { useLibraryStore } from '@/stores/library'
 import { useUiStore } from '@/stores/ui'
@@ -61,6 +61,7 @@ let horiz = null
 let swiped = false
 let pendingDir = null
 let guard = null
+let posMoved = false // позицию уже сдвинули сами — watch(trackKey) не трогает
 
 function width() {
   return viewportEl.value?.clientWidth || 260
@@ -118,13 +119,17 @@ function onStripEnd(e) {
   recenter()
 }
 function goNext() {
+  posMoved = true
   pos.value++
   next()
 }
 // Свайп всегда уходит на предыдущий трек, даже если текущий играет дольше
 // трёх секунд (кнопка ⏮ в большом плеере в этом случае его перезапускает).
 function goPrev() {
-  if (canPrev.value) pos.value--
+  if (canPrev.value) {
+    posMoved = true
+    pos.value--
+  }
   prev(true)
 }
 function recenter() {
@@ -139,6 +144,19 @@ function reset() {
   settling.value = false
   miniX.value = 0
 }
+
+// На пульте трек меняется не мгновенно, а по бродкасту — центрируем ленту
+// тогда, иначе она осталась бы сдвинутой до срабатывания страховки.
+const trackKey = computed(() =>
+  remote.value ? devices.remoteState?.track?.id ?? view.value?.title : localTrack.value?.id
+)
+watch(trackKey, () => {
+  // Трек доиграл сам — сдвигаем позицию, чтобы уже отрисованная правая
+  // карточка стала центральной, а не перерисовывалась на месте.
+  if (posMoved) posMoved = false
+  else pos.value++
+  if (settling.value) recenter()
+})
 
 function onOpen() {
   if (swiped) {
