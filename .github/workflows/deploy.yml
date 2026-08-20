@@ -28,6 +28,8 @@ jobs:
             docker run --rm -v /home/deploy/sukify/frontend:/app -w /app node:22-alpine sh -c "npm ci --no-audit --no-fund && npm run build"
             echo "🧱 Build admin assets..."
             docker run --rm -v /home/deploy/sukify/backend:/app -w /app node:22-alpine sh -c "npm ci --no-audit --no-fund && npm run build"
+            echo "🎛 Build analyzer (BPM, тональность, волна)..."
+            docker compose -f docker-compose.prod.yml build analyzer
             echo "🎼 Composer install..."
             docker compose -f docker-compose.prod.yml exec -T app composer install --no-dev --optimize-autoloader --no-interaction
             echo "🩻 Apply migrations..."
