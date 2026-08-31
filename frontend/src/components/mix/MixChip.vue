@@ -21,9 +21,14 @@ const props = defineProps({
 const ui = useUiStore()
 
 const preset = computed(() => props.info?.preset || 'auto')
-const title = computed(() =>
-  props.info ? PRESETS[preset.value]?.title || 'Свой вариант' : 'Переход'
-)
+// Без своего перехода в режиме микса пишем «Авто»: он там и правда играет
+// автоматический. В обычном списке чипа не видно, пока не наведёшь, и слово
+// «Переход» объясняет, что это вообще такое.
+const title = computed(() => {
+  if (props.info) return PRESETS[preset.value]?.title || 'Свой вариант'
+
+  return props.dense ? PRESETS.auto.title : 'Переход'
+})
 const active = computed(
   () =>
     ui.rightView === 'mix' &&

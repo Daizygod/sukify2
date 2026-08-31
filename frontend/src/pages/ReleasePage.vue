@@ -74,6 +74,9 @@ async function load(slug) {
 }
 watch(() => route.params.slug, (s) => s && load(s), { immediate: true })
 
+// Сохранили переход в редакторе — подписи чипов должны это показать.
+watch(() => ui.playlistRevision, () => loadTinfo(release.value?.tracks || []))
+
 const ctxKey = computed(() => `release:${route.params.slug}`)
 function playAll() {
   if (release.value?.tracks?.length) {

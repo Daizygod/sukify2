@@ -50,6 +50,9 @@ async function loadTracks() {
 }
 onMounted(loadTracks)
 
+// Сохранили переход в редакторе — подписи чипов должны это показать.
+watch(() => ui.playlistRevision, () => loadTinfo(tracks.value))
+
 // Живое обновление: лайк из плеера/другой страницы/другого устройства
 // меняет library.likedTrackIds — перечитываем список.
 import { useLibraryStore } from '@/stores/library'
