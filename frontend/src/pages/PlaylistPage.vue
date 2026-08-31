@@ -5,7 +5,6 @@ import draggable from 'vuedraggable'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
-import TransitionSpot from '@/components/TransitionSpot.vue'
 import MixChip from '@/components/mix/MixChip.vue'
 import Icon from '@/components/Icon.vue'
 import PlayButton from '@/components/PlayButton.vue'
@@ -252,17 +251,11 @@ async function removePlaylist() {
             <div class="pl-row">
               <TrackRow :track="element" :index="index" :variant="rowVariant" :context-tracks="items" :context-name="playlist.title" :context-key="ctxKey" />
               <MixChip
-                v-if="mixOn && index < items.length - 1"
+                v-if="index < items.length - 1"
                 :from="element"
                 :to="items[index + 1]"
                 :info="tinfo[keyFor(element, items[index + 1])]"
-              />
-              <TransitionSpot
-                v-else-if="index < items.length - 1"
-                :from="element"
-                :to="items[index + 1]"
-                :info="tinfo[keyFor(element, items[index + 1])]"
-                @changed="loadTinfo(items)"
+                :dense="mixOn"
               />
             </div>
           </template>
@@ -279,17 +272,11 @@ async function removePlaylist() {
               :context-key="ctxKey"
             />
             <MixChip
-              v-if="mixOn && i < items.length - 1"
+              v-if="i < items.length - 1"
               :from="t"
               :to="items[i + 1]"
               :info="tinfo[keyFor(t, items[i + 1])]"
-            />
-            <TransitionSpot
-              v-else-if="i < items.length - 1"
-              :from="t"
-              :to="items[i + 1]"
-              :info="tinfo[keyFor(t, items[i + 1])]"
-              @changed="loadTinfo(items)"
+              :dense="mixOn"
             />
           </template>
         </template>

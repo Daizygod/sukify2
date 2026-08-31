@@ -1,12 +1,14 @@
 <script setup>
 /**
  * Редактор перекрытия: две волны — уходящий трек сверху, приходящий снизу.
- * Внутри подсвеченной области видна сетка долей и три кривые автоматизации:
- * громкость, эквалайзер, фильтр.
+ * У каждой рядом обзор всего трека, внутри подсвеченной области — сетка
+ * долей и три кривые автоматизации: громкость, эквалайзер, фильтр.
  */
 import { computed, ref } from 'vue'
 import Icon from '../Icon.vue'
-import { decodePeaks, wavePath, beatLines, WAVE_COLORS } from '@/lib/mix/waveform'
+import {
+  decodePeaks, decodeBands, wavePath, bandPaths, beatLines, WAVE_COLORS,
+} from '@/lib/mix/waveform'
 import { VOLUME_SHAPES, EQ_SHAPES, FILTER_SHAPES, BAR_OPTIONS, valueAt, CURVE_COLORS } from '@/lib/mix/shapes'
 
 const props = defineProps({
@@ -20,11 +22,13 @@ const props = defineProps({
   beatMatched: { type: Boolean, default: false },
   playhead: { type: Number, default: -1 }, // 0..1 внутри перекрытия, -1 — не играет
   previewing: { type: Boolean, default: false },
+  wide: { type: Boolean, default: false }, // полноэкранный режим
 })
 const emit = defineEmits(['update:outStartMs', 'update:inStartMs', 'preview', 'bars', 'nudge'])
 
 const W = 1000 // внутренние координаты SVG, наружу растягивается по ширине
 const H = 150
+const MAP_H = 40 // столько же внутренних единиц у обзора трека
 
 // Окно вокруг перекрытия: по половине его длины с каждой стороны — так видно,
 // что было до и что будет после.
@@ -40,21 +44,67 @@ const inWin = computed(() => windowOf(props.inStartMs))
 const overlapX = computed(() => (padMs.value / (props.lengthMs + padMs.value * 2)) * W)
 const overlapW = computed(() => (props.lengthMs / (props.lengthMs + padMs.value * 2)) * W)
 
-function paths(analysis, win) {
-  if (!analysis) return { full: '', bass: '' }
+/**
+ * Слои волны. Новый формат — шесть путей стопкой, старый — две полосы;
+ * второй остаётся, пока треки не пересчитаны новым анализатором.
+ */
+// Разбор base64 и подсчёт масштаба — по разу на трек, а не на каждый кадр
+// перетаскивания: иначе на каждое движение мыши уходит по четыре разбора.
+const outBands = computed(() => decodeBands(props.from?.waveform?.bands))
+const inBands = computed(() => decodeBands(props.to?.waveform?.bands))
+
+function layers(analysis, bands, win, height = H, columns = 260) {
+  if (!analysis) return []
   const d = analysis.duration_ms || 0
-  return {
-    full: wavePath(decodePeaks(analysis.waveform?.full), d, win.from, win.to, W, H),
-    bass: wavePath(decodePeaks(analysis.waveform?.bass), d, win.from, win.to, W, H),
-  }
+  if (bands) return bandPaths(bands, d, win.from, win.to, W, height, columns)
+
+  return [
+    {
+      key: 'full',
+      color: WAVE_COLORS.full,
+      d: wavePath(decodePeaks(analysis.waveform?.full), d, win.from, win.to, W, height, columns),
+    },
+    {
+      key: 'bass',
+      color: WAVE_COLORS.bass,
+      d: wavePath(decodePeaks(analysis.waveform?.bass), d, win.from, win.to, W, height, columns),
+    },
+  ]
 }
-const outPaths = computed(() => paths(props.from, outWin.value))
-const inPaths = computed(() => paths(props.to, inWin.value))
+const outLayers = computed(() => layers(props.from, outBands.value, outWin.value))
+const inLayers = computed(() => layers(props.to, inBands.value, inWin.value))
+
+/** Края трека: за ними звука нет, и это видно — область гасим. */
+function edges(analysis, win) {
+  const d = analysis?.duration_ms || 0
+  const span = win.to - win.from
+  const at = (ms) => ((ms - win.from) / span) * W
+
+  return { head: Math.max(0, Math.min(W, at(0))), tail: Math.max(0, Math.min(W, W - at(d))) }
+}
+const outEdges = computed(() => edges(props.from, outWin.value))
+const inEdges = computed(() => edges(props.to, inWin.value))
 
 const outBeats = computed(() =>
   beatLines(props.from?.beats, outWin.value.from, outWin.value.to, W)
 )
 const inBeats = computed(() => beatLines(props.to?.beats, inWin.value.from, inWin.value.to, W))
+
+// --- Обзор трека -----------------------------------------------------------
+// Весь трек одной полоской: по ней видно, где мы сейчас, и можно прыгнуть
+// в любое место — тащить волну через три минуты никто не станет.
+
+function mapOf(analysis, bands, startMs) {
+  const d = analysis?.duration_ms || 0
+  if (!d) return { paths: [], x: 0, w: 0 }
+  const paths = layers(analysis, bands, { from: 0, to: d }, MAP_H, 400)
+  const w = Math.max(3, (props.lengthMs / d) * W)
+  const x = Math.max(0, Math.min((startMs / d) * W, W - w))
+
+  return { paths, x, w }
+}
+const outMap = computed(() => mapOf(props.from, outBands.value, props.outStartMs))
+const inMap = computed(() => mapOf(props.to, inBands.value, props.inStartMs))
 
 // --- Кривые ----------------------------------------------------------------
 // Все три рисуем в координатах панели: 0 внизу, максимум вверху.
@@ -129,6 +179,30 @@ function onUp() {
   window.removeEventListener('pointerup', onUp)
 }
 
+/** Обзор: тычок ставит перекрытие серединой в это место. */
+function onMapDown(side, e) {
+  const el = e.currentTarget
+  const analysis = side === 'out' ? props.from : props.to
+  const dur = analysis?.duration_ms || 0
+  if (!dur) return
+  const move = (ev) => {
+    const rect = el.getBoundingClientRect()
+    if (!rect.width) return
+    const k = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width))
+    const ms = Math.round(k * dur - props.lengthMs / 2)
+    emit(side === 'out' ? 'update:outStartMs' : 'update:inStartMs', Math.max(0, ms))
+  }
+  const up = () => {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', up)
+  }
+  move(e)
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', up)
+  e.preventDefault()
+  e.stopPropagation()
+}
+
 const barsOpen = ref(false)
 
 /** «1 bar», а дальше «bars» — иначе плашка читается как опечатка. */
@@ -138,11 +212,22 @@ function barLabel(n) {
 </script>
 
 <template>
-  <div ref="rootEl" class="mw" :class="{ 'mw--drag': dragging }">
+  <div ref="rootEl" class="mw" :class="{ 'mw--drag': dragging, 'mw--wide': wide }">
+    <svg
+      class="mw__map"
+      :viewBox="`0 0 ${W} ${MAP_H}`"
+      preserveAspectRatio="none"
+      aria-label="Весь уходящий трек"
+      @pointerdown="onMapDown('out', $event)"
+    >
+      <path v-for="l in outMap.paths" :key="l.key" :d="l.d" :fill="l.color" />
+      <rect class="mw__mapwin" :x="outMap.x" y="0" :width="outMap.w" :height="MAP_H" />
+    </svg>
+
     <div
       class="mw__pane mw__pane--out"
       role="slider"
-      :aria-label="'Место перекрытия предыдущего трека'"
+      aria-label="Место перекрытия предыдущего трека"
       :aria-valuenow="outStartMs"
       tabindex="0"
       title="Стрелки — на секунду, Shift — на десять, Alt — на десять миллисекунд, Home/End — к краям"
@@ -152,8 +237,16 @@ function barLabel(n) {
       <svg class="mw__svg" :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none">
         <!-- Подложка перекрытия лежит под волной: поверх она красила бы её. -->
         <rect class="mw__overlap" :x="overlapX" y="0" :width="overlapW" :height="H" rx="6" />
-        <path :d="outPaths.full" :fill="WAVE_COLORS.full" />
-        <path :d="outPaths.bass" :fill="WAVE_COLORS.bass" opacity="0.85" />
+        <path v-for="l in outLayers" :key="l.key" :d="l.d" :fill="l.color" />
+        <rect v-if="outEdges.head > 0" class="mw__void" x="0" y="0" :width="outEdges.head" :height="H" />
+        <rect
+          v-if="outEdges.tail > 0"
+          class="mw__void"
+          :x="W - outEdges.tail"
+          y="0"
+          :width="outEdges.tail"
+          :height="H"
+        />
         <line
           v-for="(b, i) in outBeats"
           :key="i"
@@ -187,7 +280,7 @@ function barLabel(n) {
     <div
       class="mw__pane mw__pane--in"
       role="slider"
-      :aria-label="'Место перекрытия нового трека'"
+      aria-label="Место перекрытия нового трека"
       :aria-valuenow="inStartMs"
       tabindex="0"
       title="Стрелки — на секунду, Shift — на десять, Alt — на десять миллисекунд, Home/End — к краям"
@@ -196,8 +289,16 @@ function barLabel(n) {
     >
       <svg class="mw__svg" :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none">
         <rect class="mw__overlap" :x="overlapX" y="0" :width="overlapW" :height="H" rx="6" />
-        <path :d="inPaths.full" :fill="WAVE_COLORS.full" />
-        <path :d="inPaths.bass" :fill="WAVE_COLORS.bass" opacity="0.85" />
+        <path v-for="l in inLayers" :key="l.key" :d="l.d" :fill="l.color" />
+        <rect v-if="inEdges.head > 0" class="mw__void" x="0" y="0" :width="inEdges.head" :height="H" />
+        <rect
+          v-if="inEdges.tail > 0"
+          class="mw__void"
+          :x="W - inEdges.tail"
+          y="0"
+          :width="inEdges.tail"
+          :height="H"
+        />
         <line
           v-for="(b, i) in inBeats"
           :key="i"
@@ -219,6 +320,17 @@ function barLabel(n) {
         />
       </svg>
     </div>
+
+    <svg
+      class="mw__map"
+      :viewBox="`0 0 ${W} ${MAP_H}`"
+      preserveAspectRatio="none"
+      aria-label="Весь приходящий трек"
+      @pointerdown="onMapDown('in', $event)"
+    >
+      <path v-for="l in inMap.paths" :key="l.key" :d="l.d" :fill="l.color" />
+      <rect class="mw__mapwin" :x="inMap.x" y="0" :width="inMap.w" :height="MAP_H" />
+    </svg>
 
     <!-- Плейхед предпрослушки идёт через обе панели -->
     <div
@@ -266,6 +378,28 @@ function barLabel(n) {
   cursor: grab;
   touch-action: none;
 }
+.mw--wide .mw__pane {
+  height: min(30vh, 300px);
+}
+.mw__map {
+  display: block;
+  width: 100%;
+  height: 34px;
+  margin: 4px 0;
+  cursor: pointer;
+  touch-action: none;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+.mw--wide .mw__map {
+  height: 54px;
+}
+.mw__mapwin {
+  fill: rgba(255, 255, 255, 0.16);
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
 .mw__svg {
   display: block;
   width: 100%;
@@ -273,6 +407,10 @@ function barLabel(n) {
 }
 .mw__overlap {
   fill: rgba(255, 255, 255, 0.07);
+}
+/* За краем трека звука нет — гасим, чтобы это было видно сразу. */
+.mw__void {
+  fill: rgba(18, 18, 18, 0.72);
 }
 .mw__beat {
   stroke: rgba(255, 255, 255, 0.13);
@@ -285,7 +423,7 @@ function barLabel(n) {
 .mw__preview {
   position: absolute;
   left: 50%;
-  top: 150px;
+  top: calc(50% - 10px);
   transform: translate(-50%, -50%);
   z-index: 3;
   width: 40px;
@@ -301,8 +439,8 @@ function barLabel(n) {
 }
 .mw__playhead {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 42px;
+  bottom: 62px;
   width: 2px;
   background: var(--accent);
   pointer-events: none;
@@ -330,7 +468,7 @@ function barLabel(n) {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  top: calc(100% + 6px);
+  bottom: calc(100% + 6px);
   background: #282828;
   border-radius: 6px;
   padding: 4px;

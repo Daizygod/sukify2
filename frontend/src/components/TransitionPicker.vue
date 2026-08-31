@@ -3,7 +3,6 @@ import { ref, watch } from 'vue'
 import api from '@/lib/api'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
-import TransitionModal from './TransitionModal.vue'
 import { useUiStore } from '@/stores/ui'
 import { formatDuration } from '@/lib/format'
 
@@ -11,7 +10,6 @@ const ui = useUiStore()
 
 const q = ref('')
 const results = ref([])
-const to = ref(null)
 const searching = ref(false)
 let timer
 
@@ -34,31 +32,23 @@ async function runSearch() {
   }
 }
 
-function swap() {
+/** Пара выбрана — дальше правим её в общем редакторе перехода. */
+function choose(track) {
   const from = ui.transitionFrom
-  ui.transitionFrom = to.value
-  to.value = from
+  close()
+  ui.openMixEditor(from, track)
 }
 
 function close() {
   ui.transitionFrom = null
-  to.value = null
   q.value = ''
   results.value = []
 }
 </script>
 
 <template>
-  <!-- Шаг 2: пара выбрана — открываем обычный редактор переходов -->
-  <TransitionModal
-    v-if="to"
-    :from="ui.transitionFrom"
-    :to="to"
-    @close="close"
-  />
-
-  <!-- Шаг 1: выбор второго трека -->
-  <Teleport v-else to="body">
+  <!-- Выбор второго трека: сам переход правится в правой панели -->
+  <Teleport to="body">
     <div class="tp__backdrop" @click.self="close">
       <div class="tp">
         <div class="tp__head">
@@ -85,7 +75,7 @@ function close() {
         </div>
 
         <div class="tp__results">
-          <button v-for="t in results" :key="t.id" class="tp__row" @click="to = t">
+          <button v-for="t in results" :key="t.id" class="tp__row" @click="choose(t)">
             <CoverImage :cover="t.cover" :size="40" class="tp__cover" />
             <div class="tp__meta">
               <div class="tp__title">{{ t.title }}</div>

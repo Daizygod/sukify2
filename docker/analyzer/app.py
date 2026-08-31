@@ -2,8 +2,10 @@
 Анализатор аудио для Sukify.
 
 Отдаёт всё, что нужно редактору переходов: темп, сетку долей и тактов,
-тональность в камелот-нотации и пики волны в двух полосах — полной и
-басовой (её Spotify рисует поверх основной вторым цветом).
+тональность в камелот-нотации и волну в трёх полосах — низ, середина и верх.
+Каждая полоса приходит парой: среднее по корзине (тело волны) и максимум
+(гребень). Так громкий «кирпичный» мастер не превращается в сплошной блок —
+видно, чем именно он заполнен.
 
 POST /analyze  multipart: file=<аудио>  → JSON
 GET  /health                            → {"ok": true}
@@ -15,6 +17,7 @@ import tempfile
 
 import numpy as np
 from essentia.standard import (
+    HighPass,
     KeyExtractor,
     LowPass,
     MonoLoader,
@@ -25,7 +28,10 @@ from fastapi.responses import JSONResponse
 
 SAMPLE_RATE = 44100
 DEFAULT_PEAKS = 2048
-BASS_CUTOFF_HZ = 200.0
+# Границы полос — классическое диджейское деление: бочка и бас, тело трека,
+# тарелки и воздух.
+LOW_HZ = 200.0
+HIGH_HZ = 2000.0
 # Дальше этого не читаем: анализировать десятиминутный трек целиком незачем,
 # темп и тональность стабильны, а память экономим.
 MAX_SECONDS = 900
@@ -51,24 +57,39 @@ def to_camelot(key: str, scale: str) -> str | None:
     return table.get(note)
 
 
-def bucket_peaks(samples: np.ndarray, buckets: int) -> np.ndarray:
-    """Максимум модуля по корзинам — форма волны без нормировки."""
-    if samples.size == 0:
-        return np.zeros(buckets, dtype=np.float32)
-    # Ровно buckets корзин: хвост добиваем нулями, чтобы reshape не ронял.
+def bucket_grid(samples: np.ndarray, buckets: int) -> np.ndarray:
+    """Раскладывает сэмплы по корзинам ровной матрицей, хвост добивая нулями."""
     per = max(1, int(np.ceil(samples.size / buckets)))
     padded = np.zeros(per * buckets, dtype=np.float32)
-    padded[: samples.size] = np.abs(samples)
+    padded[: samples.size] = samples
 
-    return padded.reshape(buckets, per).max(axis=1)
+    return padded.reshape(buckets, per)
+
+
+def bucket_stats(samples: np.ndarray, buckets: int) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Пара «тело и гребень» по корзинам: среднеквадратичное и максимум модуля.
+
+    RMS отвечает за ощущаемую громкость и живо ходит даже у зажатого мастера,
+    максимум — за короткие удары. Рисуем одно поверх другого.
+    """
+    if samples.size == 0:
+        zeros = np.zeros(buckets, dtype=np.float32)
+        return zeros, zeros.copy()
+
+    grid = bucket_grid(np.asarray(samples, dtype=np.float32), buckets)
+    rms = np.sqrt(np.mean(np.square(grid), axis=1))
+    peak = np.abs(grid).max(axis=1)
+
+    return rms, peak
 
 
 def encode_peaks(grid: np.ndarray, top: float) -> str:
     """
-    Пики в base64 — так в разы компактнее JSON-массива.
+    Значения в base64 — так в разы компактнее JSON-массива.
 
-    Множитель общий для обеих полос: если нормировать бас отдельно, он
-    вырастет до той же высоты, что и полная полоса, и закроет её собой.
+    Множитель общий для всех полос: нормируй каждую по себе — и тихий верх
+    вырастет до высоты баса, а стопка полос перестанет что-либо значить.
     """
     if top <= 0:
         return base64.b64encode(bytes(len(grid))).decode()
@@ -115,11 +136,24 @@ async def analyze(file: UploadFile = File(...), buckets: int = DEFAULT_PEAKS):
         # --- Тональность ---------------------------------------------------
         key, scale, strength = KeyExtractor()(audio)
 
-        # --- Пики: полная полоса и бас -------------------------------------
-        bass = LowPass(cutoffFrequency=BASS_CUTOFF_HZ, sampleRate=SAMPLE_RATE)(audio)
-        full_grid = bucket_peaks(np.asarray(audio), buckets)
-        bass_grid = bucket_peaks(np.asarray(bass), buckets)
-        top = float(full_grid.max())
+        # --- Волна: три полосы, у каждой тело и гребень --------------------
+        low_band = LowPass(cutoffFrequency=LOW_HZ, sampleRate=SAMPLE_RATE)(audio)
+        above_low = HighPass(cutoffFrequency=LOW_HZ, sampleRate=SAMPLE_RATE)(audio)
+        mid_band = LowPass(cutoffFrequency=HIGH_HZ, sampleRate=SAMPLE_RATE)(above_low)
+        high_band = HighPass(cutoffFrequency=HIGH_HZ, sampleRate=SAMPLE_RATE)(audio)
+
+        low_rms, low_peak = bucket_stats(low_band, buckets)
+        mid_rms, mid_peak = bucket_stats(mid_band, buckets)
+        high_rms, high_peak = bucket_stats(high_band, buckets)
+
+        # Полосы рисуются стопкой от середины, поэтому нормируем по самой
+        # высокой сумме — иначе самый громкий такт вылезет за пределы панели.
+        stack = low_peak + mid_peak + high_peak
+        top = float(stack.max())
+
+        # Прежние две полосы оставляем: их читают старые записи и мини-волна.
+        _full_rms, full_peak = bucket_stats(np.asarray(audio), buckets)
+        full_top = float(full_peak.max())
 
         return JSONResponse(
             {
@@ -134,8 +168,13 @@ async def analyze(file: UploadFile = File(...), buckets: int = DEFAULT_PEAKS):
                 "camelot": to_camelot(key, scale),
                 "peaks_count": buckets,
                 "peaks": {
-                    "full": encode_peaks(full_grid, top),
-                    "bass": encode_peaks(bass_grid, top),
+                    "full": encode_peaks(full_peak, full_top),
+                    "bass": encode_peaks(low_peak, full_top),
+                },
+                "bands": {
+                    "lows": {"rms": encode_peaks(low_rms, top), "peak": encode_peaks(low_peak, top)},
+                    "mids": {"rms": encode_peaks(mid_rms, top), "peak": encode_peaks(mid_peak, top)},
+                    "highs": {"rms": encode_peaks(high_rms, top), "peak": encode_peaks(high_peak, top)},
                 },
             }
         )

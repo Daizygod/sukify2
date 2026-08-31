@@ -55,6 +55,7 @@ class AnalyzeTrackAudio implements ShouldQueue
                 'camelot' => $result['camelot'] ?? null,
                 'waveform_full' => $result['peaks']['full'] ?? null,
                 'waveform_bass' => $result['peaks']['bass'] ?? null,
+                'waveform_bands' => $result['bands'] ?? null,
                 'waveform_buckets' => $result['peaks_count'] ?? null,
                 'analysis_status' => 'ready',
                 'analysis_error' => null,

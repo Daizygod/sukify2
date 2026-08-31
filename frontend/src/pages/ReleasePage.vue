@@ -5,7 +5,7 @@ import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import CoverLightbox from '@/components/CoverLightbox.vue'
 import TrackRow from '@/components/TrackRow.vue'
-import TransitionSpot from '@/components/TransitionSpot.vue'
+import MixChip from '@/components/mix/MixChip.vue'
 import Icon from '@/components/Icon.vue'
 import PlayButton from '@/components/PlayButton.vue'
 import { useTransitionInfo } from '@/lib/useTransitions'
@@ -150,12 +150,11 @@ async function toggleLike() {
             :context-name="release.title"
             :context-key="ctxKey"
           />
-          <TransitionSpot
+          <MixChip
             v-if="i < release.tracks.length - 1"
             :from="t"
             :to="release.tracks[i + 1]"
             :info="tinfo[keyFor(t, release.tracks[i + 1])]"
-            @changed="loadTinfo(release.tracks)"
           />
         </template>
       </div>

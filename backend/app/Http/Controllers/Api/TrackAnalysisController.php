@@ -65,6 +65,7 @@ class TrackAnalysisController extends Controller
                 'buckets' => $track->waveform_buckets,
                 'full' => $track->waveform_full,
                 'bass' => $track->waveform_bass,
+                'bands' => $track->waveform_bands,
             ],
             'status' => $track->analysis_status,
         ];

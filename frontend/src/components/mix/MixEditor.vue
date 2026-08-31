@@ -11,6 +11,7 @@ import api from '@/lib/api'
 import { useUiStore } from '@/stores/ui'
 import { usePlayerStore } from '@/stores/player'
 import { useToastStore } from '@/stores/toasts'
+import { useAuthStore } from '@/stores/auth'
 import { camelotColor, CAMELOT_TEXT, camelotTitle, keysCompatible } from '@/lib/mix/camelot'
 import {
   VOLUME_SHAPES, EQ_SHAPES, FILTER_SHAPES, PRESETS, PRESET_ORDER,
@@ -22,6 +23,10 @@ import { createPreview } from '@/lib/mix/preview'
 const ui = useUiStore()
 const player = usePlayerStore()
 const toasts = useToastStore()
+const auth = useAuthStore()
+
+/** Развернуть на весь экран — в узкой колонке волну не разглядеть. */
+const wide = ref(false)
 
 const from = computed(() => ui.mixPair?.from || null)
 const to = computed(() => ui.mixPair?.to || null)
@@ -98,6 +103,7 @@ async function load() {
     loading.value = false
     ui.mixDirty = false
   }
+  loadVariants()
 }
 
 /** Разворачивает сохранённый переход в состояние формы либо ставит умолчания. */
@@ -143,6 +149,91 @@ function clampStarts() {
   const inMax = Math.max(0, (analysis.value.to?.duration_ms || 0) - lengthMs.value)
   outStartMs.value = Math.min(outStartMs.value, outMax)
   inStartMs.value = Math.min(inStartMs.value, inMax)
+}
+
+// --- Варианты сообщества ---------------------------------------------------
+// Раньше это жило в отдельном окне «Переход между треками»: тот же самый
+// эндпоинт, но другой редактор и другие слова. Теперь всё в одном месте —
+// список вариантов лежит под эффектами, и любой можно открыть и подправить.
+
+const variants = ref([])
+
+async function loadVariants() {
+  if (!from.value || !to.value) return
+  try {
+    const { data } = await api.get('/transitions/all', {
+      params: { from: from.value.id, to: to.value.id },
+    })
+    variants.value = data.data || []
+  } catch {
+    variants.value = []
+  }
+}
+
+/** Короткое описание чужого перехода — что именно он делает. */
+function describe(t) {
+  const len = Math.round((t.fade_out_end_ms - t.fade_out_start_ms) / 100) / 10
+  const before = Math.max(0, Math.round(((analysis.value.from?.duration_ms || 0) - t.fade_out_start_ms) / 100) / 10)
+  const parts = [`${len} c`, `за ${before} c до конца`]
+  if (t.bars) parts.push(`${t.bars} такт.`)
+
+  return parts.join(' · ')
+}
+
+function variantTitle(t) {
+  return PRESETS[t.preset]?.title || VOLUME_SHAPES[t.volume_shape]?.title || 'Свой вариант'
+}
+
+/** Открыть чужой вариант в редакторе: дальше его можно послушать и поправить. */
+function pickVariant(t) {
+  applyTransition(t)
+  ui.mixDirty = true
+}
+
+async function togglePrefer(t) {
+  if (!auth.isAuthenticated) return
+  try {
+    if (t.is_preferred) {
+      await api.delete(`/transitions/${t.id}/prefer`)
+      variants.value.forEach((x) => (x.is_preferred = false))
+      toasts.show('Снова играет переход сообщества')
+    } else {
+      await api.post(`/transitions/${t.id}/prefer`)
+      variants.value.forEach((x) => (x.is_preferred = x.id === t.id))
+      toasts.show('Теперь для тебя играет этот переход')
+    }
+    player.invalidateTransitions()
+    ui.playlistRevision++
+  } catch {
+    toasts.show('Не получилось сохранить выбор')
+  }
+}
+
+async function toggleLike(t) {
+  if (!auth.isAuthenticated) return
+  try {
+    const { data } = t.is_liked
+      ? await api.delete(`/transitions/${t.id}/like`)
+      : await api.post(`/transitions/${t.id}/like`)
+    t.is_liked = !t.is_liked
+    t.likes_count = data.likes_count
+    player.invalidateTransitions()
+  } catch {
+    toasts.show('Не получилось проголосовать')
+  }
+}
+
+async function removeVariant(t) {
+  if (!window.confirm('Удалить этот переход?')) return
+  try {
+    await api.delete(`/transitions/${t.id}`)
+    variants.value = variants.value.filter((x) => x.id !== t.id)
+    player.invalidateTransitions()
+    ui.playlistRevision++
+    toasts.show('Переход удалён')
+  } catch {
+    toasts.show('Удалять можно только свои переходы')
+  }
 }
 
 watch(() => [from.value?.id, to.value?.id], load, { immediate: true })
@@ -262,6 +353,7 @@ async function save() {
     ui.mixDirty = false
     ui.playlistRevision++
     toasts.show('Переход сохранён')
+    loadVariants()
   } catch (e) {
     toasts.show(e?.response?.data?.message || 'Не удалось сохранить переход')
   } finally {
@@ -296,13 +388,20 @@ function bpmText(a) {
 </script>
 
 <template>
-  <aside class="mx" aria-label="Изменение перехода">
+  <aside class="mx" :class="{ 'mx--wide': wide }" aria-label="Изменение перехода">
     <header class="mx__top">
       <h1 class="mx__title">Изменение перехода</h1>
       <span class="mx__beta">Бета-версия</span>
       <div class="mx__actions">
         <button class="mx__save" :disabled="saving" @click="save">
           {{ saving ? 'Сохраняем…' : 'Сохранить' }}
+        </button>
+        <button
+          class="mx__icon"
+          :title="wide ? 'Выйти из полноэкранного режима' : 'Развернуть на весь экран'"
+          @click="wide = !wide"
+        >
+          <Icon :name="wide ? 'collapse' : 'expand'" :size="16" />
         </button>
         <button class="mx__icon" title="Закрыть" @click="close">
           <Icon name="close" :size="16" />
@@ -342,6 +441,7 @@ function bpmText(a) {
         :beat-matched="beatMatched"
         :playhead="playhead"
         :previewing="previewing"
+        :wide="wide"
         @update:outStartMs="setOutStart"
         @update:inStartMs="setInStart"
         @bars="setBars"
@@ -413,6 +513,44 @@ function bpmText(a) {
       <p v-if="!beatMatched" class="mx__warn">
         Ритмы треков не сходятся, поэтому длину нельзя задать в тактах — тяни границы вручную.
       </p>
+
+      <div class="mx__variants">
+        <span class="mx__label">Варианты для этой пары</span>
+        <p v-if="!variants.length" class="mx__novars">
+          Пока пусто. Сохрани свой — он и будет играть, когда треки пойдут подряд.
+        </p>
+        <div v-for="(t, i) in variants" :key="t.id" class="mx__var" :class="{ on: t.is_preferred }">
+          <button class="mx__varmain" :title="describe(t)" @click="pickVariant(t)">
+            <span class="mx__varname">
+              {{ variantTitle(t) }}
+              <span v-if="t.is_preferred" class="mx__badge">Твой выбор</span>
+              <span v-else-if="i === 0" class="mx__badge mx__badge--dim">Основной</span>
+            </span>
+            <span class="mx__vardesc">{{ describe(t) }}</span>
+          </button>
+          <button
+            v-if="auth.isAuthenticated"
+            class="mx__varbtn"
+            :class="{ on: t.is_preferred }"
+            :title="t.is_preferred ? 'Вернуться к переходу сообщества' : 'Использовать этот переход'"
+            @click="togglePrefer(t)"
+          >
+            <Icon name="checkCircle" :size="14" />
+          </button>
+          <button
+            class="mx__varbtn"
+            :class="{ on: t.is_liked }"
+            :title="t.is_liked ? 'Убрать голос' : 'Голосовать за переход'"
+            @click="toggleLike(t)"
+          >
+            <Icon :name="t.is_liked ? 'heartFill' : 'heart'" :size="14" />
+            <span>{{ t.likes_count }}</span>
+          </button>
+          <button v-if="t.is_mine" class="mx__varbtn" title="Удалить свой переход" @click="removeVariant(t)">
+            <Icon name="close" :size="13" />
+          </button>
+        </div>
+      </div>
     </div>
   </aside>
 </template>
@@ -425,6 +563,23 @@ function bpmText(a) {
   background: var(--bg-elevated);
   border-radius: var(--radius);
   overflow: hidden;
+}
+/* Полный экран: у оригинала это отдельный режим, и он тут нужнее всего —
+   в колонке шириной в 400 пикселей волну разглядеть невозможно. */
+.mx--wide {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  border-radius: 0;
+  background: var(--bg-base, #121212);
+}
+.mx--wide .mx__body {
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+}
+.mx--wide .mx__variants {
+  max-width: 900px;
 }
 .mx__top {
   display: flex;
@@ -653,6 +808,81 @@ function bpmText(a) {
   background: rgba(255, 255, 255, 0.1);
 }
 .mx__item.on {
+  color: var(--accent);
+}
+
+/* --- Варианты сообщества -------------------------------------------------- */
+.mx__variants {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+}
+.mx__novars {
+  font-size: 12px;
+  color: var(--text-subdued);
+}
+.mx__var {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.mx__var.on {
+  background: rgba(30, 215, 96, 0.12);
+}
+.mx__varmain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  color: #fff;
+}
+.mx__varname {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mx__vardesc {
+  font-size: 11px;
+  color: var(--text-subdued);
+}
+.mx__badge {
+  background: var(--accent);
+  color: #000;
+  font-size: 9px;
+  font-weight: 800;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+.mx__badge--dim {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.mx__varbtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-subdued);
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.mx__varbtn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+.mx__varbtn.on {
   color: var(--accent);
 }
 </style>

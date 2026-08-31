@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
 import TrackRow from '@/components/TrackRow.vue'
-import TransitionSpot from '@/components/TransitionSpot.vue'
+import MixChip from '@/components/mix/MixChip.vue'
 import Icon from '@/components/Icon.vue'
 import PlayButton from '@/components/PlayButton.vue'
 import { useTransitionInfo } from '@/lib/useTransitions'
@@ -111,12 +111,11 @@ function playAll() {
             context-name="Любимые треки"
             context-key="liked"
           />
-          <TransitionSpot
+          <MixChip
             v-if="i < tracks.length - 1"
             :from="t"
             :to="tracks[i + 1]"
             :info="tinfo[keyFor(t, tracks[i + 1])]"
-            @changed="loadTinfo(tracks)"
           />
         </template>
       </div>
