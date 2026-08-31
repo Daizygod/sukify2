@@ -134,9 +134,11 @@ function applyTransition(t) {
   bars.value = 4
   // Всё в целых миллисекундах: такт при 151 BPM — дробный, а на бэк уходят
   // целые поля, и валидация справедливо ругалась.
+  // Без общего темпа берём длину из общей настройки кроссфейда: пока своего
+  // перехода нет, играет именно она, и правку логично начинать с неё.
   lengthMs.value = matched && analysis.value.from?.bpm
     ? Math.round(barMs(analysis.value.from.bpm) * 4)
-    : 6000
+    : Math.max(1000, (player.defaultCrossfadeSeconds || 6) * 1000)
   // По умолчанию перекрытие висит на самом хвосте уходящего трека и на первых
   // секундах нового — как и подставляет оригинал.
   outStartMs.value = Math.max(0, Math.round(dur - lengthMs.value))
@@ -179,6 +181,15 @@ function describe(t) {
 
   return parts.join(' · ')
 }
+
+/** Что играет для пары, пока своего перехода нет, — общая настройка. */
+const globalHint = computed(() => {
+  const s = player.defaultCrossfadeSeconds || 0
+
+  return s > 0
+    ? `Пока для этой пары играет общий кроссфейд из настроек — ${s} с.`
+    : 'Пока треки идут подряд без перехода: общий кроссфейд в настройках выключен.'
+})
 
 function variantTitle(t) {
   return PRESETS[t.preset]?.title || VOLUME_SHAPES[t.volume_shape]?.title || 'Свой вариант'
@@ -517,7 +528,7 @@ function bpmText(a) {
       <div class="mx__variants">
         <span class="mx__label">Варианты для этой пары</span>
         <p v-if="!variants.length" class="mx__novars">
-          Пока пусто. Сохрани свой — он и будет играть, когда треки пойдут подряд.
+          {{ globalHint }} Сохрани свой переход — и для этой пары будет играть он.
         </p>
         <div v-for="(t, i) in variants" :key="t.id" class="mx__var" :class="{ on: t.is_preferred }">
           <button class="mx__varmain" :title="describe(t)" @click="pickVariant(t)">

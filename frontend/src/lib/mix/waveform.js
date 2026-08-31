@@ -115,7 +115,9 @@ export function bandPaths(bands, durationMs, fromMs, toMs, width, height, column
 
   const mid = height / 2
   const span = toMs - fromMs
-  const scale = bands.scale || 255
+  // Десятая часть высоты остаётся свободной: волна, упирающаяся в края
+  // панели, читается как обрезанная, да и гребню нужно куда расти.
+  const scale = (bands.scale || 255) / 0.9
   // Для каждой колонки — накопленные полувысоты слоёв, снаружи внутрь.
   const stack = []
   for (let i = 0; i < columns; i++) {
