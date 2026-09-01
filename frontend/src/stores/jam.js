@@ -33,6 +33,7 @@ export const useJamStore = defineStore('jam', () => {
   let pushTimer = null
   let stopWatch = null
   let applying = false // пока применяем чужое состояние, своё не шлём
+  let lastApplied = '' // подпись последнего принятого снимка
 
   const active = computed(() => !!session.value)
   const isHost = computed(() => !!session.value && session.value.host?.id === auth.user?.id)
@@ -132,10 +133,16 @@ export const useJamStore = defineStore('jam', () => {
 
   function startBroadcast() {
     clearInterval(pushTimer)
-    pushTimer = setInterval(() => pushState(), STATE_INTERVAL)
+    // Мерное «я здесь, играю вот это» шлёт только хост: если так делать
+    // каждому, участники начнут перетягивать позицию друг у друга.
+    pushTimer = setInterval(() => {
+      if (isHost.value) pushState()
+    }, STATE_INTERVAL)
     stopWatch?.()
+    // А вот нажатия — от кого угодно: в джеме рулить может любой, как в
+    // оригинале. Перемотку ловим по счётчику: позиция меняется каждый кадр.
     stopWatch = watch(
-      () => [player.currentTrack?.id, player.isPlaying],
+      () => [player.currentTrack?.id, player.isPlaying, player.seekTick],
       () => pushState()
     )
   }
@@ -146,9 +153,14 @@ export const useJamStore = defineStore('jam', () => {
     return sub.publish(payload).catch((e) => console.warn('[jam] не отправилось', payload.t, e))
   }
 
+  /** Подпись состояния: по ней отличаем «мы это только что применили» от своего. */
+  function signature(s) {
+    return `${s.trackId}:${s.playing ? 1 : 0}:${Math.round(s.pos / 2000)}`
+  }
+
   function pushState() {
-    if (!isHost.value || applying || !player.currentTrack) return
-    publish({
+    if (!session.value || applying || !player.currentTrack) return
+    const state = {
       t: 'jam-state',
       from: auth.user.id,
       trackId: player.currentTrack.id,
@@ -157,7 +169,11 @@ export const useJamStore = defineStore('jam', () => {
       pos: Math.round(player.positionMs),
       playing: player.isPlaying,
       contextName: player.contextName,
-    })
+    }
+    // Эхо гасим здесь: применили чужое состояние — своё точно такое же
+    // отправлять не нужно, иначе двое зациклятся на одном треке.
+    if (signature(state) === lastApplied) return
+    publish(state)
   }
 
   async function handle(msg) {
@@ -191,7 +207,7 @@ export const useJamStore = defineStore('jam', () => {
 
       return
     }
-    if (type === 'jam-state' && !isHost.value && msg.from !== auth.user?.id) {
+    if (type === 'jam-state' && msg.from !== auth.user?.id) {
       await applyState(msg)
     }
   }
@@ -208,10 +224,11 @@ export const useJamStore = defineStore('jam', () => {
     }
   }
 
-  /** Гость повторяет состояние хоста. */
+  /** Повторяем то, что включил другой участник. */
   async function applyState(s) {
     if (applying) return
     applying = true
+    lastApplied = signature(s)
     try {
       if (player.currentTrack?.id === s.trackId) {
         // Тот же трек — подтягиваем позицию при рассинхроне > 3 с.

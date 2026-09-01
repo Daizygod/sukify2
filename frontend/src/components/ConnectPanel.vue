@@ -105,6 +105,9 @@ async function copyCode() {
           участников: {{ jam.members.length }}
           <template v-if="!jam.connected"> • нет связи с сервером</template>
         </div>
+        <div class="cp__jammembers muted">
+          Переключать треки и ставить паузу может любой — у всех играет одно и то же.
+        </div>
         <button class="cp__jambtn cp__jambtn--leave" @click="jam.leave()">
           {{ jam.isHost ? 'Закончить джем' : 'Выйти из джема' }}
         </button>

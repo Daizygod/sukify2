@@ -31,6 +31,8 @@ export const usePlayerStore = defineStore('player', () => {
   const contextKey = ref('')
   const isPlaying = ref(false)
   const positionMs = ref(0)
+  // Растёт при каждой перемотке — по нему джем понимает, что позицию сдвинули руками.
+  const seekTick = ref(0)
   const durationMs = ref(0)
   const volume = ref(0.8)
   const muted = ref(false)
@@ -309,6 +311,9 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function seek(ms) {
+    // Счётчик перемоток: позиция меняется каждый кадр, и следить за ней
+    // снаружи нельзя. Джему нужен именно момент «кто-то дёрнул ползунок».
+    seekTick.value++
     const d = remoteTarget()
     if (d) {
       d.sendCommand('seek', ms)
@@ -858,7 +863,7 @@ export const usePlayerStore = defineStore('player', () => {
     // state
     currentTrack, queue, queueIndex, manualQueue, contextName, contextKey, isPlaying,
     positionMs, durationMs,
-    volume, muted, repeat, shuffle, targetLufs, defaultCrossfadeSeconds, inited,
+    volume, muted, repeat, shuffle, targetLufs, defaultCrossfadeSeconds, inited, seekTick,
     // getters
     progress, upcoming,
     // peekNext — какой трек пойдёт следующим (учитывает ручную очередь и повтор):
