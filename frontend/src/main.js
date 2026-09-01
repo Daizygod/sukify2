@@ -15,6 +15,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useDeviceStore } from '@/stores/devices'
+import { useJamStore } from '@/stores/jam'
 
 async function bootstrap() {
   const app = createApp(App)
@@ -35,6 +36,8 @@ async function bootstrap() {
     player.restoreSession()
     library.load().catch(() => {})
     devices.init()
+    // Джем переживает перезагрузку страницы: код и канал поднимаются сами.
+    useJamStore().restore().catch(() => {})
   }
 
   await router.isReady()

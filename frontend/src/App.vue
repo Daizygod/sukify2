@@ -15,6 +15,8 @@ import MobileNav from '@/components/mobile/MobileNav.vue'
 import MobileMiniPlayer from '@/components/mobile/MobileMiniPlayer.vue'
 import MobileNowPlaying from '@/components/mobile/MobileNowPlaying.vue'
 import PlaylistEditModal from '@/components/PlaylistEditModal.vue'
+import JamBar from '@/components/JamBar.vue'
+import { useJamStore } from '@/stores/jam'
 import { useUiStore } from '@/stores/ui'
 import { useDeviceStore } from '@/stores/devices'
 import { useAuthStore } from '@/stores/auth'
@@ -24,6 +26,7 @@ const ui = useUiStore()
 const devices = useDeviceStore()
 const player = usePlayerStore()
 const auth = useAuthStore()
+const jam = useJamStore()
 const isMobile = useIsMobile()
 const route = useRoute()
 
@@ -98,6 +101,9 @@ const gridStyle = computed(() => ({
     : `${ui.leftWidth}px 1fr`,
   // Connect bar adds a strip below the player when playback is remote.
   '--player-height': devices.isRemote ? '112px' : '88px',
+  // Зелёная полоса джема живёт отдельной строкой под плеером: 24 плюс
+  // восьмёрка отступа снизу — ровно как в оригинале.
+  '--jam-height': jam.active ? '32px' : '0px',
 }))
 
 function startLeft(e) {
@@ -139,6 +145,7 @@ function startRight(e) {
     <main ref="mobileScroll" class="appm__main" :class="{ 'appm__main--mini': player.currentTrack || devices.isRemote }">
       <RouterView />
     </main>
+    <JamBar v-if="jam.active" class="appm__jam" />
     <MobileMiniPlayer />
     <MobileNav />
     <MobileNowPlaying v-if="ui.mobileNowOpen" />
@@ -172,6 +179,7 @@ function startRight(e) {
     </div>
 
     <PlayerBar class="app__player" />
+    <JamBar v-if="jam.active" class="app__jam" />
     <FullscreenView v-if="ui.fullscreenOpen" />
     <TransitionPicker v-if="ui.transitionFrom" />
     <PlaylistEditModal v-if="ui.createPlaylistOpen" @close="ui.createPlaylistOpen = false" @saved="openNewPlaylist" />
@@ -236,5 +244,14 @@ function startRight(e) {
 /* Когда виден мини-плеер, поднимаем нижний отступ */
 .appm__main--mini {
   padding-bottom: calc(136px + env(safe-area-inset-bottom, 0px));
+}
+/* Полоса джема на телефоне живёт над мини-плеером. */
+.appm__jam {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(136px + env(safe-area-inset-bottom, 0px));
+  width: auto;
+  z-index: 30;
 }
 </style>

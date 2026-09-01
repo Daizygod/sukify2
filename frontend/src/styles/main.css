@@ -143,7 +143,7 @@ img {
   grid-template-columns: var(--sidebar-width) 1fr;
   /* Как у Spotify: топбар 64 (поиск по центру, снизу «пустота» уже внутри),
      контент, плеер 88 всего (72 бар + по 8 сверху/снизу). */
-  grid-template-rows: var(--topbar-height) 1fr var(--player-height);
+  grid-template-rows: var(--topbar-height) 1fr var(--player-height) var(--jam-height, 0px);
   height: 100vh;
   column-gap: 8px;
   row-gap: 0;
@@ -190,6 +190,13 @@ img {
   grid-row: 3;
   grid-column: 1 / -1;
   padding: 8px 0; /* итого 88: 8 + 72 бар + 8 */
+}
+
+/* Полоса джема — самая нижняя строка, во всю ширину под плеером. */
+.app__jam {
+  grid-row: 4;
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
 }
 
 /* --- Кастомные подсказки (стиль tippy у Spotify) ------------------------ */

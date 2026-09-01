@@ -7,67 +7,148 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 
 const STATE_INTERVAL = 5000
+const STORE_KEY = 'sukify.jamSession'
 
 /**
  * Jam — совместное прослушивание: хост транслирует своё состояние в канал
  * session:{id}, участники синхронно играют то же самое у себя.
+ *
+ * Тонкие места, из-за которых оно раньше «работало через раз»:
+ *  - гость подписывается на канал уже после того, как сервер разослал
+ *    member.joined, поэтому первый снимок хоста улетал в пустоту. Теперь
+ *    гость сам здоровается (jam-hello) и вдобавок читает историю канала;
+ *  - подписка молчала об ошибках, и «джем есть, а музыки нет» выглядело как
+ *    магия. Теперь ошибки видно;
+ *  - перезагрузка страницы выбрасывала из джема. Теперь он поднимается.
  */
 export const useJamStore = defineStore('jam', () => {
   const player = usePlayerStore()
   const auth = useAuthStore()
   const toasts = useToastStore()
 
-  const session = ref(null) // { id, join_code, members: [...] }
+  const session = ref(null) // { id, join_code, host, members: [...] }
   const members = ref([])
+  const connected = ref(false) // подписка на канал жива
   let sub = null
   let pushTimer = null
   let stopWatch = null
-  let lastTrackId = null
+  let applying = false // пока применяем чужое состояние, своё не шлём
 
   const active = computed(() => !!session.value)
-  const isHost = computed(() => session.value && session.value.host?.id === auth.user?.id)
+  const isHost = computed(() => !!session.value && session.value.host?.id === auth.user?.id)
+  const host = computed(() => session.value?.host || null)
+
+  function remember(id) {
+    try {
+      if (id) localStorage.setItem(STORE_KEY, String(id))
+      else localStorage.removeItem(STORE_KEY)
+    } catch {
+      /* приватный режим */
+    }
+  }
 
   async function start() {
     const { data } = await api.post('/jam/sessions')
-    session.value = data.data
-    members.value = data.data.members || []
-    await openChannel()
-    startHostBroadcast()
-    toasts.show(`Jam создан! Код: ${session.value.join_code}`)
+    await enter(data.data)
+    toasts.show(`Джем создан! Код: ${session.value.join_code}`)
+
     return session.value
   }
 
   async function join(code) {
     const { data } = await api.post('/jam/sessions/join', { join_code: code.trim() })
-    session.value = data.data
-    members.value = data.data.members || []
+    await enter(data.data)
+    toasts.show('Ты в джеме — сейчас подхватим, что играет у хоста')
+  }
+
+  /** Общий вход: состояние, канал, рассылка (для хоста). */
+  async function enter(data) {
+    session.value = data
+    members.value = data.members || []
+    remember(data.id)
     await openChannel()
-    toasts.show('Ты в Jam! Музыка появится с ходом хоста')
+    startBroadcast()
+  }
+
+  /** После перезагрузки страницы джем должен остаться. */
+  async function restore() {
+    let id = null
+    try {
+      id = localStorage.getItem(STORE_KEY)
+    } catch {
+      return
+    }
+    if (!id || session.value) return
+    try {
+      const { data } = await api.get(`/jam/sessions/${id}`)
+      if (!data.data?.is_active) throw new Error('inactive')
+      await enter(data.data)
+    } catch {
+      remember(null)
+    }
   }
 
   async function openChannel() {
     const client = await getRealtime()
     const channel = `session:${session.value.id}`
-    sub = client.newSubscription(channel, {
-      getToken: () => subscriptionToken(channel),
-    })
+    sub = client.getSubscription(channel)
+    if (!sub) {
+      sub = client.newSubscription(channel, { getToken: () => subscriptionToken(channel) })
+    }
     sub.on('publication', (ctx) => handle(ctx.data))
-    sub.subscribe()
+    sub.on('subscribed', () => {
+      connected.value = true
+      onSubscribed()
+    })
+    sub.on('unsubscribed', () => (connected.value = false))
+    sub.on('error', (ctx) => {
+      connected.value = false
+      // Молчать нельзя: снаружи это выглядит как «джем есть, музыки нет».
+      console.warn('[jam] канал недоступен', ctx)
+      toasts.show('Джем не может подключиться к серверу — музыка не синхронизируется')
+    })
+    if (sub.state !== 'subscribed') sub.subscribe()
+    else onSubscribed()
   }
 
-  function startHostBroadcast() {
-    pushTimer = setInterval(() => {
-      if (player.isPlaying) pushState()
-    }, STATE_INTERVAL)
+  /** Подписались: хост сразу шлёт снимок, гость просит его и смотрит историю. */
+  async function onSubscribed() {
+    if (isHost.value) {
+      pushState()
+
+      return
+    }
+    try {
+      const h = await sub.history({ limit: 20, reverse: true })
+      const last = (h.publications || [])
+        .map((p) => p.data)
+        .find((d) => (d?.t || d?.type) === 'jam-state')
+      if (last) await applyState(last)
+    } catch {
+      /* истории может не быть — переживём, хост ответит на привет */
+    }
+    publish({ t: 'jam-hello', from: auth.user?.id })
+  }
+
+  function startBroadcast() {
+    clearInterval(pushTimer)
+    pushTimer = setInterval(() => pushState(), STATE_INTERVAL)
+    stopWatch?.()
     stopWatch = watch(
       () => [player.currentTrack?.id, player.isPlaying],
       () => pushState()
     )
   }
 
+  function publish(payload) {
+    if (!sub) return Promise.resolve()
+
+    return sub.publish(payload).catch((e) => console.warn('[jam] не отправилось', payload.t, e))
+  }
+
   function pushState() {
-    if (!sub || !isHost.value || !player.currentTrack) return
-    sub.publish({
+    if (!isHost.value || applying || !player.currentTrack) return
+    publish({
       t: 'jam-state',
       from: auth.user.id,
       trackId: player.currentTrack.id,
@@ -76,28 +157,38 @@ export const useJamStore = defineStore('jam', () => {
       pos: Math.round(player.positionMs),
       playing: player.isPlaying,
       contextName: player.contextName,
-    }).catch(() => {})
+    })
   }
 
   async function handle(msg) {
-    if (!msg?.t && !msg?.type) return
-    const type = msg.t || msg.type
+    const type = msg?.t || msg?.type
+    if (!type) return
 
     if (type === 'member.joined') {
       if (msg.user?.id !== auth.user?.id) {
-        members.value = [...members.value, msg.user]
-        toasts.show(`${msg.user?.name || 'Кто-то'} присоединился к Jam`)
+        toasts.show(`${msg.user?.name || 'Кто-то'} присоединился к джему`)
       }
+      refreshMembers()
       if (isHost.value) pushState()
+
       return
     }
     if (type === 'member.left') {
-      members.value = members.value.filter((m) => m.id !== msg.user?.id)
+      refreshMembers()
+
       return
     }
     if (type === 'session.ended') {
       cleanup()
-      toasts.show('Jam завершён')
+      toasts.show('Джем завершён')
+
+      return
+    }
+    // Гость поздоровался — хост отвечает снимком, иначе тот будет ждать
+    // следующего тика впустую.
+    if (type === 'jam-hello') {
+      if (isHost.value && msg.from !== auth.user?.id) pushState()
+
       return
     }
     if (type === 'jam-state' && !isHost.value && msg.from !== auth.user?.id) {
@@ -105,52 +196,81 @@ export const useJamStore = defineStore('jam', () => {
     }
   }
 
+  /** Список участников тянем с сервера: он и есть источник правды. */
+  async function refreshMembers() {
+    if (!session.value) return
+    try {
+      const { data } = await api.get(`/jam/sessions/${session.value.id}`)
+      session.value = data.data
+      members.value = data.data.members || []
+    } catch {
+      /* сеть моргнула — следующий раз поправит */
+    }
+  }
+
   /** Гость повторяет состояние хоста. */
   async function applyState(s) {
-    if (player.currentTrack?.id === s.trackId) {
-      // Тот же трек — подтягиваем позицию при рассинхроне > 3с.
-      if (Math.abs(player.positionMs - s.pos) > 3000) player.seek(s.pos)
-      if (s.playing !== player.isPlaying) player.togglePlay()
-      return
-    }
-    lastTrackId = s.trackId
+    if (applying) return
+    applying = true
     try {
-      const { data } = await api.get('/tracks-bulk', { params: { ids: s.queueIds.join(',') } })
+      if (player.currentTrack?.id === s.trackId) {
+        // Тот же трек — подтягиваем позицию при рассинхроне > 3 с.
+        if (Math.abs(player.positionMs - s.pos) > 3000) player.seek(s.pos)
+        if (s.playing !== player.isPlaying) player.togglePlay()
+
+        return
+      }
+      const ids = s.queueIds?.length ? s.queueIds : [s.trackId]
+      const { data } = await api.get('/tracks-bulk', { params: { ids: ids.join(',') } })
       const byId = new Map(data.data.map((t) => [t.id, t]))
-      const tracks = s.queueIds.map((id) => byId.get(id)).filter(Boolean)
+      const tracks = ids.map((id) => byId.get(id)).filter(Boolean)
+      if (!tracks.length) return
       await player.hydrate({
         tracks,
         index: Math.max(tracks.findIndex((t) => t.id === s.trackId), 0),
         positionMs: s.pos,
         playing: s.playing,
-        name: `Jam: ${s.contextName || ''}`,
+        name: `Джем: ${s.contextName || ''}`,
       })
-    } catch {
-      /* не удалось — следующий стейт попробует снова */
+      // Браузер имеет право не пустить звук без нажатия — скажем об этом
+      // прямо, иначе выглядит как поломка.
+      if (s.playing && !player.isPlaying) {
+        toasts.show('Нажми ▶ — браузер не пускает звук без твоего действия')
+      }
+    } catch (e) {
+      console.warn('[jam] не удалось повторить состояние хоста', e)
+    } finally {
+      applying = false
     }
   }
 
+  /** Гость выходит, хост завершает джем для всех. */
   async function leave() {
     if (!session.value) return
     const id = session.value.id
+    const wasHost = isHost.value
     try {
-      await api.post(`/jam/sessions/${id}/leave`)
+      await api.post(`/jam/sessions/${id}/${wasHost ? 'end' : 'leave'}`)
     } catch {
       /* уже завершён */
     }
     cleanup()
+    toasts.show(wasHost ? 'Джем завершён' : 'Ты вышел из джема')
   }
 
   function cleanup() {
+    sub?.removeAllListeners?.()
     sub?.unsubscribe()
     sub = null
     clearInterval(pushTimer)
     pushTimer = null
     stopWatch?.()
     stopWatch = null
+    connected.value = false
     session.value = null
     members.value = []
+    remember(null)
   }
 
-  return { session, members, active, isHost, start, join, leave }
+  return { session, members, active, isHost, host, connected, start, join, leave, restore }
 })

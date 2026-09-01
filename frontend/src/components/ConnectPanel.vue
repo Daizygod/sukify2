@@ -80,7 +80,7 @@ async function copyCode() {
     <div class="cp__jam">
       <div class="cp__jamhead">
         <Icon name="jam" :size="16" />
-        <span>Jam — слушаем вместе</span>
+        <span>Джем — слушаем вместе</span>
       </div>
 
       <template v-if="jam.active">
@@ -88,19 +88,32 @@ async function copyCode() {
           Код: <b>{{ jam.session.join_code }}</b>
           <Icon name="share" :size="14" />
         </div>
+        <div class="cp__jamfaces">
+          <span
+            v-for="m in jam.members"
+            :key="m.id"
+            class="cp__face"
+            :title="m.name"
+            :class="{ 'cp__face--host': m.id === jam.host?.id }"
+          >
+            <img v-if="m.avatar_url" :src="m.avatar_url" alt="" />
+            <span v-else>{{ (m.name || '?')[0].toUpperCase() }}</span>
+          </span>
+        </div>
         <div class="cp__jammembers muted">
-          {{ jam.isHost ? 'Ты хост' : 'Ты слушаешь вместе с хостом' }} •
+          {{ jam.isHost ? 'Ты хост' : `Хост: ${jam.host?.name || '—'}` }} •
           участников: {{ jam.members.length }}
+          <template v-if="!jam.connected"> • нет связи с сервером</template>
         </div>
         <button class="cp__jambtn cp__jambtn--leave" @click="jam.leave()">
-          {{ jam.isHost ? 'Завершить Jam' : 'Выйти из Jam' }}
+          {{ jam.isHost ? 'Закончить джем' : 'Выйти из джема' }}
         </button>
       </template>
 
       <template v-else>
-        <button class="cp__jambtn" @click="startJam">Начать Jam</button>
+        <button class="cp__jambtn" @click="startJam">Начать джем</button>
         <div class="cp__jamjoin">
-          <input v-model="joinCode" placeholder="Код Jam" maxlength="6" @keyup.enter="joinJam" />
+          <input v-model="joinCode" placeholder="Код джема" maxlength="6" @keyup.enter="joinJam" />
           <button class="cp__jambtn" @click="joinJam">Войти</button>
         </div>
       </template>
@@ -232,6 +245,33 @@ async function copyCode() {
 }
 .cp__jammembers {
   font-size: 12px;
+}
+.cp__jamfaces {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.cp__face {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #333;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.cp__face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Хоста видно сразу — вокруг него зелёное кольцо. */
+.cp__face--host {
+  box-shadow: 0 0 0 2px var(--accent);
 }
 .cp__jambtn {
   background: var(--accent);
