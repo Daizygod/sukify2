@@ -140,11 +140,23 @@ export const useJamStore = defineStore('jam', () => {
     }, STATE_INTERVAL)
     stopWatch?.()
     // А вот нажатия — от кого угодно: в джеме рулить может любой, как в
-    // оригинале. Перемотку ловим по счётчику: позиция меняется каждый кадр.
+    // оригинале. Перемотку ловим по счётчику (позиция меняется каждый кадр),
+    // а очередь — по строке из айдишников: перестановка не меняет её длину,
+    // и следить за размером бесполезно.
     stopWatch = watch(
-      () => [player.currentTrack?.id, player.isPlaying, player.seekTick],
+      () => `${player.currentTrack?.id}:${player.isPlaying}:${player.seekTick}:${queueKey()}`,
       () => pushState()
     )
+  }
+
+  /** Отпечаток очереди: порядок, ручная очередь, позиция и перемешивание. */
+  function queueKey() {
+    return [
+      player.queue.map((t) => t.id).join('.'),
+      player.manualQueue.map((t) => t.id).join('.'),
+      player.queueIndex,
+      player.shuffle ? 1 : 0,
+    ].join('|')
   }
 
   function publish(payload) {
@@ -155,7 +167,15 @@ export const useJamStore = defineStore('jam', () => {
 
   /** Подпись состояния: по ней отличаем «мы это только что применили» от своего. */
   function signature(s) {
-    return `${s.trackId}:${s.playing ? 1 : 0}:${Math.round(s.pos / 2000)}`
+    return [
+      s.trackId,
+      s.playing ? 1 : 0,
+      Math.round(s.pos / 2000),
+      s.shuffle ? 1 : 0,
+      s.index,
+      (s.queueIds || []).join('.'),
+      (s.manualIds || []).join('.'),
+    ].join(':')
   }
 
   function pushState() {
@@ -165,7 +185,14 @@ export const useJamStore = defineStore('jam', () => {
       from: auth.user.id,
       trackId: player.currentTrack.id,
       queueIds: player.queue.slice(0, 300).map((x) => x.id),
+      // Ручная очередь ходит отдельно: она играет раньше контекста, и без неё
+      // «добавь трек в очередь» видел только тот, кто добавил.
+      manualIds: player.manualQueue.slice(0, 100).map((x) => x.id),
       index: player.queueIndex,
+      shuffle: player.shuffle,
+      // Порядок до перемешивания: без него выключить «вперемешку» смог бы
+      // только тот, кто его включил.
+      sourceIds: player.shuffleSourceIds().slice(0, 300),
       pos: Math.round(player.positionMs),
       playing: player.isPlaying,
       contextName: player.contextName,
@@ -224,31 +251,68 @@ export const useJamStore = defineStore('jam', () => {
     }
   }
 
+  /**
+   * Порядок до перемешивания собираем из уже полученных треков: это та же
+   * очередь, только в другом порядке, — второй запрос не нужен.
+   */
+  function orderOf(ids, tracks) {
+    if (!ids?.length || !tracks.length) return []
+    const byId = new Map(tracks.map((t) => [t.id, t]))
+
+    return ids.map((id) => byId.get(id)).filter(Boolean)
+  }
+
+  /** Треки по айдишникам одним запросом, порядок сохраняем как прислали. */
+  async function fetchTracks(ids) {
+    if (!ids.length) return []
+    const { data } = await api.get('/tracks-bulk', { params: { ids: ids.join(',') } })
+    const byId = new Map(data.data.map((t) => [t.id, t]))
+
+    return ids.map((id) => byId.get(id)).filter(Boolean)
+  }
+
   /** Повторяем то, что включил другой участник. */
   async function applyState(s) {
     if (applying) return
     applying = true
     lastApplied = signature(s)
     try {
+      const queueIds = s.queueIds?.length ? s.queueIds : [s.trackId]
+      const manualIds = s.manualIds || []
+
       if (player.currentTrack?.id === s.trackId) {
-        // Тот же трек — подтягиваем позицию при рассинхроне > 3 с.
+        // Трек тот же, но очередь могли перетасовать, дополнить или
+        // переставить — подтягиваем её, не трогая звук.
+        const mine = queueKey()
+        const theirs = [queueIds.join('.'), manualIds.join('.'), s.index, s.shuffle ? 1 : 0].join('|')
+        if (mine !== theirs) {
+          const [tracks, manual] = await Promise.all([fetchTracks(queueIds), fetchTracks(manualIds)])
+          player.applyQueueSnapshot({
+            tracks,
+            index: s.index,
+            manual,
+            shuffle: s.shuffle,
+            source: orderOf(s.sourceIds, tracks),
+          })
+        }
+        // Позицию подтягиваем при рассинхроне > 3 с.
         if (Math.abs(player.positionMs - s.pos) > 3000) player.seek(s.pos)
         if (s.playing !== player.isPlaying) player.togglePlay()
 
         return
       }
-      const ids = s.queueIds?.length ? s.queueIds : [s.trackId]
-      const { data } = await api.get('/tracks-bulk', { params: { ids: ids.join(',') } })
-      const byId = new Map(data.data.map((t) => [t.id, t]))
-      const tracks = ids.map((id) => byId.get(id)).filter(Boolean)
+      const [tracks, manual] = await Promise.all([fetchTracks(queueIds), fetchTracks(manualIds)])
       if (!tracks.length) return
+      if (typeof s.shuffle === 'boolean') player.shuffle = s.shuffle
       await player.hydrate({
         tracks,
         index: Math.max(tracks.findIndex((t) => t.id === s.trackId), 0),
+        manual,
         positionMs: s.pos,
         playing: s.playing,
         name: `Джем: ${s.contextName || ''}`,
       })
+      player.applyQueueSnapshot({ source: orderOf(s.sourceIds, tracks) })
       // Браузер имеет право не пустить звук без нажатия — скажем об этом
       // прямо, иначе выглядит как поломка.
       if (s.playing && !player.isPlaying) {

@@ -43,7 +43,10 @@ export function usePlayContext(opts) {
 
     const tracks = typeof opts.tracks === 'function' ? await opts.tracks() : unref(opts.tracks)
     if (!tracks?.length) return
-    player.playContext(tracks, 0, { name: unref(opts.name) || '', key: key.value })
+    // Имя приходит геттером, как ключ и треки: без вызова в очередь уезжала
+    // сама функция, и панель писала «Далее из: () => props.name».
+    const name = typeof opts.name === 'function' ? opts.name() : opts.name
+    player.playContext(tracks, 0, { name: unref(name) || '', key: key.value })
   }
 
   return { isThisContext, isPlaying, toggle }

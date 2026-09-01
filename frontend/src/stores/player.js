@@ -454,6 +454,33 @@ export const usePlayerStore = defineStore('player', () => {
     queue.value = [...queue.value.slice(0, queueIndex.value + 1), ...arr]
   }
 
+  /**
+   * Подменить очередь, не трогая звук — джему это нужно, когда сосед добавил
+   * трек, переставил очередь или включил перемешивание, а играет то же самое.
+   * Порядок берём чужой как есть: свой setShuffle перетасовал бы по-своему,
+   * и очереди разъехались бы.
+   */
+  function applyQueueSnapshot({ tracks, index, manual, shuffle: sh, source }) {
+    if (Array.isArray(tracks) && tracks.length) {
+      queue.value = tracks
+      const i = Number.isInteger(index) ? index : queue.value.findIndex((t) => t.id === currentTrack.value?.id)
+      queueIndex.value = Math.max(0, Math.min(i, queue.value.length - 1))
+    }
+    if (Array.isArray(manual)) {
+      manualQueue.value = manual.map((t) => ({ ...t, __qid: ++qidCounter }))
+    }
+    if (typeof sh === 'boolean') shuffle.value = sh
+    // Порядок до перемешивания приходит вместе со снимком: иначе выключить
+    // перемешивание сможет только тот, кто его включил, — остальным нечего
+    // возвращать.
+    originalOrder = Array.isArray(source) && source.length ? source : null
+  }
+
+  /** Порядок очереди до перемешивания — джем передаёт его соседям. */
+  function shuffleSourceIds() {
+    return originalOrder ? originalOrder.map((t) => t.id) : []
+  }
+
   /** Restore a full playback snapshot (Connect transfer onto this device). */
   async function hydrate({ tracks, index = 0, manual = [], positionMs = 0, playing = true, name = '', key = '' }) {
     init()
@@ -874,6 +901,6 @@ export const usePlayerStore = defineStore('player', () => {
     next, prev, stop, loadSettings, setShuffle, setRepeat, cycleRepeat, hydrate, invalidateTransitions,
     restoreSession,
     addToQueue, removeFromManualQueue, removeUpcoming, clearManualQueue,
-    playManualItem, playUpcomingItem, setManualQueue, setUpcoming,
+    playManualItem, playUpcomingItem, setManualQueue, setUpcoming, applyQueueSnapshot, shuffleSourceIds,
   }
 })
