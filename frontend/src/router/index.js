@@ -21,6 +21,7 @@ const routes = [
   { path: '/history', name: 'history', component: () => import('@/pages/HistoryPage.vue'), meta: { auth: true } },
   { path: '/settings', name: 'settings', component: () => import('@/pages/SettingsPage.vue'), meta: { auth: true } },
   { path: '/stats', name: 'stats', component: () => import('@/pages/StatsPage.vue'), meta: { auth: true } },
+  { path: '/stats/spotify', name: 'spotify-stats', component: () => import('@/pages/SpotifyStatsPage.vue'), meta: { auth: true } },
   { path: '/user/:username', name: 'profile', component: () => import('@/pages/ProfilePage.vue') },
   { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { guest: true } },
 ]

@@ -15,6 +15,10 @@ onMounted(async () => {
 
 <template>
   <div class="content-pad stats">
+    <nav class="stats__tabs">
+      <span class="stats__tab stats__tab--on">В Sukify</span>
+      <RouterLink :to="{ name: 'spotify-stats' }" class="stats__tab">Из Spotify</RouterLink>
+    </nav>
     <h1 class="stats__title">Твоя статистика</h1>
     <p class="muted">За последние 30 дней</p>
 
@@ -70,6 +74,26 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.stats__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.stats__tab {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-subdued);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+.stats__tab:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.stats__tab--on {
+  background: #fff;
+  color: #000;
+}
 .stats__title {
   font-size: 28px;
   font-weight: 800;

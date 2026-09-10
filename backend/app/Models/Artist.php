@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Scout\Searchable;
 
-#[Fillable(['name', 'slug', 'bio', 'avatar_path', 'banner_path', 'dominant_color_hex', 'text_color_hex', 'monthly_listeners'])]
+#[Fillable(['name', 'slug', 'bio', 'avatar_path', 'banner_path', 'dominant_color_hex', 'text_color_hex', 'monthly_listeners', 'imported', 'deezer_id'])]
 class Artist extends Model
 {
     use HasFactory, Searchable;
@@ -18,6 +18,7 @@ class Artist extends Model
     {
         return [
             'monthly_listeners' => 'integer',
+            'imported' => 'boolean',
         ];
     }
 

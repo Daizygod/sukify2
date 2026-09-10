@@ -19,6 +19,7 @@ use Laravel\Scout\Searchable;
     'audio_original_path', 'audio_stream_path', 'loudness_lufs',
     'file_size_original', 'cover_override_path',
     'processing_status', 'processing_error',
+    'spotify_uri', 'deezer_id', 'preview_only', 'enrich_status',
     // Анализ аудио для микса: темп, сетка долей, тональность, пики волны.
     'bpm', 'beat_offset_ms', 'beat_confidence', 'beats',
     'musical_key', 'musical_scale', 'key_strength', 'camelot',
@@ -36,6 +37,7 @@ class Track extends Model
             'processing_status' => ProcessingStatus::class,
             'loudness_lufs' => 'float',
             'duration_ms' => 'integer',
+            'preview_only' => 'boolean',
             'file_size_original' => 'integer',
             'plays_count' => 'integer',
             'likes_count' => 'integer',

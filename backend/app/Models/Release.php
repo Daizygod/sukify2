@@ -21,6 +21,7 @@ use Laravel\Scout\Searchable;
     'artist_id', 'title', 'slug', 'type', 'release_date',
     'cover_original_path', 'cover_path', 'cover_status',
     'dominant_color_hex', 'text_color_hex',
+    'imported', 'deezer_id', 'spotify_uri',
 ])]
 #[ObservedBy([ReleaseObserver::class])]
 class Release extends Model
@@ -33,6 +34,7 @@ class Release extends Model
             'type' => ReleaseType::class,
             'cover_status' => ProcessingStatus::class,
             'release_date' => 'date',
+            'imported' => 'boolean',
         ];
     }
 

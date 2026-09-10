@@ -156,6 +156,10 @@ services:
   queue-worker:
     image: sukify/app
     restart: unless-stopped
+    # Обложки и превью импортированной библиотеки — тысячи мелких задач;
+    # на многоядерной машине ставь QUEUE_WORKERS побольше.
+    deploy:
+      replicas: ${QUEUE_WORKERS:-2}
     working_dir: /var/www/html
     command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--max-time=3600", "--timeout=600"]
     volumes:

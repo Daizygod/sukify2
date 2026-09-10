@@ -21,6 +21,8 @@ class TrackResource extends JsonResource
             'plays_count' => $this->plays_count,
             'likes_count' => $this->likes_count,
             'unofficial' => (bool) $this->unofficial,
+            // Аудио — 30-секундное превью из Deezer, а не полный трек.
+            'preview_only' => (bool) $this->preview_only,
             'artists' => ArtistResource::collection($this->whenLoaded('artists')),
             'release' => new ReleaseResource($this->whenLoaded('release')),
             // Position within a playlist, when loaded through the pivot.

@@ -13,16 +13,18 @@ export const useLibraryStore = defineStore('library', {
   }),
   actions: {
     async load() {
-      const [{ data: pl }, { data: liked }, { data: albums }, { data: artists }, { data: pins }] =
+      const [{ data: pl }, { data: likedIds }, { data: albums }, { data: artists }, { data: pins }] =
         await Promise.all([
           api.get('/library/playlists'),
-          api.get('/library/liked-tracks'),
+          // Именно id, а не первая страница треков: после импорта из Spotify
+          // любимых тысячи, и сердечки должны гореть у всех.
+          api.get('/library/liked-track-ids'),
           api.get('/library/liked-albums'),
           api.get('/library/followed-artists'),
           api.get('/library/pins'),
         ])
       this.playlists = pl.data
-      this.likedTrackIds = new Set(liked.data.map((t) => t.id))
+      this.likedTrackIds = new Set(likedIds)
       this.likedAlbums = albums.data
       this.followedArtists = artists.data
       this.pins = new Set(pins.data.map((p) => `${p.item_type}:${p.item_id}`))

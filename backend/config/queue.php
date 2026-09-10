@@ -40,7 +40,11 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // Дефолтные 90 секунд меньше таймаута наших задач: разбор архива
+            // Spotify и транскод аудио идут минутами, и очередь перевыдавала
+            // их прямо на ходу — задача выполнялась дважды. Прод берёт
+            // значение отсюда: своего ключа в его .env нет.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 3600),
             'after_commit' => false,
         ],
 
@@ -68,7 +72,7 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 3600),
             'block_for' => null,
             'after_commit' => false,
         ],

@@ -3,18 +3,111 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\TrackResource;
+use App\Jobs\ImportSpotifyArchive;
+use App\Models\SpotifyImport;
 use App\Models\Track;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Импорт «Любимых треков» из Spotify (Exportify CSV / GDPR JSON, распарсенные
- * на клиенте в нормализованный список). Матчим по названию + исполнителю
- * (+ длительность, когда она есть) и лайкаем найденное.
+ * Импорт из Spotify.
+ *
+ * Основной путь — целиком архив «Download your data»: библиотека, плейлисты и
+ * годы истории прослушиваний ({@see ImportSpotifyArchive}). Старый путь —
+ * список треков, разобранный на клиенте из Exportify-CSV, — оставлен для тех,
+ * кому нужны только лайки и кто не хочет ждать выгрузку от Spotify.
  */
 class ImportController extends Controller
 {
+    /** Максимальный размер архива, МБ. Extended History весит ~25. */
+    private const MAX_MB = 400;
+
+    /** Загрузка архива: кладём в S3 и отдаём разбор в очередь. */
+    public function upload(Request $request)
+    {
+        $request->validate([
+            'archive' => ['required', 'file', 'max:'.(self::MAX_MB * 1024)],
+        ], [], ['archive' => 'архив']);
+
+        $file = $request->file('archive');
+        $extension = Str::lower($file->getClientOriginalExtension());
+        if (! in_array($extension, ['zip', 'json'], true)) {
+            return response()->json([
+                'message' => 'Нужен ZIP из «Download your data» или отдельный JSON из него.',
+            ], 422);
+        }
+
+        $path = $file->store('tmp-uploads/spotify', 's3');
+
+        $import = SpotifyImport::create([
+            'user_id' => $request->user()->id,
+            'original_name' => mb_substr($file->getClientOriginalName(), 0, 250),
+            'size_bytes' => $file->getSize() ?: 0,
+            'archive_path' => $path,
+            'status' => 'pending',
+            'stage' => 'В очереди',
+        ]);
+
+        ImportSpotifyArchive::dispatch($import->id);
+
+        return response()->json($this->payload($import), 201);
+    }
+
+    /** Последний импорт пользователя — им живёт страница /import. */
+    public function latest(Request $request)
+    {
+        $import = SpotifyImport::where('user_id', $request->user()->id)
+            ->latest('id')
+            ->first();
+
+        return response()->json($import ? $this->payload($import) : null);
+    }
+
+    public function show(Request $request, SpotifyImport $import)
+    {
+        abort_unless($import->user_id === $request->user()->id, 404);
+
+        return response()->json($this->payload($import));
+    }
+
+    /** Остановить догрузку обложек и превью, оставив уже перенесённое. */
+    public function cancel(Request $request, SpotifyImport $import)
+    {
+        abort_unless($import->user_id === $request->user()->id, 404);
+
+        if (in_array($import->status, ['pending', 'parsing', 'enriching'], true)) {
+            $import->update(['status' => 'canceled', 'stage' => 'Остановлено']);
+            Track::whereIn('enrich_status', ['pending', 'working'])->update(['enrich_status' => null]);
+        }
+
+        return response()->json($this->payload($import->fresh()));
+    }
+
+    private function payload(SpotifyImport $import): array
+    {
+        return [
+            'id' => $import->id,
+            'status' => $import->status,
+            'kind' => $import->kind,
+            'stage' => $import->stage,
+            'progress' => $import->progress,
+            'enrich_total' => $import->enrich_total,
+            'enrich_done' => min($import->enrich_done, $import->enrich_total),
+            'original_name' => $import->original_name,
+            'size_bytes' => $import->size_bytes,
+            'summary' => $import->summary,
+            'error' => $import->error,
+            'created_at' => $import->created_at?->toIso8601String(),
+        ];
+    }
+
+    // -- Старый путь: список треков из Exportify-CSV -------------------------
+
+    /**
+     * Матчим по названию + исполнителю (+ длительность, когда она есть) и
+     * лайкаем найденное. Ничего не создаёт: только то, что уже есть в каталоге.
+     */
     public function likedTracks(Request $request)
     {
         $data = $request->validate([
@@ -47,10 +140,12 @@ class ImportController extends Controller
                     'title' => $item['title'],
                     'artists' => $item['artists'] ?? [],
                 ];
+
                 continue;
             }
             if (isset($alreadyLiked[$track->id]) || isset($matchedIds[$track->id])) {
                 $already++;
+
                 continue;
             }
             $matchedIds[$track->id] = true;
@@ -111,6 +206,6 @@ class ImportController extends Controller
         $s = Str::lower(trim($s));
         $s = preg_replace('/\s+/u', ' ', $s);
 
-        return preg_replace('/[«»"\'’`´]/u', '', $s);
+        return preg_replace('/[«»"\'\x{2019}`´]/u', '', $s);
     }
 }

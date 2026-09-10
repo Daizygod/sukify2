@@ -1,21 +1,129 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import api from '@/lib/api'
 import Icon from '@/components/Icon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLibraryStore } from '@/stores/library'
 import { useToastStore } from '@/stores/toasts'
+import { formatNumber, plural } from '@/lib/format'
 
 const auth = useAuthStore()
 const library = useLibraryStore()
 const toasts = useToastStore()
 
 const dragOver = ref(false)
-const parsing = ref(false)
-const importing = ref(false)
-const parsedCount = ref(0)
-const result = ref(null)
+const uploading = ref(false)
+const uploadPct = ref(0)
 const error = ref('')
+
+/** Текущий (или последний) разбор архива — им живёт вся страница. */
+const job = ref(null)
+let timer = null
+
+/** Результат старого пути: список лайков из Exportify-CSV. */
+const csvResult = ref(null)
+const csvBusy = ref(false)
+
+const running = computed(() => ['pending', 'parsing', 'enriching'].includes(job.value?.status))
+const enriching = computed(() => job.value?.status === 'enriching')
+const enrichPct = computed(() => {
+  const total = job.value?.enrich_total || 0
+  return total ? Math.round((job.value.enrich_done / total) * 100) : 0
+})
+
+const lib = computed(() => job.value?.summary?.library || null)
+const history = computed(() => job.value?.summary?.history || null)
+const historyYears = computed(() => {
+  const h = history.value
+  if (!h?.from || !h?.to) return ''
+  const from = h.from.slice(0, 4)
+  const to = h.to.slice(0, 4)
+  return from === to ? from : `${from}–${to}`
+})
+
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/import/spotify')
+    job.value = data
+    if (running.value) poll()
+  } catch {
+    /* страница работает и без прошлых импортов */
+  }
+})
+onBeforeUnmount(() => clearTimeout(timer))
+
+function poll() {
+  clearTimeout(timer)
+  timer = setTimeout(async () => {
+    try {
+      const { data } = await api.get(`/import/spotify/${job.value.id}`)
+      const wasRunning = running.value
+      job.value = data
+      if (running.value) {
+        poll()
+      } else if (wasRunning) {
+        library.load().catch(() => {})
+        if (data.status === 'done') toasts.show('Импорт из Spotify готов')
+      }
+    } catch {
+      poll()
+    }
+  }, 2000)
+}
+
+async function handleFile(file) {
+  error.value = ''
+  csvResult.value = null
+
+  if (file.name.toLowerCase().endsWith('.csv')) {
+    await importCsv(file)
+    return
+  }
+
+  uploading.value = true
+  uploadPct.value = 0
+  try {
+    const form = new FormData()
+    form.append('archive', file)
+    const { data } = await api.post('/import/spotify', form, {
+      onUploadProgress: (e) => {
+        uploadPct.value = Math.round((e.loaded / (e.total || e.loaded || 1)) * 100)
+      },
+    })
+    job.value = data
+    poll()
+  } catch (e) {
+    error.value =
+      e?.response?.data?.message ||
+      'Не смог принять файл. Нужен ZIP из «Download your data» (или CSV из Exportify).'
+  } finally {
+    uploading.value = false
+  }
+}
+
+async function cancelEnrich() {
+  try {
+    const { data } = await api.post(`/import/spotify/${job.value.id}/cancel`)
+    job.value = data
+    clearTimeout(timer)
+  } catch {
+    /* уже завершилось */
+  }
+}
+
+function onDrop(e) {
+  dragOver.value = false
+  const file = e.dataTransfer?.files?.[0]
+  if (file) handleFile(file)
+}
+function onPick(e) {
+  const file = e.target.files?.[0]
+  if (file) handleFile(file)
+  e.target.value = ''
+}
+
+// --- Старый путь: Exportify-CSV разбирается прямо в браузере ---------------
 
 /** Простой CSV-парсер с поддержкой кавычек (формат Exportify). */
 function parseCsv(text) {
@@ -42,164 +150,223 @@ function parseCsv(text) {
   return rows
 }
 
-/** Exportify CSV → нормализованные позиции. */
-function fromExportify(text) {
-  const rows = parseCsv(text)
-  if (!rows.length) return []
-  const head = rows[0].map((h) => h.toLowerCase())
-  const col = (names) => head.findIndex((h) => names.some((n) => h.includes(n)))
-  const iTitle = col(['track name', 'название трека'])
-  const iArtists = col(['artist name', 'исполнител'])
-  const iDur = col(['duration'])
-  if (iTitle === -1) return []
-  return rows.slice(1).map((r) => ({
-    title: r[iTitle] || '',
-    artists: (r[iArtists] || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean),
-    duration_ms: iDur !== -1 ? parseInt(r[iDur]) || null : null,
-  })).filter((x) => x.title)
-}
-
-/** Официальный экспорт Spotify (YourLibrary.json) → позиции. */
-function fromSpotifyJson(obj) {
-  const tracks = obj?.tracks || obj?.likedSongs || (Array.isArray(obj) ? obj : [])
-  return tracks
-    .map((t) => ({
-      title: t.track || t.trackName || t.title || '',
-      artists: [t.artist || t.artistName].filter(Boolean),
-      duration_ms: null,
-    }))
-    .filter((x) => x.title)
-}
-
-async function handleFile(file) {
-  error.value = ''
-  result.value = null
-  parsing.value = true
+async function importCsv(file) {
+  csvBusy.value = true
   try {
-    const text = await file.text()
-    let items = []
-    if (file.name.endsWith('.json') || text.trim().startsWith('{') || text.trim().startsWith('[')) {
-      items = fromSpotifyJson(JSON.parse(text))
-    } else {
-      items = fromExportify(text)
-    }
+    const rows = parseCsv(await file.text())
+    const head = (rows[0] || []).map((h) => h.toLowerCase())
+    const col = (names) => head.findIndex((h) => names.some((n) => h.includes(n)))
+    const iTitle = col(['track name', 'название трека'])
+    const iArtists = col(['artist name', 'исполнител'])
+    const iDur = col(['duration'])
+    const items = iTitle === -1 ? [] : rows.slice(1).map((r) => ({
+      title: r[iTitle] || '',
+      artists: (r[iArtists] || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean),
+      duration_ms: iDur !== -1 ? parseInt(r[iDur]) || null : null,
+    })).filter((x) => x.title)
+
     if (!items.length) {
-      error.value = 'Не смог разобрать файл: не нашёл в нём треков. Проверь, что это CSV из Exportify или YourLibrary.json из экспорта Spotify.'
+      error.value = 'Не нашёл треков в CSV. Это точно выгрузка Exportify?'
       return
     }
-    parsedCount.value = items.length
-    importing.value = true
+
     const { data } = await api.post('/import/liked', { items: items.slice(0, 5000) })
-    result.value = data
+    csvResult.value = data
     library.load().catch(() => {})
     toasts.show(`Импорт готов: добавлено ${data.added}`)
-  } catch (e) {
-    error.value = 'Что-то пошло не так при разборе файла. Убедись, что это CSV/JSON из Spotify.'
+  } catch {
+    error.value = 'Не смог разобрать CSV.'
   } finally {
-    parsing.value = false
-    importing.value = false
+    csvBusy.value = false
   }
-}
-
-function onDrop(e) {
-  dragOver.value = false
-  const file = e.dataTransfer?.files?.[0]
-  if (file) handleFile(file)
-}
-function onPick(e) {
-  const file = e.target.files?.[0]
-  if (file) handleFile(file)
-  e.target.value = ''
 }
 </script>
 
 <template>
   <div class="content-pad imp">
-    <h1 class="imp__title">Импорт любимых треков из Spotify</h1>
+    <h1 class="imp__title">Импорт из Spotify</h1>
     <p class="muted imp__lead">
-      Перенеси свои (или друга) «Любимые треки» из Spotify в Sukify за пару минут.
-      Что найдётся в каталоге — сразу попадёт в «Любимые треки»; чего нет — покажем списком.
+      Забрасывай сюда архив «Download your data» целиком — Sukify заведёт твоих артистов,
+      альбомы и треки, перенесёт «Любимые», плейлисты и все годы прослушиваний,
+      а обложки и 30-секундные превью догрузит из Deezer.
     </p>
 
     <div class="imp__cols">
       <section class="imp__how">
-        <h2>Способ 1: Exportify <span class="imp__badge">быстрее</span></h2>
+        <h2>Как получить архив</h2>
         <ol>
-          <li>Открой <a href="https://exportify.net" target="_blank" rel="noopener">exportify.net</a> и нажми <b>Get Started</b>.</li>
-          <li>Войди в аккаунт Spotify и разреши доступ (только чтение плейлистов).</li>
-          <li>Вверху списка напротив <b>Liked Songs</b> нажми <b>Export</b> — скачается CSV-файл.</li>
-          <li>Закинь этот файл сюда →</li>
+          <li>Открой <a href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener">spotify.com/account/privacy</a>.</li>
+          <li>Отметь <b>«Данные аккаунта»</b> — это библиотека, плейлисты и год истории.</li>
+          <li>Ниже отметь <b>«Расширенная история прослушиваний»</b>, если хочешь всю статистику с самого начала.</li>
+          <li>Подтверди запрос письмом. Первый архив приходит за пару дней, расширенный — до месяца.</li>
+          <li>Пришедший ZIP закинь сюда, распаковывать не надо →</li>
         </ol>
 
-        <h2>Способ 2: официальный экспорт Spotify</h2>
-        <ol>
-          <li>Зайди на <a href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener">spotify.com/account/privacy</a>.</li>
-          <li>Внизу страницы отметь <b>«Данные аккаунта»</b> и нажми «Запросить данные».</li>
-          <li>Подтверди запрос по письму. Архив придёт на почту в течение ~5 дней.</li>
-          <li>Из архива нужен файл <b>YourLibrary.json</b> — закинь его сюда →</li>
-        </ol>
+        <h2>Что попадёт в Sukify</h2>
+        <ul class="imp__list">
+          <li><b>Любимые треки</b> — в том же порядке, что и в Spotify.</li>
+          <li><b>Плейлисты</b> с описаниями и датами добавления.</li>
+          <li><b>Сохранённые альбомы</b> и <b>подписки на артистов</b>.</li>
+          <li><b>История прослушиваний</b> — она питает страницу <RouterLink to="/stats/spotify">«Твой Spotify»</RouterLink>.</li>
+          <li>Локальные файлы из библиотеки — с бейджем «не на площадках».</li>
+        </ul>
 
         <p class="muted imp__note">
-          Треков нет в каталоге? Загрузите их через админку — и импорт можно повторить:
-          уже добавленные лайки не задублируются. Треки, которых нет на официальных
-          площадках (эксклюзивы), помечаются в Sukify специальным бейджем.
+          Аудио у импортированных треков — 30-секундное превью Deezer: полные версии
+          Spotify не отдаёт никому. Залей файл через админку — превью заменится
+          настоящим треком. Архив <b>Technical Log Information</b> можно не присылать,
+          в нём только телеметрия плеера.
         </p>
+
+        <details class="imp__csv">
+          <summary>Нужны только лайки и ждать архив некогда</summary>
+          <ol>
+            <li>Открой <a href="https://exportify.net" target="_blank" rel="noopener">exportify.net</a> → <b>Get Started</b>.</li>
+            <li>Напротив <b>Liked Songs</b> нажми <b>Export</b> — скачается CSV.</li>
+            <li>Закинь CSV сюда. Этот путь ничего не создаёт: он лайкает только то, что уже есть в каталоге.</li>
+          </ol>
+        </details>
       </section>
 
       <section
         class="imp__drop"
-        :class="{ over: dragOver, busy: parsing || importing }"
+        :class="{ over: dragOver, busy: uploading || csvBusy }"
         @dragover.prevent="dragOver = true"
         @dragleave="dragOver = false"
         @drop.prevent="onDrop"
       >
-        <template v-if="parsing || importing">
-          <p class="imp__dropline">{{ importing ? `Импортирую ${parsedCount} трек(ов)…` : 'Читаю файл…' }}</p>
+        <template v-if="uploading">
+          <p class="imp__dropline">Загружаю архив… {{ uploadPct }}%</p>
+          <div class="imp__bar"><div class="imp__barfill" :style="{ width: uploadPct + '%' }" /></div>
+        </template>
+        <template v-else-if="csvBusy">
+          <p class="imp__dropline">Читаю CSV…</p>
         </template>
         <template v-else>
           <Icon name="install" :size="40" class="imp__dropicon" />
-          <p class="imp__dropline">Перетащи сюда CSV или JSON</p>
+          <p class="imp__dropline">Перетащи сюда ZIP из Spotify</p>
           <label class="btn-primary imp__pick">
             Выбрать файл
-            <input type="file" accept=".csv,.json,text/csv,application/json" hidden @change="onPick" />
+            <input type="file" accept=".zip,.json,.csv" hidden @change="onPick" />
           </label>
+          <p class="muted imp__hint">.zip целиком, или отдельный YourLibrary.json / CSV из Exportify</p>
         </template>
       </section>
     </div>
 
     <p v-if="error" class="imp__error">{{ error }}</p>
 
-    <section v-if="result" class="imp__result">
-      <h2>Готово!</h2>
-      <div class="imp__stats">
+    <!-- Идёт разбор -->
+    <section v-if="running" class="imp__panel">
+      <h2 class="imp__panelhead">
+        <span class="imp__spinner" />
+        {{ job.stage || 'Работаю…' }}
+      </h2>
+
+      <div class="imp__bar"><div class="imp__barfill" :style="{ width: (job.progress || 0) + '%' }" /></div>
+
+      <template v-if="enriching">
+        <p class="muted imp__panelnote">
+          Библиотека и плейлисты уже на месте — можно листать прямо сейчас.
+          Обложки и превью приезжают по ходу: {{ formatNumber(job.enrich_done) }}
+          из {{ formatNumber(job.enrich_total) }}.
+        </p>
+        <div class="imp__bar imp__bar--thin"><div class="imp__barfill" :style="{ width: enrichPct + '%' }" /></div>
+        <div class="imp__actions">
+          <RouterLink to="/liked" class="btn-secondary">Открыть «Любимые»</RouterLink>
+          <button type="button" class="imp__linkbtn" @click="cancelEnrich">Остановить догрузку</button>
+        </div>
+      </template>
+    </section>
+
+    <!-- Разбор упал -->
+    <section v-else-if="job?.status === 'failed'" class="imp__panel imp__panel--bad">
+      <h2 class="imp__panelhead"><Icon name="warning" :size="18" /> Импорт сорвался</h2>
+      <p class="muted imp__panelnote">{{ job.error || 'Не удалось разобрать архив.' }}</p>
+    </section>
+
+    <!-- Готово -->
+    <section v-else-if="job && job.summary" class="imp__panel">
+      <h2 class="imp__panelhead">
+        <Icon name="check" :size="18" class="imp__ok" />
+        {{ job.status === 'canceled' ? 'Импорт остановлен' : (lib || history ? 'Перенесено' : 'Разобрал архив') }}
+        <span class="muted imp__file">{{ job.original_name }}</span>
+      </h2>
+
+      <div v-if="lib" class="imp__stats">
         <div class="imp__stat">
-          <div class="imp__num imp__num--green">{{ result.added }}</div>
-          <div class="muted">добавлено в любимые</div>
+          <div class="imp__num imp__num--green">{{ formatNumber(lib.liked_tracks) }}</div>
+          <div class="muted">в «Любимых»</div>
         </div>
         <div class="imp__stat">
-          <div class="imp__num">{{ result.already }}</div>
-          <div class="muted">уже были</div>
+          <div class="imp__num">{{ formatNumber(lib.playlists) }}</div>
+          <div class="muted">{{ plural(lib.playlists, 'плейлист', 'плейлиста', 'плейлистов') }}</div>
         </div>
         <div class="imp__stat">
-          <div class="imp__num" :class="{ 'imp__num--red': result.missing.length }">{{ result.missing.length }}</div>
-          <div class="muted">нет в каталоге</div>
+          <div class="imp__num">{{ formatNumber(lib.tracks_created) }}</div>
+          <div class="muted">новых треков в каталоге</div>
+        </div>
+        <div class="imp__stat">
+          <div class="imp__num">{{ formatNumber(lib.artists_created) }}</div>
+          <div class="muted">{{ plural(lib.artists_created, 'артист', 'артиста', 'артистов') }}</div>
+        </div>
+        <div class="imp__stat">
+          <div class="imp__num">{{ formatNumber(lib.releases_created) }}</div>
+          <div class="muted">{{ plural(lib.releases_created, 'альбом', 'альбома', 'альбомов') }}</div>
+        </div>
+        <div class="imp__stat">
+          <div class="imp__num">{{ formatNumber(lib.followed_artists) }}</div>
+          <div class="muted">подписок</div>
         </div>
       </div>
 
-      <template v-if="result.missing.length">
-        <h3 class="imp__misshead">Не нашлись в каталоге Sukify</h3>
-        <p class="muted imp__missnote">
-          Эти треки нужно сначала загрузить
-          <template v-if="auth.isAdmin"> — <RouterLink to="/admin" class="imp__adminlink">открыть админку</RouterLink></template>
-          <template v-else> (попроси админа)</template>. Потом просто повтори импорт этим же файлом.
-        </p>
-        <ul class="imp__missing">
-          <li v-for="(m, i) in result.missing.slice(0, 100)" :key="i">
-            <span class="imp__missartist">{{ m.artists.join(', ') || '—' }}</span> — {{ m.title }}
-          </li>
-        </ul>
-        <p v-if="result.missing.length > 100" class="muted">…и ещё {{ result.missing.length - 100 }}.</p>
-      </template>
+      <p v-if="history && history.plays" class="imp__panelnote">
+        История: <b>{{ formatNumber(history.plays) }}</b>
+        {{ plural(history.plays, 'прослушивание', 'прослушивания', 'прослушиваний') }}
+        за {{ historyYears }} —
+        <b>{{ formatNumber(Math.round(history.ms / 3600000)) }}</b>
+        {{ plural(Math.round(history.ms / 3600000), 'час', 'часа', 'часов') }} музыки.
+        <span v-if="history.duplicates" class="muted">
+          Ещё {{ formatNumber(history.duplicates) }} строк уже были из другого архива.
+        </span>
+      </p>
+
+      <p v-if="job.summary?.note" class="muted imp__panelnote">{{ job.summary.note }}</p>
+
+      <p v-if="lib?.playlists_skipped" class="muted imp__panelnote">
+        {{ lib.playlists_skipped }}
+        {{ plural(lib.playlists_skipped, 'плейлист пропущен', 'плейлиста пропущено', 'плейлистов пропущено') }}:
+        одноимённые уже были собраны здесь вручную.
+      </p>
+
+      <div class="imp__actions">
+        <RouterLink to="/liked" class="btn-primary">Любимые треки</RouterLink>
+        <RouterLink v-if="history && history.plays" to="/stats/spotify" class="btn-secondary">Твой Spotify</RouterLink>
+      </div>
+    </section>
+
+    <!-- Итог старого CSV-пути -->
+    <section v-if="csvResult" class="imp__panel">
+      <h2 class="imp__panelhead">Импорт лайков из CSV</h2>
+      <div class="imp__stats">
+        <div class="imp__stat">
+          <div class="imp__num imp__num--green">{{ csvResult.added }}</div>
+          <div class="muted">добавлено</div>
+        </div>
+        <div class="imp__stat">
+          <div class="imp__num">{{ csvResult.already }}</div>
+          <div class="muted">уже были</div>
+        </div>
+        <div class="imp__stat">
+          <div class="imp__num" :class="{ 'imp__num--red': csvResult.missing.length }">{{ csvResult.missing.length }}</div>
+          <div class="muted">нет в каталоге</div>
+        </div>
+      </div>
+      <p class="muted imp__panelnote">
+        Чтобы перенести и остальное — загрузи ZIP из «Download your data»: он заводит
+        недостающие треки сам<template v-if="auth.isAdmin">, а полное аудио можно долить через
+        <RouterLink to="/admin" class="imp__adminlink">админку</RouterLink></template>.
+      </p>
     </section>
   </div>
 </template>
@@ -212,8 +379,13 @@ function onPick(e) {
 }
 .imp__lead {
   margin: 10px 0 28px;
-  max-width: 640px;
+  max-width: 720px;
   line-height: 1.5;
+}
+/* Ширину задаёт не окно, а колонка контента: справа может быть открыта
+   панель «Сейчас играет», и обычная медиазапросная вёрстка про неё не знает. */
+.imp {
+  container-type: inline-size;
 }
 .imp__cols {
   display: grid;
@@ -221,36 +393,31 @@ function onPick(e) {
   gap: 32px;
   align-items: start;
 }
-@media (max-width: 1000px) {
+@container (max-width: 780px) {
   .imp__cols {
     grid-template-columns: 1fr;
+  }
+  .imp__drop {
+    position: static;
   }
 }
 .imp__how h2 {
   font-size: 17px;
   font-weight: 700;
-  margin: 20px 0 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  margin: 22px 0 10px;
 }
 .imp__how h2:first-child {
   margin-top: 0;
 }
-.imp__badge {
-  background: var(--accent);
-  color: #000;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-.imp__how ol {
+.imp__how ol,
+.imp__list {
   margin: 0 0 8px 20px;
   color: var(--text-subdued);
   font-size: 14px;
   line-height: 1.9;
+}
+.imp__list {
+  list-style: disc;
 }
 .imp__how a {
   color: var(--accent);
@@ -263,7 +430,20 @@ function onPick(e) {
   font-size: 14px;
   line-height: 1.6;
   margin-top: 16px;
-  max-width: 560px;
+  max-width: 620px;
+}
+.imp__csv {
+  margin-top: 18px;
+  font-size: 14px;
+  color: var(--text-subdued);
+}
+.imp__csv summary {
+  cursor: pointer;
+  color: #fff;
+  font-weight: 600;
+}
+.imp__csv ol {
+  margin-top: 10px;
 }
 .imp__drop {
   border: 2px dashed rgba(255, 255, 255, 0.25);
@@ -297,28 +477,84 @@ function onPick(e) {
   padding: 10px 24px;
   font-size: 14px;
 }
+.imp__hint {
+  font-size: 12px;
+  line-height: 1.5;
+}
 .imp__error {
   margin-top: 20px;
   color: #f15e6c;
   font-size: 14px;
 }
-.imp__result {
+.imp__panel {
   margin-top: 32px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding-top: 24px;
 }
-.imp__result h2 {
+.imp__panel--bad .imp__panelhead {
+  color: #f15e6c;
+}
+.imp__panelhead {
   font-size: 20px;
   font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.imp__ok {
+  color: var(--accent);
+}
+.imp__file {
+  font-size: 13px;
+  font-weight: 500;
+}
+.imp__panelnote {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 12px;
+  max-width: 720px;
+}
+.imp__bar {
+  margin-top: 14px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  max-width: 520px;
+}
+.imp__bar--thin {
+  height: 4px;
+}
+.imp__barfill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.imp__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--accent);
+  animation: imp-spin 0.8s linear infinite;
+  flex: none;
+}
+@keyframes imp-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .imp__stats {
   display: flex;
-  gap: 32px;
-  margin: 16px 0 8px;
+  flex-wrap: wrap;
+  gap: 14px 40px;
+  margin: 18px 0 4px;
 }
 .imp__num {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 800;
+  line-height: 1.1;
 }
 .imp__num--green {
   color: var(--accent);
@@ -326,30 +562,44 @@ function onPick(e) {
 .imp__num--red {
   color: #f15e6c;
 }
-.imp__misshead {
-  font-size: 16px;
-  font-weight: 700;
-  margin-top: 20px;
+.imp__stat .muted {
+  font-size: 13px;
 }
-.imp__missnote {
+.imp__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+/* В main.css есть только .btn-primary — вторичная нужна рядом с ней здесь. */
+.btn-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 13px 28px;
+  font-size: 15px;
+  transition: transform 0.1s ease, border-color 0.2s ease;
+}
+.btn-secondary:hover {
+  border-color: #fff;
+  transform: scale(1.04);
+}
+.imp__linkbtn {
+  background: none;
+  border: 0;
+  color: var(--text-subdued);
+  font: inherit;
   font-size: 14px;
-  margin: 6px 0 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.imp__linkbtn:hover {
+  color: #fff;
 }
 .imp__adminlink {
   color: var(--accent);
   text-decoration: underline;
-}
-.imp__missing {
-  list-style: none;
-  font-size: 14px;
-  color: var(--text-subdued);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 320px;
-  overflow-y: auto;
-}
-.imp__missartist {
-  color: #fff;
 }
 </style>

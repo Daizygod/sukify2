@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\RealtimeController;
 use App\Http\Controllers\Api\ReleaseController;
 use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\SpotifyStatsController;
 use App\Http\Controllers\Api\TrackController;
 use App\Http\Controllers\Api\TransitionController;
 use App\Http\Controllers\Api\UserProfileController;
@@ -77,6 +78,7 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     // Library.
     Route::get('/library/playlists', [LibraryController::class, 'playlists']);
     Route::get('/library/liked-tracks', [LibraryController::class, 'likedTracks']);
+    Route::get('/library/liked-track-ids', [LibraryController::class, 'likedTrackIds']);
     Route::get('/library/liked-albums', [LibraryController::class, 'likedAlbums']);
     Route::get('/library/followed-artists', [LibraryController::class, 'followedArtists']);
     Route::get('/me/history', [LibraryController::class, 'history']);
@@ -95,7 +97,13 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::get('/mixes/daily/{n}', [\App\Http\Controllers\Api\MixController::class, 'show']);
     Route::get('/playlists/{playlist}/recommendations', [PlaylistController::class, 'recommendations']);
 
-    // Import liked tracks from Spotify exports.
+    // Импорт из Spotify: архив «Download your data» целиком.
+    Route::post('/import/spotify', [ImportController::class, 'upload']);
+    Route::get('/import/spotify', [ImportController::class, 'latest']);
+    Route::get('/import/spotify/{import}', [ImportController::class, 'show']);
+    Route::post('/import/spotify/{import}/cancel', [ImportController::class, 'cancel']);
+    Route::get('/me/spotify-stats', [SpotifyStatsController::class, 'show']);
+    // Старый путь: список лайков, разобранный на клиенте из Exportify-CSV.
     Route::post('/import/liked', [ImportController::class, 'likedTracks']);
 
     // Playback settings.

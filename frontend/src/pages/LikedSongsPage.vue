@@ -39,10 +39,25 @@ const totalMs = computed(() => tracks.value.reduce((a, t) => a + (t.duration_ms 
 
 const { info: tinfo, load: loadTinfo, keyFor } = useTransitionInfo()
 
+/**
+ * Любимых после импорта из Spotify бывает несколько тысяч. Тянем страницами
+ * по 200 и дорисовываем по мере прихода: первая страница видна сразу, а
+ * «Слушать всё» и перемешивание получают действительно весь список.
+ */
 async function loadTracks() {
   try {
-    const { data } = await api.get('/library/liked-tracks')
-    tracks.value = data.data
+    let page = 1
+    let all = []
+    for (;;) {
+      const { data } = await api.get('/library/liked-tracks', {
+        params: { page, per_page: 200 },
+      })
+      all = all.concat(data.data)
+      tracks.value = all
+      loading.value = false
+      if (!data.meta || page >= data.meta.last_page) break
+      page++
+    }
     loadTinfo(tracks.value)
   } finally {
     loading.value = false
@@ -62,8 +77,14 @@ let refetchTimer
 watch(
   () => library.likedTrackIds.size,
   () => {
-    clearTimeout(refetchTimer)
-    refetchTimer = setTimeout(loadTracks, 350)
+    // Снятый лайк убираем на месте: перечитывать три тысячи треков ради
+    // одной строки незачем. Полный перезапрос — только если лайк добавили.
+    const before = tracks.value.length
+    tracks.value = tracks.value.filter((t) => library.likedTrackIds.has(t.id))
+    if (tracks.value.length === before) {
+      clearTimeout(refetchTimer)
+      refetchTimer = setTimeout(loadTracks, 350)
+    }
   }
 )
 

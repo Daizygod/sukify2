@@ -96,7 +96,11 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Track::class, 'liked_tracks')
             ->withPivot('created_at')
-            ->orderByPivot('created_at', 'desc');
+            ->orderByPivot('created_at', 'desc')
+            // Одной даты мало: у импортированных лайков штампы совпадают
+            // пачками, а нестабильный порядок при постраничной выдаче
+            // роняет часть строк и дублирует другие.
+            ->orderByDesc('tracks.id');
     }
 
     public function likedAlbums(): BelongsToMany

@@ -142,7 +142,11 @@ function toggleLike() {
     </div>
   <div
     class="row trackgrid"
-    :class="[`trackgrid--${variant}`, { 'row--active': isCurrent, 'row--drag': swipeDrag }]"
+    :class="[
+      `trackgrid--${variant}`,
+      { 'row--active': isCurrent, 'row--drag': swipeDrag, 'row--noaudio': !track.stream_url },
+    ]"
+    :title="track.stream_url ? null : 'Аудио ещё не залито — трек не играет'"
     :style="swipeX ? { transform: `translateX(${swipeX}px)` } : null"
     @click="onRowClick"
     @contextmenu.prevent="menu.openMenu($event, track)"
@@ -166,6 +170,7 @@ function toggleLike() {
         <div class="row__title" :class="{ 'row__title--green': isCurrent }">
           {{ track.title }}
           <span v-if="track.unofficial" class="row__unofficial" title="Нет на официальных площадках">эксклюзив</span>
+          <span v-if="track.preview_only" class="row__unofficial" title="Аудио — 30-секундное превью из Deezer, полного трека пока нет">30 сек</span>
         </div>
         <div class="row__artists">
           <!-- На телефоне имя исполнителя — не ссылка: тап по любой части
@@ -305,6 +310,14 @@ function toggleLike() {
 }
 .row__title--green {
   color: var(--accent);
+}
+/* Трек без аудио (импортирован, но не нашёлся в Deezer) кликом не играется —
+   показываем это блёклостью, а не молчанием. */
+.row--noaudio {
+  opacity: 0.45;
+}
+.row--noaudio .row__play {
+  display: none;
 }
 .row__unofficial {
   display: inline-block;

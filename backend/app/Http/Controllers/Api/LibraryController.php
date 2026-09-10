@@ -72,11 +72,27 @@ class LibraryController extends Controller
     }
 
     /** The Liked Songs special page. */
+    /**
+     * Только id любимых треков — по ним весь интерфейс рисует сердечки.
+     * Раньше их брали из первой страницы /library/liked-tracks, и после
+     * импорта из Spotify «залайканными» выглядели лишь первые полсотни.
+     */
+    public function likedTrackIds(Request $request)
+    {
+        return response()->json(
+            $request->user()->likedTracks()->pluck('tracks.id')
+        );
+    }
+
     public function likedTracks(Request $request)
     {
+        // После импорта из Spotify «Любимых» бывает несколько тысяч, и страница
+        // тянет их пачками — отсюда настраиваемый размер страницы.
+        $perPage = min(500, max(1, (int) $request->query('per_page', 50)));
+
         $tracks = $request->user()->likedTracks()
             ->with(['artists', 'release'])
-            ->paginate(50);
+            ->paginate($perPage);
 
         $tracks->getCollection()->each(fn ($t) => $t->is_liked = true);
 
