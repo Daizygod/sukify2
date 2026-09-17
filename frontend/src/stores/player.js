@@ -515,7 +515,7 @@ export const usePlayerStore = defineStore('player', () => {
           queueIds: queue.value.map((t) => t.id),
           manualIds: manualQueue.value.map((t) => t.id),
           index: queueIndex.value,
-          pos: Math.round(positionMs.value),
+          pos: liveTiming().pos,
           name: contextName.value,
           key: contextKey.value,
           shuffle: shuffle.value,
@@ -825,6 +825,23 @@ export const usePlayerStore = defineStore('player', () => {
     rafId = null
   }
 
+  /**
+   * Позиция и длительность прямо из аудио-элемента. Тикер выше живёт на
+   * requestAnimationFrame, а его в фоновой вкладке браузер не вызывает —
+   * positionMs там застывает на последнем значении. Всё, что уезжает наружу
+   * (пульты Connect, джем, статус в Discord, сохранённая сессия), спрашивает
+   * время здесь: аудио играет и в фоне, и currentTime у него честный.
+   */
+  function liveTiming() {
+    const el = activeDeck()?.el
+    if (!el) return { pos: Math.round(positionMs.value), dur: Math.round(durationMs.value) }
+
+    return {
+      pos: Math.round(el.currentTime * 1000),
+      dur: Math.round((el.duration || 0) * 1000) || Math.round(durationMs.value),
+    }
+  }
+
   // --- side effects ------------------------------------------------------
 
   function logPlay(track) {
@@ -902,5 +919,6 @@ export const usePlayerStore = defineStore('player', () => {
     restoreSession,
     addToQueue, removeFromManualQueue, removeUpcoming, clearManualQueue,
     playManualItem, playUpcomingItem, setManualQueue, setUpcoming, applyQueueSnapshot, shuffleSourceIds,
+    liveTiming,
   }
 })

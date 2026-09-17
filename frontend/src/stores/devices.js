@@ -134,13 +134,17 @@ export const useDeviceStore = defineStore('devices', () => {
 
   function broadcastState() {
     if (!player.currentTrack) return
+    // Время спрашиваем у плеера живым: вкладка вещает и из фона, где её
+    // rAF-тикер спит и positionMs застревает. В Discord это выглядело как
+    // полоса, которая каждые пять секунд откатывается в начало.
+    const time = player.liveTiming()
     publish({
       t: 'state',
       d: my,
       playing: player.isPlaying,
       track: lightTrack(player.currentTrack),
-      pos: Math.round(player.positionMs),
-      dur: Math.round(player.durationMs),
+      pos: time.pos,
+      dur: time.dur,
       vol: player.volume,
       // Очередь для пультов: id контекста после курсора + ручная очередь.
       up: player.upcoming.slice(0, 60).map((t) => t.id),
@@ -360,7 +364,7 @@ export const useDeviceStore = defineStore('devices', () => {
       queueIds: player.queue.map((t) => t.id),
       manualIds: player.manualQueue.map((t) => t.id),
       index: player.queueIndex,
-      pos: Math.round(player.positionMs),
+      pos: player.liveTiming().pos,
       playing: player.isPlaying,
       contextName: player.contextName,
       contextKey: player.contextKey,

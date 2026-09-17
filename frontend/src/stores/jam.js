@@ -193,7 +193,7 @@ export const useJamStore = defineStore('jam', () => {
       // Порядок до перемешивания: без него выключить «вперемешку» смог бы
       // только тот, кто его включил.
       sourceIds: player.shuffleSourceIds().slice(0, 300),
-      pos: Math.round(player.positionMs),
+      pos: player.liveTiming().pos,
       playing: player.isPlaying,
       contextName: player.contextName,
     }
@@ -296,7 +296,7 @@ export const useJamStore = defineStore('jam', () => {
           })
         }
         // Позицию подтягиваем при рассинхроне > 3 с.
-        if (Math.abs(player.positionMs - s.pos) > 3000) player.seek(s.pos)
+        if (Math.abs(player.liveTiming().pos - s.pos) > 3000) player.seek(s.pos)
         if (s.playing !== player.isPlaying) player.togglePlay()
 
         return
