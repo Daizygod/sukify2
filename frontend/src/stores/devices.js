@@ -416,6 +416,15 @@ export const useDeviceStore = defineStore('devices', () => {
         }
       }
     )
+    // Перемотка не меняет ни трек, ни очередь, ни isPlaying — без своего
+    // watcher'а о ней узнавали только со следующим тактом вещания. Пульт это
+    // переживал, а статус в Discord показывал старую полосу до пяти секунд.
+    watch(
+      () => player.seekTick,
+      () => {
+        if (activeDeviceId.value === myId) broadcastState()
+      }
+    )
     // Изменения очереди тоже транслируем пультам (отпечаток ловит и reorder,
     // и замену трека при неизменной длине — не только length).
     watch(
