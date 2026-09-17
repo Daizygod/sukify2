@@ -10,7 +10,9 @@ import { Centrifuge } from 'centrifuge'
  * нельзя перевести воспроизведение.
  */
 
-const DEFAULT_SERVER = 'http://localhost:8088'
+// Компаньона ставят рядом с боевым Sukify, поэтому прод и подставляем;
+// для локального стенда адрес правится в поле при первом запуске.
+const DEFAULT_SERVER = 'https://sukify.nepalimsya.ru'
 const HEARTBEAT_MS = 60_000
 const STATUS_POLL_MS = 2_000
 

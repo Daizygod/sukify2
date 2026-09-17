@@ -100,10 +100,10 @@ SUKIFY_DISCORD_CLIENT_ID=<Application ID> npm run tauri dev
 
 ## Подключение к боевому серверу
 
-Локальный стек компаньону не нужен: при первом запуске он спрашивает адрес
-сервера, и туда можно вписать прод. Но сервер должен пустить его origin —
-Centrifugo проверяет `Origin` при апгрейде вебсокета, а `centrifugo.prod.json`
-лежит вне git, только на сервере:
+Локальный стек компаньону не нужен: в поле адреса при первом запуске уже
+подставлен прод, локальный стенд вписывают руками. Но сервер должен пустить его
+origin — Centrifugo проверяет `Origin` при апгрейде вебсокета, а
+`centrifugo.prod.json` лежит вне git, только на сервере:
 
 ```bash
 # на сервере, /home/deploy/sukify/centrifugo.prod.json
@@ -111,6 +111,8 @@ Centrifugo проверяет `Origin` при апгрейде вебсокет�
 #   "http://tauri.localhost", "tauri://localhost"
 docker compose -f docker-compose.prod.yml restart centrifugo
 ```
+
+На `sukify.nepalimsya.ru` это уже прописано.
 
 Со стороны Laravel то же самое уже лежит в `config/cors.php` и приедет обычным
 деплоем.
