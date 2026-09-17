@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\ArtistController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DesktopDeviceController;
+use App\Http\Controllers\Api\DiscordController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\LibraryController;
@@ -29,6 +31,17 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+
+// Колбэк Discord: обычный переход браузера, сессии SPA здесь нет —
+// пользователь опознаётся по state из кэша.
+Route::get('/discord/callback', [DiscordController::class, 'callback']);
+
+// Device code flow: настольный компаньон ещё без токена, поэтому публично.
+// Лимиты строгие — по кодам иначе можно перебирать.
+Route::post('/desktop/device-code', [DesktopDeviceController::class, 'requestCode'])
+    ->middleware('throttle:10,1');
+Route::post('/desktop/token', [DesktopDeviceController::class, 'token'])
+    ->middleware('throttle:60,1');
 
 /*
 |--------------------------------------------------------------------------
@@ -151,6 +164,19 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::delete('/transitions/{transition}/like', [TransitionController::class, 'unlike']);
     Route::post('/transitions/{transition}/prefer', [TransitionController::class, 'prefer']);
     Route::delete('/transitions/{transition}/prefer', [TransitionController::class, 'unprefer']);
+
+    // Discord: привязка аккаунта и настройки трансляции в статус.
+    Route::get('/discord/redirect', [DiscordController::class, 'redirect']);
+    Route::get('/me/discord', [DiscordController::class, 'show']);
+    Route::put('/me/discord', [DiscordController::class, 'update']);
+    Route::delete('/me/discord', [DiscordController::class, 'destroy']);
+
+    // Настольный компаньон: подтверждение кода в браузере, пульс, отвязка.
+    Route::get('/desktop/pending/{userCode}', [DesktopDeviceController::class, 'pending']);
+    Route::post('/desktop/approve', [DesktopDeviceController::class, 'approve']);
+    Route::post('/desktop/heartbeat', [DesktopDeviceController::class, 'heartbeat']);
+    Route::get('/me/desktop-devices', [DesktopDeviceController::class, 'index']);
+    Route::delete('/me/desktop-devices/{device}', [DesktopDeviceController::class, 'destroy']);
 
     // Realtime (Centrifugo) — device sync + Jam tokens.
     Route::post('/realtime/connection-token', [RealtimeController::class, 'connectionToken']);

@@ -40,4 +40,13 @@ return [
         'url' => env('ANALYZER_URL', 'http://analyzer:8300'),
     ],
 
+    // Discord: привязка аккаунта (OAuth2) и Rich Presence.
+    // client_id нужен и компаньону — он передаёт его в рукопожатии IPC,
+    // поэтому это публичное значение, в отличие от секрета.
+    'discord' => [
+        'client_id' => env('DISCORD_CLIENT_ID'),
+        'client_secret' => env('DISCORD_CLIENT_SECRET'),
+        'redirect' => env('DISCORD_REDIRECT_URI', env('APP_URL', 'http://localhost:8088').'/api/discord/callback'),
+    ],
+
 ];

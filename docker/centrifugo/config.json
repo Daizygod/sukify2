@@ -4,7 +4,13 @@
   "admin": true,
   "admin_password": "change-me-admin-password",
   "admin_secret": "change-me-admin-secret",
-  "allowed_origins": ["http://localhost:5173", "http://localhost", "http://localhost:8088"],
+  "allowed_origins": [
+    "http://localhost:5173",
+    "http://localhost",
+    "http://localhost:8088",
+    "http://tauri.localhost",
+    "tauri://localhost"
+  ],
   "namespaces": [
     {
       "name": "activity",

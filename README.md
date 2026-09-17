@@ -23,6 +23,7 @@ Windows / Docker Desktop (WSL2 backend).
 ```
 backend/    Laravel app (API + admin via Inertia)
 frontend/   Vue 3 SPA (user-facing player)
+desktop/    Tauri tray app — Discord Rich Presence companion
 docker/     Container configs (php, nginx, centrifugo, minio)
 _reference/ Original Spotify HTML dumps used for visual parity (git-ignored)
 ```
@@ -74,6 +75,19 @@ under `backend/resources/js`, rebuild:
 ```bash
 docker run --rm -v "$PWD/backend:/app" -w /app node:22-alpine npm run build
 ```
+
+## Discord Rich Presence
+
+Статус «Слушает Sukify» с обложкой и полосой прогресса ставит отдельное
+приложение в трее (`desktop/`, Tauri): Discord принимает активность только
+через локальный IPC-сокет, из браузера и с сервера это невозможно.
+
+Компаньон подписывается на тот же канал Centrifugo, что и вкладки браузера
+(device-sync), и зеркалит состояние плеера в Discord. Привязка аккаунта —
+OAuth2 в **Настройки → Discord**, привязка приложения — device code flow.
+
+Ключи в `backend/.env` (`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`,
+`DISCORD_REDIRECT_URI`), сборка и подробности — в [desktop/README.md](desktop/README.md).
 
 ## Seeded accounts
 

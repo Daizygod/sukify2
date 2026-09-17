@@ -1,0 +1,56 @@
+name: Desktop build
+run-name: Сборка Sukify Desktop 🎧
+
+# Собираем компаньона в облаке, чтобы не ставить Rust и C++ Build Tools
+# на свою машину. Запускается руками (Actions → Desktop build → Run workflow)
+# или тегом вида desktop-v0.1.0.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'desktop-v*'
+    branches:
+      - main
+    # Чужие изменения компаньона не касаются — не гоняем сборку впустую.
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
+
+jobs:
+  windows:
+    name: Windows (.exe + установщик)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Пересборка Rust с нуля занимает минут восемь — кэшируем.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - name: Install JS deps
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build
+        working-directory: desktop
+        env:
+          # Публичный Application ID приложения Discord.
+          # Repository secrets → New secret → SUKIFY_DISCORD_CLIENT_ID.
+          SUKIFY_DISCORD_CLIENT_ID: ${{ secrets.SUKIFY_DISCORD_CLIENT_ID }}
+        run: npm run tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sukify-desktop-windows
+          if-no-files-found: error
+          path: |
+            desktop/src-tauri/target/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/release/sukify-desktop.exe

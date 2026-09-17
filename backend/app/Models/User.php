@@ -92,6 +92,18 @@ class User extends Authenticatable
         return $this->hasOne(UserPlaybackSetting::class);
     }
 
+    /** Привязанный аккаунт Discord (одна строка на пользователя или ничего). */
+    public function discordConnection(): HasOne
+    {
+        return $this->hasOne(DiscordConnection::class);
+    }
+
+    /** Настольные компаньоны, которым выдан токен. */
+    public function desktopDevices(): HasMany
+    {
+        return $this->hasMany(DesktopDevice::class);
+    }
+
     public function likedTracks(): BelongsToMany
     {
         return $this->belongsToMany(Track::class, 'liked_tracks')

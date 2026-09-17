@@ -125,6 +125,10 @@ export const useDeviceStore = defineStore('devices', () => {
       cover,
       coverBig,
       duration_ms: t.duration_ms,
+      // Альбом и его slug: пультам не нужны, но настольный компаньон
+      // подписывает ими обложку в Discord и строит ссылку на релиз.
+      album: t.release?.title || null,
+      releaseSlug: t.release?.slug || null,
     }
   }
 

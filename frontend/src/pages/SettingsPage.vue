@@ -24,6 +24,16 @@ onMounted(async () => {
   } finally {
     loaded.value = true
   }
+
+  // Возврат с OAuth-колбэка: показываем итог и чистим адрес, иначе тост
+  // повторится при каждом обновлении страницы.
+  const result = new URLSearchParams(location.search).get('discord')
+  if (result) {
+    toasts.show(OAUTH_RESULTS[result] || 'Не удалось привязать Discord')
+    history.replaceState({}, '', location.pathname)
+  }
+
+  loadDiscord()
 })
 
 // --- Профиль: имя, @handle, аватарка ---------------------------------------
@@ -82,6 +92,84 @@ async function removeAvatar() {
   const { data } = await api.delete('/me/avatar')
   auth.user = data.data
   toasts.show('Аватарка удалена')
+}
+
+// --- Discord: привязка аккаунта и трансляция в статус ----------------------
+const discord = ref(null)
+const discordConfigured = ref(true)
+const discordBusy = ref(false)
+const devices = ref([])
+
+const OAUTH_RESULTS = {
+  connected: 'Discord привязан',
+  taken: 'Этот аккаунт Discord уже привязан к другому профилю',
+  error: 'Не удалось привязать Discord — попробуй ещё раз',
+}
+
+async function loadDiscord() {
+  try {
+    const { data } = await api.get('/me/discord')
+    discord.value = data.data
+    discordConfigured.value = data.configured
+    const { data: list } = await api.get('/me/desktop-devices')
+    devices.value = list.data
+  } catch {
+    /* настройки Discord не критичны — остальная страница работает */
+  }
+}
+
+async function connectDiscord() {
+  discordBusy.value = true
+  try {
+    const { data } = await api.get('/discord/redirect')
+    // Уходим на экран согласия Discord целиком: XHR его не покажет.
+    window.location.href = data.url
+  } catch {
+    toasts.show('Discord не настроен на сервере')
+    discordBusy.value = false
+  }
+}
+
+async function disconnectDiscord() {
+  discordBusy.value = true
+  try {
+    await api.delete('/me/discord')
+    discord.value = null
+    toasts.show('Discord отвязан')
+  } finally {
+    discordBusy.value = false
+  }
+}
+
+let discordTimer
+function saveDiscord() {
+  clearTimeout(discordTimer)
+  discordTimer = setTimeout(async () => {
+    const { data } = await api.put('/me/discord', {
+      presence_enabled: discord.value.presence_enabled,
+      show_when_paused: discord.value.show_when_paused,
+      show_button: discord.value.show_button,
+      show_cover: discord.value.show_cover,
+    })
+    discord.value = data.data
+    toasts.show('Настройки Discord сохранены')
+  }, 400)
+}
+
+async function unlinkDevice(id) {
+  await api.delete(`/me/desktop-devices/${id}`)
+  devices.value = devices.value.filter((d) => d.id !== id)
+  toasts.show('Приложение отвязано')
+}
+
+function deviceSeen(device) {
+  if (!device.last_seen_at) return 'ни разу не выходило на связь'
+  const mins = Math.round((Date.now() - new Date(device.last_seen_at)) / 60000)
+  if (mins < 2) return 'на связи'
+  if (mins < 60) return `${mins} мин назад`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours} ч назад`
+  return `${Math.round(hours / 24)} дн назад`
 }
 
 let saveTimer
@@ -189,6 +277,132 @@ function save() {
     </section>
 
     <section class="settings__group">
+      <h2>Discord</h2>
+
+      <div class="setting">
+        <div class="setting__text">
+          <div class="setting__name">Аккаунт</div>
+          <div class="setting__desc" v-if="discord">
+            Подключён как {{ discord.display_name }} (@{{ discord.username }})
+          </div>
+          <div class="setting__desc" v-else-if="!discordConfigured">
+            На сервере не заданы ключи приложения Discord
+          </div>
+          <div class="setting__desc" v-else>
+            Нужен, чтобы видеть, к какому аккаунту привязана трансляция
+          </div>
+        </div>
+        <div class="settings__avarow">
+          <div v-if="discord" class="settings__ava settings__ava--sm">
+            <img :src="discord.avatar_url" alt="" />
+          </div>
+          <button
+            v-if="discord"
+            class="settings__btn"
+            :disabled="discordBusy"
+            @click="disconnectDiscord"
+          >
+            Отвязать
+          </button>
+          <button
+            v-else
+            class="settings__btn settings__btn--primary"
+            :disabled="discordBusy || !discordConfigured"
+            @click="connectDiscord"
+          >
+            Привязать
+          </button>
+        </div>
+      </div>
+
+      <template v-if="discord">
+        <div class="setting">
+          <div class="setting__text">
+            <div class="setting__name">Показывать, что я слушаю</div>
+            <div class="setting__desc">
+              «Слушает Sukify» с названием трека, обложкой и полосой прогресса
+            </div>
+          </div>
+          <label class="toggle">
+            <input v-model="discord.presence_enabled" type="checkbox" @change="saveDiscord" />
+            <span class="toggle__track"></span>
+          </label>
+        </div>
+
+        <div class="setting">
+          <div class="setting__text">
+            <div class="setting__name">Не скрывать на паузе</div>
+            <div class="setting__desc">Статус остаётся висеть, пока трек на паузе</div>
+          </div>
+          <label class="toggle">
+            <input
+              v-model="discord.show_when_paused"
+              type="checkbox"
+              :disabled="!discord.presence_enabled"
+              @change="saveDiscord"
+            />
+            <span class="toggle__track"></span>
+          </label>
+        </div>
+
+        <div class="setting">
+          <div class="setting__text">
+            <div class="setting__name">Обложка трека</div>
+            <div class="setting__desc">
+              Discord скачивает картинку сам, поэтому работает только с публичным адресом обложек
+            </div>
+          </div>
+          <label class="toggle">
+            <input
+              v-model="discord.show_cover"
+              type="checkbox"
+              :disabled="!discord.presence_enabled"
+              @change="saveDiscord"
+            />
+            <span class="toggle__track"></span>
+          </label>
+        </div>
+
+        <div class="setting">
+          <div class="setting__text">
+            <div class="setting__name">Кнопка «Слушать в Sukify»</div>
+            <div class="setting__desc">Ссылка на трек под статусом</div>
+          </div>
+          <label class="toggle">
+            <input
+              v-model="discord.show_button"
+              type="checkbox"
+              :disabled="!discord.presence_enabled"
+              @change="saveDiscord"
+            />
+            <span class="toggle__track"></span>
+          </label>
+        </div>
+      </template>
+
+      <div class="setting">
+        <div class="setting__text">
+          <div class="setting__name">Приложение для компьютера</div>
+          <div class="setting__desc">
+            Статус в Discord ставит только программа на твоём компьютере — из браузера это
+            невозможно. Поставь Sukify Desktop и подключи его здесь.
+          </div>
+        </div>
+        <RouterLink class="settings__btn" :to="{ name: 'link-device' }">Подключить</RouterLink>
+      </div>
+
+      <div v-for="device in devices" :key="device.id" class="setting">
+        <div class="setting__text">
+          <div class="setting__name">{{ device.name }}</div>
+          <div class="setting__desc">
+            {{ device.platform || 'компьютер' }} · {{ deviceSeen(device) }}
+          </div>
+        </div>
+        <button class="settings__btn" @click="unlinkDevice(device.id)">Отвязать</button>
+      </div>
+    </section>
+
+    <section class="settings__group">
       <h2>Интерфейс</h2>
       <div class="setting">
         <div class="setting__text">
@@ -277,6 +491,11 @@ function save() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.settings__ava--sm {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
 }
 .settings__btn {
   border: 1px solid var(--text-muted);
