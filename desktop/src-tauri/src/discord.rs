@@ -116,8 +116,10 @@ impl DiscordIpc {
     }
 
     /// Поставить статус. `None` — убрать активность совсем.
-    pub fn set_activity(&mut self, now: Option<&NowPlaying>) -> Result<(), String> {
-        let activity = now.map(build_activity);
+    /// `start` — начало трека в unix-секундах, посчитанное там, где состояние
+    /// пришло из вкладки: пересчитывать его здесь нельзя (см. `start_seconds`).
+    pub fn set_activity(&mut self, now: Option<&NowPlaying>, start: i64) -> Result<(), String> {
+        let activity = now.map(|now| build_activity(now, start));
 
         self.nonce += 1;
         let payload = json!({
@@ -171,7 +173,7 @@ impl DiscordIpc {
 }
 
 /// Собрать activity в том виде, в каком его ждёт Discord.
-fn build_activity(now: &NowPlaying) -> Value {
+fn build_activity(now: &NowPlaying, start: i64) -> Value {
     let mut activity = json!({
         "type": ACTIVITY_LISTENING,
         "status_display_type": STATUS_DISPLAY_STATE,
@@ -186,7 +188,6 @@ fn build_activity(now: &NowPlaying) -> Value {
     // шлём вовсе: Discord умеет только «бегущую» полосу и застывшую покажет
     // как уезжающую в прошлое.
     if now.playing && now.duration_ms > 0 {
-        let start = start_seconds(now);
         map.insert(
             "timestamps".into(),
             json!({ "start": start, "end": start + now.duration_ms / 1000 }),
@@ -228,7 +229,10 @@ fn build_activity(now: &NowPlaying) -> Value {
 }
 
 /// Расчётное начало трека в unix-секундах: от него Discord рисует полосу.
-/// Вынесено наружу, чтобы фоновый поток мог отличить перемотку от тиканья часов.
+///
+/// Считать его нужно ровно там, где состояние пришло из вкладки — позиция в нём
+/// измерена тогда же. Если пересчитать при отправке, start уедет вперёд на
+/// возраст состояния (до MIN_INTERVAL), и полоса дёрнется назад.
 pub fn start_seconds(now: &NowPlaying) -> i64 {
     unix_seconds() - (now.position_ms.max(0) / 1000)
 }

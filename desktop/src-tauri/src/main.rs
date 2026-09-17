@@ -31,6 +31,8 @@ struct Shared {
     desired: Option<NowPlaying>,
     /// Когда webview присылал состояние в последний раз.
     desired_at: Option<Instant>,
+    /// Начало трека в unix-секундах, посчитанное в момент этого сообщения.
+    desired_start: i64,
     /// Что реально ушло в Discord, и с каким start.
     sent: Option<NowPlaying>,
     sent_start: i64,
@@ -58,6 +60,9 @@ type SharedState = Arc<Mutex<Shared>>;
 #[tauri::command]
 fn set_now_playing(state: tauri::State<'_, SharedState>, now: Option<NowPlaying>) {
     let mut shared = state.lock().unwrap();
+    // Начало трека считаем здесь: позицию вкладка измерила только что, а до
+    // сокета Discord состояние ждёт ещё до MIN_INTERVAL.
+    shared.desired_start = now.as_ref().map_or(0, start_seconds);
     shared.desired = now;
     shared.desired_at = Some(Instant::now());
 }
@@ -177,34 +182,34 @@ fn spawn_worker(shared: SharedState, client_id: String) {
                     .desired_at
                     .map_or(true, |at| at.elapsed() > STALE_AFTER);
 
-                let target = if state.muted || stale {
-                    None
+                let (target, target_start) = if state.muted || stale {
+                    (None, 0)
                 } else {
-                    state.desired.clone()
+                    (state.desired.clone(), state.desired_start)
                 };
 
                 let ready = state
                     .last_sent_at
                     .map_or(true, |sent_at| sent_at.elapsed() >= MIN_INTERVAL);
 
-                if ready && needs_update(&state.sent, &target, state.sent_start) {
-                    Some(target)
+                if ready && needs_update(&state.sent, &target, state.sent_start, target_start) {
+                    Some((target, target_start))
                 } else {
                     None
                 }
             };
 
-            let Some(target) = target else { continue };
+            let Some((target, target_start)) = target else { continue };
 
             let outcome = ipc
                 .as_mut()
                 .expect("client is connected")
-                .set_activity(target.as_ref());
+                .set_activity(target.as_ref(), target_start);
 
             let mut state = shared.lock().unwrap();
             match outcome {
                 Ok(()) => {
-                    state.sent_start = target.as_ref().map_or(0, start_seconds);
+                    state.sent_start = target_start;
                     state.sent = target;
                     state.last_sent_at = Some(Instant::now());
                 }
@@ -227,7 +232,12 @@ fn spawn_worker(shared: SharedState, client_id: String) {
 
 /// Стоит ли вообще дёргать Discord. Позиция трека сама по себе не повод:
 /// полосу он отсчитывает от start, и пересылка того же start ничего не меняет.
-fn needs_update(sent: &Option<NowPlaying>, target: &Option<NowPlaying>, sent_start: i64) -> bool {
+fn needs_update(
+    sent: &Option<NowPlaying>,
+    target: &Option<NowPlaying>,
+    sent_start: i64,
+    target_start: i64,
+) -> bool {
     match (sent, target) {
         (None, None) => false,
         (None, Some(_)) | (Some(_), None) => true,
@@ -240,8 +250,9 @@ fn needs_update(sent: &Option<NowPlaying>, target: &Option<NowPlaying>, sent_sta
                 || old.playing != new.playing
                 || old.show_button != new.show_button
                 || old.show_cover != new.show_cover
-                // Перемотка: расчётное начало трека уехало больше чем на 2 с.
-                || (new.playing && (start_seconds(new) - sent_start).abs() > 2)
+                // Перемотка: начало трека уехало больше чем на 2 с. При ровном
+                // воспроизведении оно не меняется вовсе — статус не трогаем.
+                || (new.playing && (target_start - sent_start).abs() > 2)
         }
     }
 }
