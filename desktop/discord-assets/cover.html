@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Sukify — обложка приложения Discord</title>
+<!--
+  Обложка приложения в портале Discord (Rich Presence → Cover image), 1024x576.
+  Рисуется теми же шрифтами и цветами, что и сам Sukify, поэтому лежит исходником,
+  а не только картинкой. Перерисовать:
+
+  chrome --headless --disable-gpu --no-sandbox --allow-file-access-from-files     --window-size=1024,576 --force-device-scale-factor=1     --screenshot=cover.png cover.html
+-->
+<style>
+@font-face { font-family:'Mix'; src:url('../../frontend/public/fonts/SpotifyMixUI-Bold.woff2') format('woff2'); font-weight:700; font-display:block }
+@font-face { font-family:'Circ'; src:url('../../frontend/public/fonts/CircularSp-Cyrl-700-normal.woff2') format('woff2'); font-weight:700; font-display:block }
+* { margin:0; padding:0; box-sizing:border-box }
+html,body { width:1024px; height:576px; overflow:hidden; background:#000 }
+body { font-family:'Mix','Circ',sans-serif; color:#fff; -webkit-font-smoothing:antialiased }
+.wrap { position:relative; width:1024px; height:576px; overflow:hidden; padding-bottom:96px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:
+    radial-gradient(700px 460px at 50% 42%, rgba(30,215,96,.17), transparent 63%),
+    linear-gradient(170deg,#151515 0%,#0a0a0a 58%,#000 100%); }
+.disc { width:140px; height:140px; border-radius:50%; background:#1ed760; margin-bottom:34px;
+  display:flex; align-items:center; justify-content:center; box-shadow:0 0 70px rgba(30,215,96,.35) }
+.disc span { font-size:100px; font-weight:700; color:#000; line-height:1; margin-top:-5px }
+.name { font-size:122px; font-weight:700; letter-spacing:-.045em; line-height:.95 }
+/* Столбики — не случайный шум: две синусоиды разной частоты дают «дыхание». */
+.bars { position:absolute; left:0; right:0; bottom:0; height:150px; padding:0 40px;
+  display:flex; align-items:flex-end; justify-content:center; gap:6px;
+  -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 16%, #000 84%, transparent 100%) }
+.bars i { display:block; width:7px; border-radius:4px 4px 0 0;
+  background:linear-gradient(180deg,#1ed760 0%, rgba(30,215,96,.20) 100%) }
+</style></head>
+<body><div class="wrap">
+  <div class="disc"><span>S</span></div>
+  <div class="name">Sukify</div>
+  <div class="bars"><i style="height:69px"></i><i style="height:95px"></i><i style="height:118px"></i><i style="height:132px"></i><i style="height:135px"></i><i style="height:126px"></i><i style="height:108px"></i><i style="height:84px"></i><i style="height:57px"></i><i style="height:34px"></i><i style="height:17px"></i><i style="height:10px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:29px"></i><i style="height:42px"></i><i style="height:52px"></i><i style="height:58px"></i><i style="height:59px"></i><i style="height:56px"></i><i style="height:49px"></i><i style="height:41px"></i><i style="height:33px"></i><i style="height:26px"></i><i style="height:21px"></i><i style="height:18px"></i><i style="height:17px"></i><i style="height:16px"></i><i style="height:17px"></i><i style="height:19px"></i><i style="height:22px"></i><i style="height:27px"></i><i style="height:34px"></i><i style="height:42px"></i><i style="height:49px"></i><i style="height:55px"></i><i style="height:57px"></i><i style="height:55px"></i><i style="height:47px"></i><i style="height:37px"></i><i style="height:25px"></i><i style="height:14px"></i><i style="height:10px"></i><i style="height:11px"></i><i style="height:22px"></i><i style="height:42px"></i><i style="height:66px"></i><i style="height:92px"></i><i style="height:115px"></i><i style="height:130px"></i><i style="height:135px"></i><i style="height:128px"></i><i style="height:111px"></i><i style="height:86px"></i><i style="height:60px"></i><i style="height:35px"></i><i style="height:17px"></i><i style="height:10px"></i><i style="height:10px"></i><i style="height:18px"></i><i style="height:32px"></i><i style="height:48px"></i><i style="height:62px"></i><i style="height:71px"></i><i style="height:74px"></i><i style="height:70px"></i><i style="height:62px"></i><i style="height:51px"></i><i style="height:40px"></i><i style="height:30px"></i><i style="height:23px"></i><i style="height:18px"></i></div>
+</div></body></html>

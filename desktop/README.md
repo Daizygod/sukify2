@@ -47,6 +47,11 @@ Tauri, https://tauri.app/start/prerequisites.
    [`discord-assets/paused.png`](discord-assets/paused.png) под именем
    `paused`. Она показывается маленьким кружком, когда трек на паузе.
    Без неё ничего не сломается — Discord просто не нарисует значок.
+5. Там же в портале есть слот для обложки приложения на 1024×576 — положи
+   [`discord-assets/cover.png`](discord-assets/cover.png). Её видно в карточке
+   «Подробнее» у активности. Рядом лежит исходник `cover.html`: те же шрифты и
+   цвета, что и на сайте, перерисовывается headless-Chrome (команда — в
+   комментарии внутри файла).
 
 В `backend/.env`:
 
