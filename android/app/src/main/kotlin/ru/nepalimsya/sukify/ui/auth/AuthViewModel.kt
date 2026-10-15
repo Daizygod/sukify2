@@ -78,6 +78,11 @@ class AuthViewModel @Inject constructor(
                 AuthMode.Register -> auth.register(server, name, email, password, confirmation)
             }
             // Успех переключит экран сам: SessionStore сообщит о новой сессии.
+            // Пароль из формы — забыть: после выхода войти снова должен тот, кто его знает.
+            result.onSuccess {
+                password = ""
+                confirmation = ""
+            }
             result.onFailure {
                 val apiError = it.apiError
                 error = apiError.message
