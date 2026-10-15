@@ -59,6 +59,23 @@ class CentrifugoService
         return $response->successful();
     }
 
+    /** Одно сообщение во много каналов за один запрос (Centrifugo broadcast). */
+    public function broadcast(array $channels, array $data): bool
+    {
+        if (! $channels) {
+            return true;
+        }
+
+        $response = Http::withHeaders([
+            'X-API-Key' => (string) config('centrifugo.api_key'),
+        ])->post(rtrim((string) config('centrifugo.api_endpoint'), '/').'/broadcast', [
+            'channels' => array_values($channels),
+            'data' => $data,
+        ]);
+
+        return $response->successful();
+    }
+
     // --- JWT (HS256) -------------------------------------------------------
 
     private function jwt(array $claims): string

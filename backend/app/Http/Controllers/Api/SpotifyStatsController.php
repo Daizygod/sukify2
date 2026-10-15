@@ -29,7 +29,10 @@ class SpotifyStatsController extends Controller
         $year = $request->query('year');
         $year = is_numeric($year) ? (int) $year : null;
 
-        $cacheKey = "spotify-stats:{$userId}:{$timezone}:".($year ?? 'all');
+        // Версия меняется после каждого импорта — иначе пять минут после него
+        // страница уверяла бы, что история ещё не перенесена.
+        $version = Cache::get(self::versionKey($userId), 0);
+        $cacheKey = "spotify-stats:{$userId}:v{$version}:{$timezone}:".($year ?? 'all');
 
         return response()->json(Cache::remember($cacheKey, now()->addMinutes(5), function () use ($userId, $timezone, $year) {
             $years = $this->years($userId, $timezone);
@@ -201,6 +204,17 @@ class SpotifyStatsController extends Controller
             ->get()
             ->map(fn ($r) => ['platform' => $r->platform, 'plays' => (int) $r->plays, 'ms' => (int) $r->ms])
             ->all();
+    }
+
+    public static function versionKey(int $userId): string
+    {
+        return "spotify-stats-version:{$userId}";
+    }
+
+    /** Импорт добавил историю — посчитанное раньше больше не годится. */
+    public static function forget(int $userId): void
+    {
+        Cache::forever(self::versionKey($userId), now()->getTimestampMs());
     }
 
     private function timezone(string $raw): string

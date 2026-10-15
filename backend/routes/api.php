@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AppVersionController;
 use App\Http\Controllers\Api\ArtistController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DesktopDeviceController;
@@ -7,6 +8,8 @@ use App\Http\Controllers\Api\DiscordController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\LibraryController;
+use App\Http\Controllers\Api\MobileAuthController;
+use App\Http\Controllers\Api\OfflineController;
 use App\Http\Controllers\Api\PlaybackSettingController;
 use App\Http\Controllers\Api\JamController;
 use App\Http\Controllers\Api\PlaylistController;
@@ -31,6 +34,12 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+
+// Приложение для Android: тот же вход, но в ответ — токен Sanctum.
+Route::post('/mobile/login', [MobileAuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/mobile/register', [MobileAuthController::class, 'register'])->middleware('throttle:10,1');
+// Без not.banned: выйти должен суметь и заблокированный.
+Route::post('/mobile/logout', [MobileAuthController::class, 'logout'])->middleware('auth:sanctum');
 
 // Колбэк Discord: обычный переход браузера, сессии SPA здесь нет —
 // пользователь опознаётся по state из кэша.
@@ -127,6 +136,12 @@ Route::middleware(['auth:sanctum', 'not.banned'])->group(function () {
     Route::post('/tracks/{track}/like', [TrackController::class, 'like']);
     Route::delete('/tracks/{track}/like', [TrackController::class, 'unlike']);
     Route::post('/tracks/{track}/play', [TrackController::class, 'logPlay']);
+    // Пачка прослушиваний — то, что приложение играло без сети.
+    Route::post('/me/plays', [TrackController::class, 'logPlays']);
+
+    // Приложение для Android: манифест медиатеки и загрузок, свежая версия.
+    Route::get('/offline/manifest', [OfflineController::class, 'manifest']);
+    Route::get('/app/android', [AppVersionController::class, 'android']);
 
     Route::post('/releases/{release}/like', [ReleaseController::class, 'like']);
     Route::delete('/releases/{release}/like', [ReleaseController::class, 'unlike']);

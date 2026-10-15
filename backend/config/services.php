@@ -40,6 +40,12 @@ return [
         'url' => env('ANALYZER_URL', 'http://analyzer:8300'),
     ],
 
+    // Приложение для Android: отпечатки ключа подписи для assetlinks.json сверх
+    // того, что CI пишет в latest.json (через запятую, AA:BB:…).
+    'android' => [
+        'cert_sha256' => env('ANDROID_CERT_SHA256'),
+    ],
+
     // Discord: привязка аккаунта (OAuth2) и Rich Presence.
     // client_id нужен и компаньону — он передаёт его в рукопожатии IPC,
     // поэтому это публичное значение, в отличие от секрета.

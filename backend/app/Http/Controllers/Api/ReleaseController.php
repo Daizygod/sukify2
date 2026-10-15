@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResolvesLikes;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ReleaseResource;
 use App\Models\Release;
+use App\Services\Realtime\LibraryEvents;
 use Illuminate\Http\Request;
 
 class ReleaseController extends Controller
@@ -55,14 +56,20 @@ class ReleaseController extends Controller
 
     public function like(Request $request, Release $release)
     {
-        $request->user()->likedAlbums()->syncWithoutDetaching([$release->id]);
+        $changed = $request->user()->likedAlbums()->syncWithoutDetaching([$release->id]);
+
+        if (! empty($changed['attached'])) {
+            app(LibraryEvents::class)->changed([$request->user()->id], 'albums');
+        }
 
         return response()->json(['is_liked' => true]);
     }
 
     public function unlike(Request $request, Release $release)
     {
-        $request->user()->likedAlbums()->detach($release->id);
+        if ($request->user()->likedAlbums()->detach($release->id) > 0) {
+            app(LibraryEvents::class)->changed([$request->user()->id], 'albums');
+        }
 
         return response()->json(['is_liked' => false]);
     }

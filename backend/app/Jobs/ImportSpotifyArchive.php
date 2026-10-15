@@ -2,9 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Http\Controllers\Api\SpotifyStatsController;
 use App\Models\Artist;
 use App\Models\Release;
 use App\Models\SpotifyImport;
+use App\Services\Realtime\LibraryEvents;
 use App\Services\Spotify\CatalogImporter;
 use App\Services\Spotify\HistoryImporter;
 use App\Services\Spotify\SpotifyArchive;
@@ -123,6 +125,7 @@ class ImportSpotifyArchive implements ShouldBeUnique, ShouldQueue
             if (($summary['history']['plays'] ?? 0) > 0) {
                 $import->markStage('Связываю историю с каталогом', 90);
                 $summary['history']['linked'] = $history->linkToCatalog();
+                SpotifyStatsController::forget($import->user_id);
             }
 
             $archive->close();
@@ -142,6 +145,10 @@ class ImportSpotifyArchive implements ShouldBeUnique, ShouldQueue
             if ($pending > 0) {
                 EnrichSpotifyTracks::dispatch($import->id);
             }
+
+            // Лайки и плейлисты из архива уже в медиатеке — пусть устройства
+            // их подхватят, не дожидаясь превью.
+            app(LibraryEvents::class)->changed([$import->user_id], 'import');
         } catch (Throwable $e) {
             $import->update([
                 'status' => 'failed',

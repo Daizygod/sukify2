@@ -160,20 +160,32 @@ class TransitionController extends Controller
                 ->keyBy(fn ($p) => "{$p->from_track_id}:{$p->to_track_id}");
         }
 
+        // full=1 — переход целиком (точки, формы, кривая): приложение кэширует
+        // переходы скачанных подборок, чтобы они звучали и без сети.
+        $full = $request->boolean('full');
+
         $out = [];
         foreach ($pairs as [$from, $to]) {
             $key = "{$from}:{$to}";
             $group = $transitions->get($key);
             $mine = $preferred->get($key)?->transition_id;
             $best = ($mine ? $group?->firstWhere('id', $mine) : null) ?? $group?->first();
-            $out[$key] = $best ? [
+            if (! $best) {
+                $out[$key] = null;
+
+                continue;
+            }
+            $summary = [
                 'id' => $best->id,
                 'preset' => $best->preset,
                 'bars' => $best->bars,
                 'likes_count' => $best->likes_count,
                 'is_preferred' => $best->id === $mine,
                 'count' => $group->count(),
-            ] : null;
+            ];
+            $out[$key] = $full
+                ? [...(new TransitionResource($best))->resolve($request), ...$summary]
+                : $summary;
         }
 
         return response()->json(['data' => $out]);

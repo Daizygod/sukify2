@@ -6,9 +6,13 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ReleaseController;
 use App\Http\Controllers\Admin\TrackController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Api\AppVersionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect('/admin'));
+
+// Ссылки на сайт открываются в приложении для Android (App Links).
+Route::get('.well-known/assetlinks.json', [AppVersionController::class, 'assetLinks']);
 
 Route::prefix('admin')->name('admin.')->group(function () {
     // Guest (admin login)
@@ -30,6 +34,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Tracks live under a release.
         Route::post('releases/{release}/tracks', [TrackController::class, 'store'])->name('tracks.store');
         Route::put('tracks/{track}', [TrackController::class, 'update'])->name('tracks.update');
+        // Новый файл для существующего трека: id и место в плейлистах те же,
+        // меняется ревизия — веб и приложение перекачают его сами.
+        Route::post('tracks/{track}/audio', [TrackController::class, 'replaceAudio'])->name('tracks.audio');
         Route::delete('tracks/{track}', [TrackController::class, 'destroy'])->name('tracks.destroy');
         Route::put('releases/{release}/tracks/order', [TrackController::class, 'reorder'])->name('tracks.reorder');
         Route::get('tracks/{track}/status', [TrackController::class, 'status'])->name('tracks.status');

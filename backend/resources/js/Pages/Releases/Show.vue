@@ -60,6 +60,37 @@ function destroy(t) {
   if (confirm(`Delete "${t.title}"?`)) router.delete(`/admin/tracks/${t.id}`, { preserveScroll: true })
 }
 
+// «Заменить аудио»: новый файл для того же трека. Скрытый <input type=file>
+// один на страницу — открываем его для конкретной строки.
+const replaceInput = ref(null)
+const replacingId = ref(null) // трек, для которого выбирают файл
+const uploadingId = ref(null) // трек, чей файл сейчас уходит на сервер
+
+function pickReplacement(t) {
+  replacingId.value = t.id
+  replaceInput.value.value = ''
+  replaceInput.value.click()
+}
+
+function onReplacementPicked(e) {
+  const file = e.target.files?.[0]
+  const id = replacingId.value
+  if (!file || !id) return
+  uploadingId.value = id
+  router.post(`/admin/tracks/${id}/audio`, { audio: file }, {
+    forceFormData: true,
+    preserveScroll: true,
+    onSuccess: () => {
+      // Опрос статуса подхватит трек только из pending/processing.
+      live[id] = 'pending'
+    },
+    onFinish: () => {
+      uploadingId.value = null
+      replacingId.value = null
+    },
+  })
+}
+
 // Inline rename.
 const editingTitle = ref(null)
 const titleDraft = ref('')
@@ -243,6 +274,14 @@ const badge = {
           </td>
           <td class="px-4 py-3 text-right whitespace-nowrap">
             <Link :href="`/admin/tracks/${t.id}/lyrics`" class="text-neutral-300 hover:text-white hover:underline mr-3">Текст</Link>
+            <button
+              class="text-neutral-300 hover:text-white hover:underline mr-3 disabled:opacity-50"
+              :disabled="uploadingId !== null"
+              title="Залить новый файл для этого трека — лайки и плейлисты сохранятся"
+              @click="pickReplacement(t)"
+            >
+              {{ uploadingId === t.id ? 'Загружаем…' : 'Заменить аудио' }}
+            </button>
             <button class="text-red-400 hover:underline" @click="destroy(t)">Delete</button>
           </td>
         </tr>
@@ -250,4 +289,11 @@ const badge = {
       </tbody>
     </table>
   </div>
+  <input
+    ref="replaceInput"
+    type="file"
+    accept=".mp3,.flac,.ape,.wav,.m4a,audio/*"
+    class="hidden"
+    @change="onReplacementPicked"
+  />
 </template>

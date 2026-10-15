@@ -17,6 +17,8 @@ class TrackResource extends JsonResource
             'loudness_lufs' => $this->loudness_lufs,
             'processing_status' => $this->processing_status->value,
             'stream_url' => $this->streamUrl(),
+            // Ревизия файла: приложение держит по ней кэш и скачанные треки.
+            'audio_rev' => $this->audio_rev,
             'cover' => $this->coverUrls(),
             'plays_count' => $this->plays_count,
             'likes_count' => $this->likes_count,

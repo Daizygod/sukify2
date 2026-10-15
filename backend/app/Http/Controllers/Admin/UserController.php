@@ -60,6 +60,13 @@ class UserController extends Controller
             'banned_at' => $user->is_banned ? null : now(),
         ])->save();
 
+        // Телефоны и компаньоны ходят с токенами — их тоже гасим, иначе они
+        // так и висели бы привязанными (сессию браузера рвёт not.banned).
+        if ($user->is_banned) {
+            $user->tokens()->delete();
+            $user->desktopDevices()->delete();
+        }
+
         return back()->with('success', $user->is_banned ? 'User banned.' : 'User unbanned.');
     }
 }

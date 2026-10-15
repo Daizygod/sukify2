@@ -8,6 +8,7 @@ use App\Http\Resources\PlaylistResource;
 use App\Jobs\GeneratePlaylistCollage;
 use App\Models\Playlist;
 use App\Models\Track;
+use App\Services\Realtime\LibraryEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -37,6 +38,7 @@ class PlaylistController extends Controller
         if (! $playlist->invite_token) {
             $playlist->invite_token = bin2hex(random_bytes(20));
             $playlist->save();
+            $this->changed($playlist);
         }
 
         return response()->json(['invite_token' => $playlist->invite_token]);
@@ -49,6 +51,7 @@ class PlaylistController extends Controller
 
         if ($request->user()->id !== $playlist->user_id) {
             $playlist->collaborators()->syncWithoutDetaching([$request->user()->id]);
+            $this->changed($playlist);
         }
 
         return new PlaylistResource($playlist->load('owner'));
@@ -95,6 +98,7 @@ class PlaylistController extends Controller
             'description' => $data['description'] ?? null,
             'is_public' => $data['is_public'] ?? true,
         ]);
+        $this->changed($playlist);
 
         return (new PlaylistResource($playlist->load('owner')))
             ->response()
@@ -112,6 +116,7 @@ class PlaylistController extends Controller
         ]);
 
         $playlist->update($data);
+        $this->changed($playlist);
 
         return new PlaylistResource($playlist->load('owner'));
     }
@@ -126,6 +131,7 @@ class PlaylistController extends Controller
 
         $data = $request->validate(['enabled' => ['required', 'boolean']]);
         $playlist->update(['mix_enabled' => $data['enabled']]);
+        $this->changed($playlist);
 
         return new PlaylistResource($playlist->load('owner'));
     }
@@ -148,6 +154,7 @@ class PlaylistController extends Controller
         Storage::disk('s3')->put($key, (string) $image->encode(new WebpEncoder(quality: 85)));
 
         $playlist->update(['cover_path' => $key, 'cover_is_custom' => true]);
+        $this->changed($playlist);
 
         return new PlaylistResource($playlist->fresh()->load('owner'));
     }
@@ -159,6 +166,7 @@ class PlaylistController extends Controller
 
         $playlist->update(['cover_path' => null, 'cover_is_custom' => false]);
         GeneratePlaylistCollage::dispatch($playlist->id);
+        $this->changed($playlist);
 
         return new PlaylistResource($playlist->fresh()->load('owner'));
     }
@@ -166,7 +174,10 @@ class PlaylistController extends Controller
     public function destroy(Request $request, Playlist $playlist)
     {
         $this->authorize('delete', $playlist);
+        // Соавторов запоминаем до удаления: каскад унесёт и их.
+        $users = $playlist->collaborators()->pluck('users.id')->push($playlist->user_id);
         $playlist->delete();
+        app(LibraryEvents::class)->changed($users, 'playlists');
 
         return response()->json(['message' => 'Playlist deleted.']);
     }
@@ -193,6 +204,8 @@ class PlaylistController extends Controller
             GeneratePlaylistCollage::dispatch($playlist->id);
         }
 
+        $this->changed($playlist);
+
         return response()->json(['message' => 'Track added.', 'position' => $nextPosition], 201);
     }
 
@@ -205,6 +218,7 @@ class PlaylistController extends Controller
             ->where('playlist_id', $playlist->id)
             ->where('id', $item)
             ->delete();
+        $this->changed($playlist);
 
         return response()->json(['message' => 'Track removed.']);
     }
@@ -231,6 +245,14 @@ class PlaylistController extends Controller
             }
         });
 
+        $this->changed($playlist);
+
         return response()->json(['message' => 'Reordered.']);
+    }
+
+    /** Владельцу и соавторам: их устройства перечитают плейлист и загрузки. */
+    private function changed(Playlist $playlist): void
+    {
+        app(LibraryEvents::class)->playlistChanged($playlist);
     }
 }

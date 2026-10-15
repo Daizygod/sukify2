@@ -9,6 +9,7 @@ use App\Models\SpotifyImport;
 use App\Models\Track;
 use App\Services\Audio\AudioProcessor;
 use App\Services\Deezer\DeezerClient;
+use App\Services\Realtime\LibraryEvents;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +77,7 @@ class EnrichSpotifyTracks implements ShouldQueue
                 'progress' => 100,
                 'enrich_done' => $import->enrich_total,
             ]);
+            app(LibraryEvents::class)->changed([$import->user_id], 'import');
 
             // Релизы, у которых ни один трек не нашёлся, остались без обложки —
             // пробуем найти сам альбом по названию.
@@ -160,7 +162,10 @@ class EnrichSpotifyTracks implements ShouldQueue
 
             $this->queueCover($track, $match);
 
-            if (! empty($match['preview'])) {
+            // Полную версию, залитую через «Заменить аудио», превью не затирает —
+            // это важно для повторного прогона `spotify:enrich --retry`.
+            $hasFullAudio = $track->audio_stream_path && ! $track->preview_only;
+            if (! empty($match['preview']) && ! $hasFullAudio) {
                 $previews[$i] = $match['preview'];
             }
         }
@@ -176,7 +181,7 @@ class EnrichSpotifyTracks implements ShouldQueue
                 file_put_contents($file, $body);
                 Storage::disk('s3')->writeStream("audio/{$track->id}/stream.mp3", fopen($file, 'r'));
                 $updates[$i] += [
-                    'audio_stream_path' => "audio/{$track->id}/stream.mp3",
+                    ...Track::streamFileAttributes("audio/{$track->id}/stream.mp3", $file),
                     // Длительность — реальная длина превью, а не трека: иначе
                     // полоса прогресса врала бы в четыре раза.
                     'duration_ms' => $audio->probeDurationMs($file) ?? 30_000,

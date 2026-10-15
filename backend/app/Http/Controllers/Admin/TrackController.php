@@ -65,6 +65,28 @@ class TrackController extends Controller
         return back()->with('success', 'Track updated.');
     }
 
+    /**
+     * Заменить аудио: тот же трек (лайки, плейлисты, переходы остаются), новый
+     * файл. Старый stream.mp3 играет, пока новый не обработан, — обработка
+     * перезапишет его на месте и сменит ревизию.
+     */
+    public function replaceAudio(Request $request, Track $track)
+    {
+        $request->validate([
+            'audio' => ['required', 'file', 'max:524288', 'mimes:mp3,flac,ape,wav,m4a,aac,mpga'],
+        ]);
+
+        [$key, $ext] = $this->stashUpload($request->file('audio'));
+
+        $track->update([
+            'processing_status' => ProcessingStatus::Pending,
+            'processing_error' => null,
+        ]);
+        ProcessTrackAudio::dispatch($track->id, $key, $ext);
+
+        return back()->with('success', 'Audio replaced — processing started.');
+    }
+
     public function destroy(Track $track)
     {
         $track->delete();

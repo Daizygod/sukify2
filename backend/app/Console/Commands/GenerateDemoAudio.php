@@ -74,8 +74,8 @@ class GenerateDemoAudio extends Command
                 }
 
                 $track->update([
+                    ...Track::streamFileAttributes($streamKey, $stream),
                     'audio_original_path' => null,
-                    'audio_stream_path' => $streamKey,
                     'loudness_lufs' => $loudness,
                     'duration_ms' => $duration,
                     'file_size_original' => filesize($flac),

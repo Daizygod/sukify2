@@ -79,14 +79,16 @@ class ProcessTrackAudio implements ShouldQueue
             }
 
             $track->update([
+                ...Track::streamFileAttributes($streamKey, $localStream),
                 'audio_original_path' => null,
-                'audio_stream_path' => $streamKey,
                 'loudness_lufs' => $loudness,
                 'duration_ms' => $durationMs,
                 'file_size_original' => $fileSize,
                 'processing_status' => ProcessingStatus::Ready,
                 'processing_error' => null,
                 'demo_audio' => false,
+                // Залили полную версию — 30-секундное превью Deezer больше не она.
+                'preview_only' => false,
             ]);
 
             // Темп, тональность и волну считаем отдельной задачей: она долгая, а

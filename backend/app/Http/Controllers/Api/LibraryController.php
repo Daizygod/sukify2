@@ -8,6 +8,7 @@ use App\Http\Resources\ArtistResource;
 use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\ReleaseResource;
 use App\Http\Resources\TrackResource;
+use App\Services\Realtime\LibraryEvents;
 use Illuminate\Http\Request;
 
 class LibraryController extends Controller
@@ -52,6 +53,7 @@ class LibraryController extends Controller
             'item_type' => $data['item_type'],
             'item_id' => $data['item_id'],
         ]);
+        app(LibraryEvents::class)->changed([$request->user()->id], 'pins');
 
         return response()->json(['pinned' => true]);
     }
@@ -67,6 +69,7 @@ class LibraryController extends Controller
             ->where('item_type', $data['item_type'])
             ->where('item_id', $data['item_id'])
             ->delete();
+        app(LibraryEvents::class)->changed([$request->user()->id], 'pins');
 
         return response()->json(['pinned' => false]);
     }

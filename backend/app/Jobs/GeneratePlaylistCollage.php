@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Playlist;
+use App\Services\Realtime\LibraryEvents;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
@@ -67,6 +68,10 @@ class GeneratePlaylistCollage implements ShouldQueue
             $disk->put($key, (string) $canvas->encode(new WebpEncoder(quality: 82)));
 
             $playlist->update(['cover_path' => $key, 'cover_is_custom' => false]);
+            // Путь коллажа всегда один и тот же — без touch() версия ?v= в
+            // ссылке не сменилась бы, и клиенты показывали бы старую картинку.
+            $playlist->touch();
+            app(LibraryEvents::class)->playlistChanged($playlist);
         } catch (Throwable $e) {
             // Non-fatal: a playlist can live without generated art.
             report($e);

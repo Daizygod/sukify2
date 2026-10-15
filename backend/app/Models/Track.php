@@ -17,9 +17,14 @@ use Laravel\Scout\Searchable;
 #[Fillable([
     'release_id', 'title', 'track_number', 'duration_ms',
     'audio_original_path', 'audio_stream_path', 'loudness_lufs',
+    // Ревизия аудио (md5 stream.mp3) и его размер — см. streamFileAttributes().
+    'audio_rev', 'audio_size', 'audio_updated_at',
     'file_size_original', 'cover_override_path',
     'processing_status', 'processing_error',
     'spotify_uri', 'deezer_id', 'preview_only', 'enrich_status',
+    // Синтетический тон из demo:generate-audio — его можно перегенерировать,
+    // настоящую загрузку — никогда (ProcessTrackAudio снимает флаг).
+    'demo_audio',
     // Анализ аудио для микса: темп, сетка долей, тональность, пики волны.
     'bpm', 'beat_offset_ms', 'beat_confidence', 'beats',
     'musical_key', 'musical_scale', 'key_strength', 'camelot',
@@ -39,6 +44,8 @@ class Track extends Model
             'duration_ms' => 'integer',
             'preview_only' => 'boolean',
             'file_size_original' => 'integer',
+            'audio_size' => 'integer',
+            'audio_updated_at' => 'datetime',
             'plays_count' => 'integer',
             'likes_count' => 'integer',
             'bpm' => 'float',
@@ -101,9 +108,27 @@ class Track extends Model
         }
 
         // Cache-buster: файл по этому пути может быть перезаписан (переобработка,
-        // восстановление) — иначе браузер продолжит играть закэшированную версию.
+        // замена аудио) — иначе браузер продолжит играть закэшированную версию.
+        // Версия — ревизия самого файла: updated_at сдвигается от каждого
+        // прослушивания, и браузер качал бы трек заново после каждого раза.
         return Storage::disk('s3')->url($this->audio_stream_path)
-            .'?v='.($this->updated_at?->getTimestamp() ?? 0);
+            .'?v='.($this->audio_rev ?: ($this->updated_at?->getTimestamp() ?? 0));
+    }
+
+    /**
+     * Поля трека после записи stream.mp3: путь, ревизия (md5) и размер файла.
+     *
+     * Все, кто пишут аудио (обработка загрузки, превью Deezer, демо-тоны),
+     * берут поля отсюда — иначе приложение не узнает, что файл поменялся.
+     */
+    public static function streamFileAttributes(string $key, string $localPath): array
+    {
+        return [
+            'audio_stream_path' => $key,
+            'audio_rev' => md5_file($localPath) ?: null,
+            'audio_size' => filesize($localPath) ?: null,
+            'audio_updated_at' => now(),
+        ];
     }
 
     /** Cover renditions ({size,url} list), inheriting from the release unless overridden. */

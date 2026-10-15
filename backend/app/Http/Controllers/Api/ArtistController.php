@@ -9,6 +9,7 @@ use App\Http\Resources\ReleaseResource;
 use App\Http\Resources\TrackResource;
 use App\Models\Artist;
 use App\Models\Release;
+use App\Services\Realtime\LibraryEvents;
 use Illuminate\Http\Request;
 
 class ArtistController extends Controller
@@ -101,14 +102,20 @@ class ArtistController extends Controller
 
     public function follow(Request $request, Artist $artist)
     {
-        $request->user()->followedArtists()->syncWithoutDetaching([$artist->id]);
+        $changed = $request->user()->followedArtists()->syncWithoutDetaching([$artist->id]);
+
+        if (! empty($changed['attached'])) {
+            app(LibraryEvents::class)->changed([$request->user()->id], 'artists');
+        }
 
         return response()->json(['is_followed' => true]);
     }
 
     public function unfollow(Request $request, Artist $artist)
     {
-        $request->user()->followedArtists()->detach($artist->id);
+        if ($request->user()->followedArtists()->detach($artist->id) > 0) {
+            app(LibraryEvents::class)->changed([$request->user()->id], 'artists');
+        }
 
         return response()->json(['is_followed' => false]);
     }

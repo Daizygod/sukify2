@@ -8,7 +8,6 @@ use App\Http\Resources\ListeningSessionResource;
 use App\Models\ListeningSession;
 use App\Services\Realtime\CentrifugoService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class JamController extends Controller
 {
@@ -107,10 +106,18 @@ class JamController extends Controller
         return response()->json(['message' => 'Session ended.']);
     }
 
+    /**
+     * Код диктуют голосом и переписывают с экрана другого телефона, поэтому в
+     * нём нет похожих символов: 0/O, 1/I/L.
+     */
     private function uniqueJoinCode(): string
     {
+        $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
         do {
-            $code = strtoupper(Str::random(6));
+            $code = '';
+            for ($i = 0; $i < 6; $i++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
         } while (ListeningSession::where('join_code', $code)->exists());
 
         return $code;
