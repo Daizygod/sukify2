@@ -22,6 +22,7 @@ jobs:
             set -e
             cd /home/deploy/sukify
             echo "🌊 Pull from main..."
+            OLD=$(git rev-parse HEAD)
             git fetch origin main
             git reset --hard origin/main
             echo "🧱 Build user SPA..."
@@ -36,7 +37,17 @@ jobs:
             docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
             docker compose -f docker-compose.prod.yml exec -T app php artisan optimize:clear
             docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache
+            # Ревизии аудио (md5) трекам без них — по ним приложение докачивает
+            # обновлённые файлы. Когда делать нечего, команда сразу выходит.
+            echo "🎵 Audio revisions..."
+            docker compose -f docker-compose.prod.yml exec -T app php artisan tracks:audio-rev
             echo "🚀 Restart workers..."
             docker compose -f docker-compose.prod.yml restart queue-worker scheduler
             docker compose -f docker-compose.prod.yml up -d
+            # Конфиг nginx примонтирован файлом: после git reset контейнер видит
+            # старую версию, пока его не перезапустить.
+            if ! git diff --quiet "$OLD" HEAD -- docker/nginx/prod.conf; then
+              echo "🧭 Nginx config changed — restart nginx..."
+              docker compose -f docker-compose.prod.yml restart nginx
+            fi
             echo "🎉 Completed"

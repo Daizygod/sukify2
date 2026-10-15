@@ -1,0 +1,205 @@
+name: Android build
+run-name: Сборка Sukify для Android 📱
+
+# Каждый пуш в main с изменениями android/** — тесты и подписанный APK
+# артефактом (Actions → запуск → Artifacts).
+# Тег android-vX.Y.Z (или ручной запуск с галочкой «Опубликовать») — ещё и
+# публикация: APK и latest.json уходят в S3, приложения сами предложат
+# обновиться, а сайт — «Скачать для Android». Тег вдобавок создаёт релиз
+# на GitHub с APK. В сторы приложение не выкладываем.
+#
+# Секреты (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
+#   ANDROID_KEY_PASSWORD — ключ подписи; без него APK подписан отладочным
+#   ключом и не публикуется.
+#   S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_BUCKET — только для публикации.
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Опубликовать сборку для автообновления
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+    tags:
+      - 'android-v*'
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+
+# Репозиторий открытый: workflow только читает код, секреты — только в своих шагах.
+permissions:
+  contents: read
+
+# Новый пуш в main отменяет недоделанную сборку прошлого; теги не отменяются.
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Android SDK
+        # Платформы 37.2 в образе раннера может не быть — ставим явно.
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.2" "build-tools;37.0.0" > /dev/null
+
+      - name: Версия сборки
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/android-v* ]]; then
+            NAME="${GITHUB_REF#refs/tags/android-v}"
+          else
+            NAME="0.1.${GITHUB_RUN_NUMBER}"
+          fi
+          # Номер версии растёт с каждым запуском — Android ставит только новее.
+          echo "code=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Ключ подписи
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::Секрета ANDROID_KEYSTORE_BASE64 нет — APK подписан отладочным ключом и не будет опубликован"
+            exit 0
+          fi
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Нужны все секреты ключа: ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          # Проверка до сборки: неверный пароль или псевдоним — понятная ошибка, а не падение Gradle.
+          if ! keytool -list -keystore "$RUNNER_TEMP/release.keystore" -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" > /dev/null; then
+            echo "::error::Ключ не открывается: проверь ANDROID_KEYSTORE_PASSWORD и ANDROID_KEY_ALIAS"
+            exit 1
+          fi
+          echo "SUKIFY_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Тесты и сборка
+        env:
+          SUKIFY_VERSION_CODE: ${{ steps.version.outputs.code }}
+          SUKIFY_VERSION_NAME: ${{ steps.version.outputs.name }}
+          SUKIFY_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SUKIFY_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SUKIFY_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # С Windows флаг «исполняемый» в git может потеряться.
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:assembleRelease --console=plain
+
+      - name: Отчёт тестов
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: android/app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Имя файла
+        id: apk
+        run: |
+          FILE="sukify-${{ steps.version.outputs.name }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/$FILE"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sukify-android-${{ steps.version.outputs.name }}
+          path: ${{ runner.temp }}/${{ steps.apk.outputs.file }}
+          if-no-files-found: error
+
+      - name: Публикация для автообновления
+        if: startsWith(github.ref, 'refs/tags/android-v') || inputs.publish
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ru-1
+          # S3 Timeweb не принимает контрольные суммы, которые aws CLI шлёт по умолчанию.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_ENDPOINT: https://s3.twcstorage.ru
+          # Корень хранилища на проде (STORAGE_ROOT_PREFIX).
+          S3_PREFIX: sukify
+          SUKIFY_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SUKIFY_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$SUKIFY_KEYSTORE" ]; then
+            echo "::error::Без ключа подписи публиковать нельзя: обновление не встанет поверх"
+            exit 1
+          fi
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$S3_BUCKET" ]; then
+            echo "::error::Для публикации нужны секреты S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_BUCKET"
+            exit 1
+          fi
+          APK="$RUNNER_TEMP/${{ steps.apk.outputs.file }}"
+          KEY="apps/android/${{ steps.apk.outputs.file }}"
+          NOTES=$(git log -1 --pretty=%s)
+          # Отпечаток ключа подписи — сайт отдаст его в /.well-known/assetlinks.json (App Links).
+          CERT=$(keytool -list -v -keystore "$SUKIFY_KEYSTORE" -alias "$SUKIFY_KEY_ALIAS" -storepass "$SUKIFY_KEYSTORE_PASSWORD" | grep -m1 'SHA256:' | sed 's/.*SHA256: *//')
+          jq -n \
+            --argjson code "${{ steps.version.outputs.code }}" \
+            --arg name "${{ steps.version.outputs.name }}" \
+            --arg apk "$KEY" \
+            --arg sha "$(sha256sum "$APK" | cut -d' ' -f1)" \
+            --argjson size "$(stat -c %s "$APK")" \
+            --arg notes "$NOTES" \
+            --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg cert "$CERT" \
+            '{version_code: $code, version_name: $name, apk: $apk, sha256: $sha, size: $size, notes: $notes, released_at: $at, cert_sha256: $cert}' \
+            > "$RUNNER_TEMP/latest.json"
+          aws s3 cp "$APK" "s3://$S3_BUCKET/$S3_PREFIX/$KEY" --endpoint-url "$S3_ENDPOINT" --acl public-read \
+            --content-type application/vnd.android.package-archive
+          # latest.json — последним: приложение не должно увидеть версию раньше файла.
+          aws s3 cp "$RUNNER_TEMP/latest.json" "s3://$S3_BUCKET/$S3_PREFIX/apps/android/latest.json" \
+            --endpoint-url "$S3_ENDPOINT" --acl public-read --content-type application/json \
+            --cache-control "no-cache"
+          cat "$RUNNER_TEMP/latest.json"
+
+  # Тег — ещё и релиз на GitHub с APK: страница, откуда приложение скачивают.
+  release:
+    name: Релиз на GitHub
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/android-v')
+    runs-on: ubuntu-latest
+    # Запись — только здесь, а не в сборке со всеми её зависимостями.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: apk
+          merge-multiple: true
+
+      - name: Релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" apk/*.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Sukify для Android ${TAG#android-v}" \
+            --notes "Скачай APK ниже и открой его на телефоне (Android 12 и новее). Дальше приложение обновляется само." \
+            --generate-notes
