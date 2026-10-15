@@ -34,7 +34,34 @@ onMounted(async () => {
   }
 
   loadDiscord()
+  loadAndroid()
 })
+
+// --- Приложение для Android -------------------------------------------------
+const android = ref(null) // { version_name, apk_url, size, … } | null
+const androidQr = ref('')
+
+async function loadAndroid() {
+  try {
+    const { data } = await api.get('/app/android')
+    android.value = data.data
+    if (android.value?.apk_url) {
+      // Генератор QR нужен только здесь — грузим его лениво.
+      const QRCode = (await import('qrcode')).default
+      androidQr.value = await QRCode.toDataURL(android.value.apk_url, {
+        margin: 1,
+        width: 176,
+        color: { dark: '#000000', light: '#ffffff' },
+      })
+    }
+  } catch {
+    /* нет сборки — раздел скажет об этом сам */
+  }
+}
+
+function formatSize(bytes) {
+  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`
+}
 
 // --- Профиль: имя, @handle, аватарка ---------------------------------------
 const auth = useAuthStore()
@@ -390,6 +417,26 @@ function save() {
         </div>
         <RouterLink class="settings__btn" :to="{ name: 'link-device' }">Подключить</RouterLink>
       </div>
+    </section>
+
+    <section class="settings__group">
+      <h2>Приложения и устройства</h2>
+
+      <div class="setting">
+        <div class="setting__text">
+          <div class="setting__name">Sukify для Android</div>
+          <div v-if="android" class="setting__desc">
+            Версия {{ android.version_name }}<template v-if="android.size"> · {{ formatSize(android.size) }}</template>.
+            Музыка без сети, синхронизация загрузок, Android Auto и виджет. Наведи камеру телефона
+            на код или скачай APK по кнопке.
+          </div>
+          <div v-else class="setting__desc">Сборка для Android ещё не опубликована.</div>
+        </div>
+        <div v-if="android" class="settings__app">
+          <img v-if="androidQr" :src="androidQr" class="settings__qr" alt="QR-код ссылки на APK" />
+          <a class="settings__btn settings__btn--primary" :href="android.apk_url" download>Скачать APK</a>
+        </div>
+      </div>
 
       <div v-for="device in devices" :key="device.id" class="setting">
         <div class="setting__text">
@@ -496,6 +543,26 @@ function save() {
   width: 40px;
   height: 40px;
   flex: 0 0 40px;
+}
+.settings__app {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.settings__qr {
+  width: 88px;
+  height: 88px;
+  border-radius: 8px;
+  background: #fff;
+  /* QR должен остаться чётким — без сглаживания при масштабе. */
+  image-rendering: pixelated;
+}
+@media (max-width: 768px) {
+  /* На телефоне QR бесполезен — оставляем только кнопку. */
+  .settings__qr {
+    display: none;
+  }
 }
 .settings__btn {
   border: 1px solid var(--text-muted);

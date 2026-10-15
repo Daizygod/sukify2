@@ -13,6 +13,7 @@
     "axios": "^1.7.9",
     "centrifuge": "^5.3.1",
     "pinia": "^2.3.0",
+    "qrcode": "^1.5.4",
     "sortablejs": "^1.15.6",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",

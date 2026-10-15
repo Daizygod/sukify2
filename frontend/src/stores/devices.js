@@ -210,11 +210,6 @@ export const useDeviceStore = defineStore('devices', () => {
     }
   }
 
-  /** Сообщить остальным устройствам, что медиатека изменилась. */
-  function notifyLibraryChanged() {
-    publish({ t: 'library-changed', d: my })
-  }
-
   async function execCommand(msg) {
     switch (msg.action) {
       case 'play':
@@ -266,7 +261,7 @@ export const useDeviceStore = defineStore('devices', () => {
       case 'push-transfer':
         // Another device asks us to hand playback over to `msg.target`.
         if (msg.target) {
-          publish({ t: 'cmd', to: msg.target, action: 'transfer', state: snapshot() })
+          publish({ t: 'cmd', to: msg.target, action: 'transfer', state: snapshot(), ts: Date.now() })
           // Не глушим сразу: продолжаем играть, пока приёмник не заиграет
           // (его state-бродкаст запустит плавное затухание).
         }
@@ -340,7 +335,7 @@ export const useDeviceStore = defineStore('devices', () => {
       // Pull playback here: ask the playing device to hand over its snapshot.
       const from = activeDeviceId.value
       if (!isRemote.value || !from) return
-      publish({ t: 'cmd', to: from, action: 'push-transfer', target: myId })
+      publish({ t: 'cmd', to: from, action: 'push-transfer', target: myId, ts: Date.now() })
       return
     }
     // Push local playback to another device.
@@ -353,6 +348,9 @@ export const useDeviceStore = defineStore('devices', () => {
       to: deviceId,
       action: 'transfer',
       state: snapshot(),
+      // Метка времени: приложение для Android не выполняет команды старше минуты,
+      // пришедшие из истории канала после переподключения.
+      ts: Date.now(),
     })
     // Продолжаем играть до state-бродкаста приёмника — тогда плавно затухнем.
     const name = devices.value[deviceId]?.name || 'устройство'
@@ -373,7 +371,7 @@ export const useDeviceStore = defineStore('devices', () => {
 
   function sendCommand(action, value) {
     if (!activeDeviceId.value || activeDeviceId.value === myId) return
-    publish({ t: 'cmd', to: activeDeviceId.value, action, value })
+    publish({ t: 'cmd', to: activeDeviceId.value, action, value, ts: Date.now() })
     // Optimistically nudge the remote state so the UI feels responsive.
     if (remoteState.value) {
       if (action === 'pause') remoteState.value.playing = false
@@ -455,6 +453,5 @@ export const useDeviceStore = defineStore('devices', () => {
     transferTo,
     sendCommand,
     broadcastState,
-    notifyLibraryChanged,
   }
 })
