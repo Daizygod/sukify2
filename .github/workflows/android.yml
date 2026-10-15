@@ -155,7 +155,17 @@ jobs:
           fi
           APK="$RUNNER_TEMP/${{ steps.apk.outputs.file }}"
           KEY="apps/android/${{ steps.apk.outputs.file }}"
-          NOTES=$(git log -1 --pretty=%s)
+          # «Что нового» в окне обновления — из сообщения тега
+          # (git tag -a android-vX.Y.Z -m "…"). checkout кладёт тег лёгким,
+          # поэтому сам тег с сообщением забираем отдельно; без него — заголовок коммита.
+          NOTES=""
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            git fetch --force --depth=1 origin "+$GITHUB_REF:$GITHUB_REF" > /dev/null 2>&1 || true
+            if [ "$(git cat-file -t "$GITHUB_REF" 2>/dev/null)" = "tag" ]; then
+              NOTES=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN PGP/,$d')
+            fi
+          fi
+          [ -n "$NOTES" ] || NOTES=$(git log -1 --pretty=%s)
           # Отпечаток ключа подписи — сайт отдаст его в /.well-known/assetlinks.json (App Links).
           CERT=$(keytool -list -v -keystore "$SUKIFY_KEYSTORE" -alias "$SUKIFY_KEY_ALIAS" -storepass "$SUKIFY_KEYSTORE_PASSWORD" | grep -m1 'SHA256:' | sed 's/.*SHA256: *//')
           jq -n \
