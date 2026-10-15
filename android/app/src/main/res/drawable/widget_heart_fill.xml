@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HeartFill из SukifyIcons — для виджета (Glance рисует только drawable). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="15.62"
+    android:viewportHeight="15.62">
+    <group android:translateX="-0.19" android:translateY="-0.19">
+        <path
+            android:fillColor="#FF1ED760"
+            android:pathData="M 15.724 4.22 A 4.313 4.313 0 0 0 12.192 .814 a 4.269 4.269 0 0 0 -3.622 1.13 .837 .837 0 0 1 -1.14 0 4.272 4.272 0 0 0 -6.21 5.855 l 5.916 7.05 a 1.128 1.128 0 0 0 1.727 0 l 5.916 -7.05 a 4.228 4.228 0 0 0 .945 -3.577 z" />
+    </group>
+</vector>

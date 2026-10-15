@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Обложка «Любимых треков» для превью виджета — как в вебе. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:endColor="#FF8E8EE5"
+        android:startColor="#FF450AF5" />
+    <corners android:radius="6dp" />
+</shape>

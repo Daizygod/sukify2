@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Next из SukifyIcons — для виджета (Glance рисует только drawable). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <group android:translateX="0" android:translateY="0">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M 12.7 1 a .7 .7 0 0 0 -.7 .7 v 5.15 L 2.05 1.107 A .7 .7 0 0 0 1 1.712 v 12.575 a .7 .7 0 0 0 1.05 .607 L 12 9.149 V 14.3 a .7 .7 0 0 0 .7 .7 h 1.6 a .7 .7 0 0 0 .7 -.7 V 1.7 a .7 .7 0 0 0 -.7 -.7 z" />
+    </group>
+</vector>

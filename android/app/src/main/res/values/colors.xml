@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sukify_black">#FF000000</color>
+    <color name="sukify_elevated">#FF121212</color>
+    <color name="sukify_green">#FF1ED760</color>
+    <color name="ic_launcher_background">#FF1ED760</color>
+</resources>

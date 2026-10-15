@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PauseBig из SukifyIcons — для виджета (Glance рисует только drawable). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group android:translateX="0" android:translateY="0">
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M 5.7 3 a .7 .7 0 0 0 -.7 .7 v 16.6 a .7 .7 0 0 0 .7 .7 h 2.6 a .7 .7 0 0 0 .7 -.7 V 3.7 a .7 .7 0 0 0 -.7 -.7 z m 10 0 a .7 .7 0 0 0 -.7 .7 v 16.6 a .7 .7 0 0 0 .7 .7 h 2.6 a .7 .7 0 0 0 .7 -.7 V 3.7 a .7 .7 0 0 0 -.7 -.7 z" />
+    </group>
+</vector>

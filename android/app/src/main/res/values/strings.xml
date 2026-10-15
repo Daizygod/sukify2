@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sukify</string>
+    <!-- Канал уведомления плеера (Media3): приложение только на русском,
+         поэтому и на телефоне с английским языком — по-русски. -->
+    <string name="default_notification_channel_name">Сейчас играет</string>
+    <string name="widget_name">Sukify</string>
+    <string name="widget_description">Что играет и кнопки управления</string>
+    <string name="widget_preview_title">Любимые треки</string>
+    <string name="widget_preview_subtitle">Sukify</string>
+</resources>

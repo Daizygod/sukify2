@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Фон превью виджета: как у живого — цвет обложки поверх #181818. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FF2C1F5C" />
+    <corners android:radius="16dp" />
+</shape>
