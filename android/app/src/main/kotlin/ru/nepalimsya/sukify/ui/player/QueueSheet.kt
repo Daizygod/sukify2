@@ -91,8 +91,24 @@ private sealed interface QueueRow {
         override val key get() = "m:${item.qid}"
     }
 
-    data class Upcoming(val index: Int, val track: Track) : QueueRow {
-        override val key get() = "u:$index:${track.id}"
+    data class Upcoming(val index: Int, val item: UpcomingItem) : QueueRow {
+        override val key get() = item.key
+    }
+}
+
+/**
+ * Трек «далее» со своим ключом. Ключ по номеру строки менялся бы на каждом
+ * шаге перетаскивания — список терял бы строку под пальцем, и она уезжала
+ * только на одну позицию. Повторы одного трека различаем по номеру повтора.
+ */
+private data class UpcomingItem(val key: String, val track: Track)
+
+private fun keyed(tracks: List<Track>): List<UpcomingItem> {
+    val seen = HashMap<Long, Int>()
+    return tracks.map { t ->
+        val n = (seen[t.id] ?: 0) + 1
+        seen[t.id] = n
+        UpcomingItem("u:${t.id}:$n", t)
     }
 }
 
@@ -113,7 +129,7 @@ fun QueueContent(
     // Локальная копия порядка — перетаскивание отражаем сразу, плееру
     // отдаём итог по отпусканию пальца.
     var manual by remember(state.queue.manual) { mutableStateOf(state.queue.manual.toList()) }
-    var upcoming by remember(state.queue.upcoming) { mutableStateOf(state.queue.upcoming.take(UPCOMING_SHOWN)) }
+    var upcoming by remember(state.queue.upcoming) { mutableStateOf(keyed(state.queue.upcoming.take(UPCOMING_SHOWN))) }
 
     val rows = buildList {
         state.track?.let {
@@ -126,21 +142,24 @@ fun QueueContent(
         }
         if (upcoming.isNotEmpty()) {
             add(QueueRow.Header("Далее из: ${state.queue.contextName.ifBlank { "текущего списка" }}"))
-            upcoming.forEachIndexed { i, t -> add(QueueRow.Upcoming(i, t)) }
+            upcoming.forEachIndexed { i, u -> add(QueueRow.Upcoming(i, u)) }
         }
     }
 
     val listState = rememberLazyListState()
+    // Ищем строки по ключам, а не по номерам: номера сдвигаются с каждым шагом.
     val reorder = rememberReorderableLazyListState(listState) { from, to ->
-        val a = rows.getOrNull(from.index)
-        val b = rows.getOrNull(to.index)
+        val m1 = manual.indexOfFirst { "m:${it.qid}" == from.key }
+        val m2 = manual.indexOfFirst { "m:${it.qid}" == to.key }
+        val u1 = upcoming.indexOfFirst { it.key == from.key }
+        val u2 = upcoming.indexOfFirst { it.key == to.key }
         when {
-            a is QueueRow.Manual && b is QueueRow.Manual -> {
-                manual = manual.toMutableList().apply { add(indexOf(b.item), removeAt(indexOf(a.item))) }
+            m1 >= 0 && m2 >= 0 -> {
+                manual = manual.toMutableList().apply { add(m2, removeAt(m1)) }
                 haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
             }
-            a is QueueRow.Upcoming && b is QueueRow.Upcoming -> {
-                upcoming = upcoming.toMutableList().apply { add(b.index, removeAt(a.index)) }
+            u1 >= 0 && u2 >= 0 -> {
+                upcoming = upcoming.toMutableList().apply { add(u2, removeAt(u1)) }
                 haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
             }
         }
@@ -169,22 +188,34 @@ fun QueueContent(
                                 dragging = dragging,
                                 onClick = { onPlayManual(row.item.qid) },
                                 dragHandle = if (remote) null else Modifier.draggableHandle(onDragStopped = { onReorderManual(manual) }),
+                                // Тянуть можно и долгим нажатием на саму строку.
+                                rowDrag = if (remote) {
+                                    Modifier
+                                } else {
+                                    Modifier.longPressDraggableHandle(
+                                        onDragStarted = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                        onDragStopped = { onReorderManual(manual) },
+                                    )
+                                },
                             )
                         }
                     }
                     is QueueRow.Upcoming -> ReorderableItem(reorder, key = row.key) { dragging ->
+                        val commit = { onReorderUpcoming(upcoming.map { it.track } + state.queue.upcoming.drop(UPCOMING_SHOWN)) }
                         Dismissible(onDismiss = { onRemoveUpcoming(row.index) }) {
                             QueueTrackRow(
-                                track = row.track,
+                                track = row.item.track,
                                 playing = false,
                                 dragging = dragging,
                                 onClick = { onPlayUpcoming(row.index) },
-                                dragHandle = if (remote) {
-                                    null
+                                dragHandle = if (remote) null else Modifier.draggableHandle(onDragStopped = { commit() }),
+                                rowDrag = if (remote) {
+                                    Modifier
                                 } else {
-                                    Modifier.draggableHandle(onDragStopped = {
-                                        onReorderUpcoming(upcoming + state.queue.upcoming.drop(UPCOMING_SHOWN))
-                                    })
+                                    Modifier.longPressDraggableHandle(
+                                        onDragStarted = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                        onDragStopped = { commit() },
+                                    )
                                 },
                             )
                         }
@@ -224,11 +255,13 @@ private fun QueueTrackRow(
     onClick: () -> Unit,
     dragHandle: Modifier?,
     dragging: Boolean = false,
+    rowDrag: Modifier = Modifier,
 ) {
     val elevation by animateDpAsState(if (dragging) 12.dp else 0.dp, label = "drag")
     Row(
         Modifier
             .fillMaxWidth()
+            .then(rowDrag)
             .shadow(elevation, RoundedCornerShape(6.dp))
             .background(if (dragging) SukifyColors.CardPressed else SukifyColors.Elevated)
             .bounceClick(pressed = 0.98f, onClick = onClick)
