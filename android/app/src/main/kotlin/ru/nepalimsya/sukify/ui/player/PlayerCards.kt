@@ -55,12 +55,16 @@ import ru.nepalimsya.sukify.util.Format
 /**
  * Живая строка текста под обложкой: старая уезжает вверх и тает, новая
  * приходит снизу — как в приложении Spotify и в вебе.
+ *
+ * Место под строку занято всегда, даже без текста: при смене трека текст
+ * приезжает с задержкой, и без запаса кнопки плеера подпрыгивали бы вверх
+ * и через полсекунды возвращались.
  */
 @Composable
 fun LiveLyricLine(lyrics: Lyrics?, position: () -> Long, modifier: Modifier = Modifier) {
-    if (lyrics == null || lyrics.synced.isEmpty()) return
-    val index by remember(lyrics) { derivedStateOf { lyrics.activeIndex(position()) } }
     Box(modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) {
+        if (lyrics == null || lyrics.synced.isEmpty()) return@Box
+        val index by remember(lyrics) { derivedStateOf { lyrics.activeIndex(position()) } }
         AnimatedContent(
             targetState = index,
             transitionSpec = {

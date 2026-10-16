@@ -241,7 +241,7 @@ fun NowPlayingScreen(
                 }
 
                 LiveLyricLine(lyrics, position, Modifier.padding(top = 18.dp))
-                Spacer(Modifier.height(if (lyrics?.synced?.isNotEmpty() == true) 8.dp else 28.dp))
+                Spacer(Modifier.height(8.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
