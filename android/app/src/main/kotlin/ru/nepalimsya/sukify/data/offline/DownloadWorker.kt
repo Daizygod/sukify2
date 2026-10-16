@@ -13,12 +13,6 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.security.MessageDigest
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -31,9 +25,17 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import ru.nepalimsya.sukify.BuildConfig
 import ru.nepalimsya.sukify.R
+import ru.nepalimsya.sukify.core.datastore.SessionState
+import ru.nepalimsya.sukify.core.datastore.SessionStore
 import ru.nepalimsya.sukify.core.network.SukifyApi
 import ru.nepalimsya.sukify.core.network.apiCall
 import ru.nepalimsya.sukify.data.model.TransitionDto
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Загрузчик треков (WorkManager, foreground dataSync): три потока прямо из
@@ -342,8 +344,13 @@ class OfflineSyncWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val sync: OfflineSync,
+    private val sessions: SessionStore,
 ) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = if (sync.sync()) Result.success() else Result.retry()
+    override suspend fun doWork(): Result {
+        // Без входа сверять нечего — и запросы ушли бы без токена.
+        if (sessions.awaitLoaded() !is SessionState.Active) return Result.success()
+        return if (sync.sync()) Result.success() else Result.retry()
+    }
 
     companion object {
         const val NAME = "offline-sync"

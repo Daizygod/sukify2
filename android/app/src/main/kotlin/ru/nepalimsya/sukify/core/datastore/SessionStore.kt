@@ -110,9 +110,17 @@ class SessionStore @Inject constructor(
         _state.value = SessionState.LoggedOut(server)
     }
 
-    /** Сервер пометил токен недействительным (отвязали в вебе, забанили). */
-    fun onUnauthorized() {
-        if (current != null) scope.launch { clear() }
+    /** Дождаться, пока сессия поднимется с диска: фоновая работа может стартовать раньше. */
+    suspend fun awaitLoaded(): SessionState = state.first { it !is SessionState.Loading }
+
+    /**
+     * Сервер не принял токен [token] (отвязали в вебе, забанили). Выходим, только
+     * если это токен текущей сессии: 401 на запрос, ушедший без токена или со
+     * старым, ничего о текущей сессии не говорит.
+     */
+    fun onUnauthorized(token: String) {
+        if (current?.token != token) return
+        scope.launch { if (current?.token == token) clear() }
     }
 
     /**
