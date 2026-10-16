@@ -12,7 +12,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -23,7 +26,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -33,9 +35,9 @@ import ru.nepalimsya.sukify.data.library.LibraryState
 import ru.nepalimsya.sukify.data.model.ArtistDto
 import ru.nepalimsya.sukify.data.model.ReleaseDto
 import ru.nepalimsya.sukify.domain.ContextKeys
-import ru.nepalimsya.sukify.domain.mainArtists
 import ru.nepalimsya.sukify.domain.Cover
 import ru.nepalimsya.sukify.domain.imageUrl
+import ru.nepalimsya.sukify.domain.mainArtists
 import ru.nepalimsya.sukify.domain.releaseKindLabel
 import ru.nepalimsya.sukify.domain.toDomain
 import ru.nepalimsya.sukify.domain.toMedia
@@ -44,6 +46,7 @@ import ru.nepalimsya.sukify.ui.components.AvatarImage
 import ru.nepalimsya.sukify.ui.components.CollectionHero
 import ru.nepalimsya.sukify.ui.components.CollectionScaffold
 import ru.nepalimsya.sukify.ui.components.ContextPlayButton
+import ru.nepalimsya.sukify.ui.components.CoverViewer
 import ru.nepalimsya.sukify.ui.components.ErrorBlock
 import ru.nepalimsya.sukify.ui.components.HeroCover
 import ru.nepalimsya.sukify.ui.components.IconAction
@@ -64,6 +67,7 @@ import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyType
 import ru.nepalimsya.sukify.ui.theme.parseHexColor
 import ru.nepalimsya.sukify.util.Format
+import javax.inject.Inject
 
 @HiltViewModel
 class ReleaseViewModel @Inject constructor(
@@ -120,11 +124,15 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.releaseContent(
 
     item(key = "hero", contentType = "hero") {
         val menus = LocalMenus.current
+        val cover = Cover.of(release.cover)
+        // Обложку можно открыть крупно — как на сайте.
+        var viewer by rememberSaveable { mutableStateOf(false) }
+        if (viewer && cover != null) CoverViewer(cover, release.coverOriginal, release.title, onDismiss = { viewer = false })
         CollectionHero(
             color = color,
             title = release.title,
             modifier = heroModifier,
-            cover = { HeroCover(Cover.of(release.cover)) },
+            cover = { HeroCover(cover, onClick = if (cover != null) ({ viewer = true }) else null) },
             meta = {
                 ArtistLine(release.mainArtists())
                 Spacer(Modifier.height(6.dp))

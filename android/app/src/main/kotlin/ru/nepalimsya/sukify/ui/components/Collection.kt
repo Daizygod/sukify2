@@ -380,13 +380,23 @@ fun CollectionHero(
     }
 }
 
-/** Обложка шапки: 62% ширины экрана, не больше 260 dp, с тенью. */
+/** Обложка шапки: 62% ширины экрана, не больше 260 dp, с тенью. [onClick] — открыть крупно. */
 @Composable
-fun HeroCover(cover: ru.nepalimsya.sukify.domain.Cover?, round: Boolean = false, fallback: ImageVector = SukifyIcons.Album) {
+fun HeroCover(
+    cover: ru.nepalimsya.sukify.domain.Cover?,
+    round: Boolean = false,
+    fallback: ImageVector = SukifyIcons.Album,
+    onClick: (() -> Unit)? = null,
+) {
     val width = LocalConfiguration.current.screenWidthDp
     val size = (width * 0.62f).dp.coerceAtMost(260.dp)
     val shape = if (round) CircleShape else androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
-    Box(Modifier.size(size).shadow(24.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)) {
+    Box(
+        Modifier
+            .size(size)
+            .shadow(24.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
+            .then(if (onClick != null) Modifier.bounceClick(pressed = 0.97f, onClick = onClick) else Modifier),
+    ) {
         FillCover(cover, pxHint = 640, modifier = Modifier.fillMaxSize(), shape = shape, fallbackIcon = fallback)
     }
 }
