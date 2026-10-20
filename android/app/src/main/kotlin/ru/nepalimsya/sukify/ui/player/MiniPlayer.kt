@@ -103,13 +103,13 @@ fun MiniPlayer(
                 previous = previous,
                 current = track,
                 next = next,
-                trackKey = track.id,
+                itemKey = { it.id },
                 onNext = onNext,
                 onPrevious = onPrevious,
                 modifier = Modifier.weight(1f),
                 thresholdDp = 48,
             ) { t ->
-                if (t != null) MiniLine(t, remoteDevice)
+                MiniLine(t, remoteDevice)
             }
             LikeButton(liked = liked, onToggle = onToggleLike, size = 24.dp)
             Box(

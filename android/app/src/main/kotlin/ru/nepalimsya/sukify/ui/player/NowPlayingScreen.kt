@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -222,17 +223,27 @@ fun NowPlayingScreen(
                             previous = state.queue.previous,
                             current = track,
                             next = state.queue.manual.firstOrNull()?.track ?: state.queue.upcoming.firstOrNull(),
-                            trackKey = track.id,
+                            itemKey = { it.id },
                             onNext = actions::next,
                             onPrevious = { actions.previous(force = true) },
+                            // Лента шире колонки на её поля: между обложками щель,
+                            // и соседняя въезжает из-за края экрана, а не из-за поля.
+                            modifier = Modifier.layout { measurable, constraints ->
+                                val extra = (StripBleed * 2).roundToPx()
+                                val placeable = measurable.measure(
+                                    constraints.copy(minWidth = constraints.minWidth + extra, maxWidth = constraints.maxWidth + extra),
+                                )
+                                layout(constraints.maxWidth, placeable.height) { placeable.place(-extra / 2, 0) }
+                            },
+                            liquid = StripLiquid(side) { it.coverColor(SukifyColors.NowPlayingFallback) },
                         ) { t ->
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 FillCover(
-                                    cover = t?.cover,
+                                    cover = t.cover,
                                     pxHint = px,
                                     modifier = Modifier
                                         .width(side)
-                                        .then(if (t?.id == track.id) coverModifier else Modifier)
+                                        .then(if (t.id == track.id) coverModifier else Modifier)
                                         .shadow(24.dp, RoundedCornerShape(8.dp)),
                                 )
                             }
@@ -323,6 +334,9 @@ fun NowPlayingScreen(
         }
     }
 }
+
+/** Поля колонки «Сейчас играет» — на столько лента обложек выходит за неё с каждой стороны. */
+private val StripBleed = 22.dp
 
 @Composable
 private fun HeaderButton(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
