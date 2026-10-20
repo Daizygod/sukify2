@@ -141,6 +141,12 @@ fun MainShell() {
 
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val hasPlayer = playerState.value.track != null
+    // Нечего играть — плеер свёрнут. Иначе флаг «развёрнут» (он переживает и
+    // перезапуск приложения) дожидался первого трека, и тап по треку в списке
+    // сразу открывал «Сейчас играет».
+    LaunchedEffect(hasPlayer) {
+        if (!hasPlayer) playerExpanded = false
+    }
     val offline = onlyDownloadedState.value
     val inJam = jamUi != null
     val chrome = if (chromeHidden) {
