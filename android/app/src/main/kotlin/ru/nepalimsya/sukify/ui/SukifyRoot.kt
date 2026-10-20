@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.nepalimsya.sukify.ui.auth.AuthScreen
+import ru.nepalimsya.sukify.ui.components.CoverViewerHost
 import ru.nepalimsya.sukify.ui.shell.MainShell
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 
@@ -25,16 +26,19 @@ fun SukifyRoot(app: AppViewModel) {
     // testTag → resource-id: по ним UiAutomator находит экраны в генераторе Baseline Profile.
     Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }.background(SukifyColors.Elevated)) {
         // Вход ↔ приложение — мягкий наплыв, без резкой подмены экрана.
-        AnimatedContent(
-            targetState = state,
-            contentKey = { it::class },
-            transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(200)) },
-            label = "root",
-        ) { current ->
-            when (current) {
-                AppState.Loading -> Unit // сплэш ещё на экране
-                is AppState.LoggedOut -> AuthScreen(defaultServer = current.server)
-                is AppState.LoggedIn -> MainShell()
+        // Над всем — просмотрщик обложек: он обесцвечивает и размывает интерфейс под собой.
+        CoverViewerHost {
+            AnimatedContent(
+                targetState = state,
+                contentKey = { it::class },
+                transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(200)) },
+                label = "root",
+            ) { current ->
+                when (current) {
+                    AppState.Loading -> Unit // сплэш ещё на экране
+                    is AppState.LoggedOut -> AuthScreen(defaultServer = current.server)
+                    is AppState.LoggedIn -> MainShell()
+                }
             }
         }
     }

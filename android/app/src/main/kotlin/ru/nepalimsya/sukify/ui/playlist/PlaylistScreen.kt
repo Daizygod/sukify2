@@ -65,6 +65,7 @@ import ru.nepalimsya.sukify.ui.components.AvatarImage
 import ru.nepalimsya.sukify.ui.components.CollectionHero
 import ru.nepalimsya.sukify.ui.components.CollectionScaffold
 import ru.nepalimsya.sukify.ui.components.ContextPlayButton
+import ru.nepalimsya.sukify.ui.components.CoverZoom
 import ru.nepalimsya.sukify.ui.components.ErrorBlock
 import ru.nepalimsya.sukify.ui.components.HeroCover
 import ru.nepalimsya.sukify.ui.components.IconAction
@@ -244,7 +245,7 @@ private fun LazyListScope.playlistContent(
             color = color,
             title = playlist.title,
             modifier = heroModifier,
-            cover = { HeroCover(Cover.single(playlist.coverUrl)) },
+            cover = { HeroCover(Cover.single(playlist.coverUrl), zoom = CoverZoom(playlist.coverUrl, playlist.title)) },
             meta = {
                 if (!playlist.description.isNullOrBlank()) {
                     MetaText(playlist.description)

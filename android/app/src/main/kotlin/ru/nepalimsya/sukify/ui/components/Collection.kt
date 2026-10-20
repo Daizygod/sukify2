@@ -41,12 +41,15 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -54,6 +57,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -380,22 +384,44 @@ fun CollectionHero(
     }
 }
 
-/** Обложка шапки: 62% ширины экрана, не больше 260 dp, с тенью. [onClick] — открыть крупно. */
+/** Обложку шапки можно открыть крупно: оригинал (если есть) и подпись для TalkBack. */
+class CoverZoom(val original: String?, val title: String)
+
+/**
+ * Обложка шапки: 62% ширины экрана, не больше 260 dp, с тенью. С [zoom] тап
+ * открывает её во весь экран (CoverViewerHost) — копия вылетает отсюда, а
+ * сама обложка на это время прячется, будто это она и улетела.
+ */
 @Composable
 fun HeroCover(
     cover: ru.nepalimsya.sukify.domain.Cover?,
     round: Boolean = false,
     fallback: ImageVector = SukifyIcons.Album,
-    onClick: (() -> Unit)? = null,
+    zoom: CoverZoom? = null,
 ) {
     val width = LocalConfiguration.current.screenWidthDp
     val size = (width * 0.62f).dp.coerceAtMost(260.dp)
     val shape = if (round) CircleShape else androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+    val viewer = LocalCoverViewer.current
+    val source = remember { Any() }
+    var bounds by remember { mutableStateOf(Rect.Zero) }
+    val shown = viewer?.request?.source !== source
     Box(
         Modifier
             .size(size)
+            // Рамка целиком, даже если шапка уже уехала за край, и с учётом масштаба шапки.
+            .onGloballyPositioned {
+                bounds = Rect(it.localToRoot(Offset.Zero), it.localToRoot(Offset(it.size.width.toFloat(), it.size.height.toFloat())))
+            }
+            .graphicsLayer { alpha = if (shown) 1f else 0f }
             .shadow(24.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
-            .then(if (onClick != null) Modifier.bounceClick(pressed = 0.97f, onClick = onClick) else Modifier),
+            .then(
+                if (zoom != null && cover != null && viewer != null) {
+                    Modifier.bounceClick(pressed = 0.97f) {
+                        viewer.open(CoverRequest(cover, zoom.original, zoom.title, bounds, round, source))
+                    }
+                } else Modifier,
+            ),
     ) {
         FillCover(cover, pxHint = 640, modifier = Modifier.fillMaxSize(), shape = shape, fallbackIcon = fallback)
     }
