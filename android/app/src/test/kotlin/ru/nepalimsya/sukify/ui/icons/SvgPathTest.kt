@@ -1,6 +1,9 @@
 package ru.nepalimsya.sukify.ui.icons
 
+import androidx.compose.ui.graphics.vector.PathNode
+import androidx.compose.ui.graphics.vector.addPathNodes
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SvgPathTest {
@@ -31,5 +34,38 @@ class SvgPathTest {
     @Test
     fun `numbers without separators are split at sign and second dot`() {
         assertEquals("M 1.5 -2.5 .25 L 3e-2 4", normalizePath("M1.5-2.5.25L3e-2 4"))
+    }
+
+    @Test
+    fun `relative move after close starts from the contour start`() {
+        // Две полоски иконки очереди: «zm0-4.5» — от (15,15), а не от (15,13.5).
+        val nodes = absolutePathNodes(addPathNodes(normalizePath("M15 15H1v-1.5h14zm0-4.5H1V9h14z")))
+        assertEquals(
+            listOf(
+                PathNode.MoveTo(15f, 15f),
+                PathNode.LineTo(1f, 15f),
+                PathNode.LineTo(1f, 13.5f),
+                PathNode.LineTo(15f, 13.5f),
+                PathNode.Close,
+                PathNode.MoveTo(15f, 10.5f),
+                PathNode.LineTo(1f, 10.5f),
+                PathNode.LineTo(1f, 9f),
+                PathNode.LineTo(15f, 9f),
+                PathNode.Close,
+            ),
+            nodes,
+        )
+    }
+
+    @Test
+    fun `arcs after close become absolute too`() {
+        val relative = setOf(
+            PathNode.RelativeMoveTo::class, PathNode.RelativeLineTo::class, PathNode.RelativeHorizontalTo::class,
+            PathNode.RelativeVerticalTo::class, PathNode.RelativeCurveTo::class, PathNode.RelativeReflectiveCurveTo::class,
+            PathNode.RelativeQuadTo::class, PathNode.RelativeReflectiveQuadTo::class, PathNode.RelativeArcTo::class,
+        )
+        val arc = absolutePathNodes(addPathNodes(normalizePath("M8 0a8 8 0 1 0 0 16zm1 1a1 1 0 0 1 2 0")))
+        assertTrue(arc.none { it::class in relative })
+        assertEquals(PathNode.ArcTo(1f, 1f, 0f, false, true, 11f, 1f), arc.last())
     }
 }

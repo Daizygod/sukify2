@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathNode
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
@@ -11,6 +12,12 @@ import androidx.compose.ui.unit.dp
  * SVG-иконка веба → ImageVector. viewBox бывает со смещением («-72 -69.6 …»
  * у иконки медиатеки) — его отрабатываем сдвигом группы.
  * Цвет задаёт Icon(tint = …), здесь заливка просто непрозрачная.
+ *
+ * Узлы переводим в абсолютные координаты: на части телефонов нативный
+ * Path.rMoveTo после close() отсчитывает от последней точки контура, а не от
+ * его начала (как требует SVG), и «zm0-4.5» уводит следующий контур вбок —
+ * полоски очереди превращаются в треугольники, у «Устройств» заливается
+ * экран. Robolectric считает правильно, поэтому тесты этого не видели.
  */
 internal fun svgIcon(name: String, viewBox: String, pathData: String): ImageVector {
     val (minX, minY, width, height) = viewBox.trim().split(Regex("\\s+")).map { it.toFloat() }
@@ -23,12 +30,95 @@ internal fun svgIcon(name: String, viewBox: String, pathData: String): ImageVect
     )
         .addGroup(translationX = -minX, translationY = -minY)
         .addPath(
-            pathData = addPathNodes(normalizePath(pathData)),
+            pathData = absolutePathNodes(addPathNodes(normalizePath(pathData))),
             fill = SolidColor(Color.Black),
             pathFillType = PathFillType.NonZero,
         )
         .clearGroup()
         .build()
+}
+
+/**
+ * Те же узлы, но без относительных команд: платформе остаются только moveTo,
+ * lineTo, cubicTo и т. п. по абсолютным точкам. После Z текущая точка —
+ * начало контура (правило SVG), его и держим.
+ */
+internal fun absolutePathNodes(nodes: List<PathNode>): List<PathNode> {
+    var x = 0f
+    var y = 0f
+    var startX = 0f
+    var startY = 0f
+    return nodes.map { node ->
+        val out: PathNode = when (node) {
+            is PathNode.Close -> node
+            is PathNode.MoveTo -> node
+            is PathNode.RelativeMoveTo -> PathNode.MoveTo(x + node.dx, y + node.dy)
+            is PathNode.LineTo -> node
+            is PathNode.RelativeLineTo -> PathNode.LineTo(x + node.dx, y + node.dy)
+            is PathNode.HorizontalTo -> PathNode.LineTo(node.x, y)
+            is PathNode.RelativeHorizontalTo -> PathNode.LineTo(x + node.dx, y)
+            is PathNode.VerticalTo -> PathNode.LineTo(x, node.y)
+            is PathNode.RelativeVerticalTo -> PathNode.LineTo(x, y + node.dy)
+            is PathNode.CurveTo -> node
+            is PathNode.RelativeCurveTo ->
+                PathNode.CurveTo(x + node.dx1, y + node.dy1, x + node.dx2, y + node.dy2, x + node.dx3, y + node.dy3)
+            is PathNode.ReflectiveCurveTo -> node
+            is PathNode.RelativeReflectiveCurveTo ->
+                PathNode.ReflectiveCurveTo(x + node.dx1, y + node.dy1, x + node.dx2, y + node.dy2)
+            is PathNode.QuadTo -> node
+            is PathNode.RelativeQuadTo -> PathNode.QuadTo(x + node.dx1, y + node.dy1, x + node.dx2, y + node.dy2)
+            is PathNode.ReflectiveQuadTo -> node
+            is PathNode.RelativeReflectiveQuadTo -> PathNode.ReflectiveQuadTo(x + node.dx, y + node.dy)
+            is PathNode.ArcTo -> node
+            is PathNode.RelativeArcTo -> PathNode.ArcTo(
+                node.horizontalEllipseRadius,
+                node.verticalEllipseRadius,
+                node.theta,
+                node.isMoreThanHalf,
+                node.isPositiveArc,
+                x + node.arcStartDx,
+                y + node.arcStartDy,
+            )
+        }
+        when (out) {
+            is PathNode.Close -> {
+                x = startX
+                y = startY
+            }
+            is PathNode.MoveTo -> {
+                x = out.x
+                y = out.y
+                startX = x
+                startY = y
+            }
+            is PathNode.LineTo -> {
+                x = out.x
+                y = out.y
+            }
+            is PathNode.CurveTo -> {
+                x = out.x3
+                y = out.y3
+            }
+            is PathNode.ReflectiveCurveTo -> {
+                x = out.x2
+                y = out.y2
+            }
+            is PathNode.QuadTo -> {
+                x = out.x2
+                y = out.y2
+            }
+            is PathNode.ReflectiveQuadTo -> {
+                x = out.x
+                y = out.y
+            }
+            is PathNode.ArcTo -> {
+                x = out.arcStartX
+                y = out.arcStartY
+            }
+            else -> Unit
+        }
+        out
+    }
 }
 
 /**
