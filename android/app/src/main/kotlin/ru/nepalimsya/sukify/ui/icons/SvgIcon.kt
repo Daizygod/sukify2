@@ -41,14 +41,21 @@ internal fun svgIcon(name: String, viewBox: String, pathData: String): ImageVect
 /**
  * Те же узлы, но без относительных команд: платформе остаются только moveTo,
  * lineTo, cubicTo и т. п. по абсолютным точкам. После Z текущая точка —
- * начало контура (правило SVG), его и держим.
+ * начало контура (правило SVG), его и держим; если следом не moveTo, ставим
+ * его сами — тоже не полагаясь на платформу.
  */
 internal fun absolutePathNodes(nodes: List<PathNode>): List<PathNode> {
     var x = 0f
     var y = 0f
     var startX = 0f
     var startY = 0f
-    return nodes.map { node ->
+    var closed = false
+    val result = ArrayList<PathNode>(nodes.size + 4)
+    for (node in nodes) {
+        if (closed && node !is PathNode.MoveTo && node !is PathNode.RelativeMoveTo && node !is PathNode.Close) {
+            result += PathNode.MoveTo(startX, startY)
+        }
+        closed = node is PathNode.Close
         val out: PathNode = when (node) {
             is PathNode.Close -> node
             is PathNode.MoveTo -> node
@@ -117,8 +124,9 @@ internal fun absolutePathNodes(nodes: List<PathNode>): List<PathNode> {
             }
             else -> Unit
         }
-        out
+        result += out
     }
+    return result
 }
 
 /**

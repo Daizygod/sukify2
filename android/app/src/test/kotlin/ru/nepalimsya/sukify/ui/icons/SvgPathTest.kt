@@ -68,4 +68,19 @@ class SvgPathTest {
         assertTrue(arc.none { it::class in relative })
         assertEquals(PathNode.ArcTo(1f, 1f, 0f, false, true, 11f, 1f), arc.last())
     }
+
+    @Test
+    fun `segment right after close starts from the contour start`() {
+        assertEquals(
+            listOf(
+                PathNode.MoveTo(0f, 0f),
+                PathNode.LineTo(2f, 0f),
+                PathNode.LineTo(2f, 2f),
+                PathNode.Close,
+                PathNode.MoveTo(0f, 0f),
+                PathNode.LineTo(1f, 1f),
+            ),
+            absolutePathNodes(addPathNodes(normalizePath("M0 0h2v2zl1 1"))),
+        )
+    }
 }
