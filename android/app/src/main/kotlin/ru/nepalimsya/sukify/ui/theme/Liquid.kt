@@ -1,9 +1,11 @@
 package ru.nepalimsya.sukify.ui.theme
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import kotlin.math.PI
 import kotlin.math.abs
@@ -70,29 +72,56 @@ object Liquid {
     }
 
     /**
-     * Горлышко между двумя прямоугольниками, стоящими рядом по горизонтали:
-     * у краёв — широкое (жидкость «вытекает» из обложки), к середине сужается
-     * и рвётся, когда щель шире [maxGap]. Вне прямоугольников ничего не
-     * рисуется, кроме самой перемычки, — её и рисуем под обложками.
+     * Горлышко между двумя прямоугольниками, стоящими рядом по горизонтали.
+     * Граница выходит из кромки по касательной, как мениск: жидкость
+     * «стекает» с обложки, к середине сужается в талию и рвётся, когда щель
+     * шире [maxGap]. Рисуется под обложками — видна только сама перемычка.
      */
     fun neck(leftEdge: Float, rightEdge: Float, centerY: Float, height: Float, maxGap: Float): Path? {
         val gap = rightEdge - leftEdge
         if (gap <= 0f || gap >= maxGap) return null
         val t = gap / maxGap
-        // Устье у кромки обложки и «талия» посередине.
-        val mouth = height * 0.36f * (1f - 0.45f * t)
-        val waist = height * 0.26f * (1f - t) * (1f - t)
+        // Устье у кромки и талия посередине: чем шире щель, тем тоньше.
+        val mouth = height * 0.3f * (1f - 0.5f * t)
+        val waist = height * 0.2f * (1f - t) * (1f - t)
         val mid = (leftEdge + rightEdge) / 2f
+        val half = gap / 2f
+        val fall = (mouth - waist) * 0.55f // насколько мениск идёт вдоль кромки
         val overlap = height * 0.04f // заходим под обложку, чтобы не было шва
-        val l = leftEdge - overlap
-        val r = rightEdge + overlap
         return Path().apply {
-            moveTo(l, centerY - mouth)
-            cubicTo(leftEdge + gap * 0.42f, centerY - mouth, mid - gap * 0.28f, centerY - waist, mid, centerY - waist)
-            cubicTo(mid + gap * 0.28f, centerY - waist, rightEdge - gap * 0.42f, centerY - mouth, r, centerY - mouth)
-            lineTo(r, centerY + mouth)
-            cubicTo(rightEdge - gap * 0.42f, centerY + mouth, mid + gap * 0.28f, centerY + waist, mid, centerY + waist)
-            cubicTo(mid - gap * 0.28f, centerY + waist, leftEdge + gap * 0.42f, centerY + mouth, l, centerY + mouth)
+            moveTo(leftEdge - overlap, centerY - mouth)
+            lineTo(leftEdge, centerY - mouth)
+            cubicTo(leftEdge, centerY - mouth + fall, mid - half * 0.55f, centerY - waist, mid, centerY - waist)
+            cubicTo(mid + half * 0.55f, centerY - waist, rightEdge, centerY - mouth + fall, rightEdge, centerY - mouth)
+            lineTo(rightEdge + overlap, centerY - mouth)
+            lineTo(rightEdge + overlap, centerY + mouth)
+            lineTo(rightEdge, centerY + mouth)
+            cubicTo(rightEdge, centerY + mouth - fall, mid + half * 0.55f, centerY + waist, mid, centerY + waist)
+            cubicTo(mid - half * 0.55f, centerY + waist, leftEdge, centerY + mouth - fall, leftEdge, centerY + mouth)
+            lineTo(leftEdge - overlap, centerY + mouth)
+            close()
+        }
+    }
+
+    /**
+     * Слеза: круглая голова [head] радиуса [radius] и острый кончик в [tail]
+     * — бока идут от кончика по касательным к голове. Для брызг.
+     */
+    fun teardrop(head: Offset, radius: Float, tail: Offset): Path {
+        val length = hypot(tail.x - head.x, tail.y - head.y)
+        if (radius <= 0f || length <= radius) {
+            return Path().apply { if (radius > 0f) addOval(Rect(head, radius)) }
+        }
+        val toTail = atan2(tail.y - head.y, tail.x - head.x)
+        val spread = acos(radius / length) // угол от оси до точки касания
+        val start = toTail + spread
+        val sweep = 2 * PI.toFloat() - 2 * spread
+        val degrees = 180f / PI.toFloat()
+        return Path().apply {
+            moveTo(tail.x, tail.y)
+            val p = head + polar(start, radius)
+            lineTo(p.x, p.y)
+            arcTo(Rect(head, radius), start * degrees, sweep * degrees, false)
             close()
         }
     }
@@ -100,7 +129,10 @@ object Liquid {
     private fun polar(angle: Float, radius: Float) = Offset(cos(angle) * radius, sin(angle) * radius)
 }
 
-/** Две капли и перемычка между ними, если они ещё не оторвались. */
+/**
+ * Две капли и перемычка между ними, если они ещё не оторвались. Всё
+ * сливается в один контур — полупрозрачный цвет не темнеет на стыках.
+ */
 fun DrawScope.drawLiquidPair(
     c1: Offset,
     r1: Float,
@@ -109,9 +141,15 @@ fun DrawScope.drawLiquidPair(
     color: Color,
     stickiness: Float = 2.5f,
 ) {
-    if (r1 > 0f) drawCircle(color, r1, c1)
-    if (r2 > 0f) drawCircle(color, r2, c2)
-    Liquid.bridge(c1, r1, c2, r2, stickiness)?.let { drawPath(it, color) }
+    var shape = Path()
+    fun union(other: Path) {
+        val previous = shape
+        shape = Path().apply { op(previous, other, PathOperation.Union) }
+    }
+    if (r1 > 0f) union(Path().apply { addOval(Rect(c1, r1)) })
+    if (r2 > 0f) union(Path().apply { addOval(Rect(c2, r2)) })
+    Liquid.bridge(c1, r1, c2, r2, stickiness)?.let(::union)
+    drawPath(shape, color)
 }
 
 /** Перемычка между соседними обложками; цвет плавно идёт от одной к другой. */

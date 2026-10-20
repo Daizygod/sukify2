@@ -1,6 +1,7 @@
 package ru.nepalimsya.sukify.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,16 +30,28 @@ import ru.nepalimsya.sukify.ui.theme.SukifyMotion
 import ru.nepalimsya.sukify.ui.theme.SukifyType
 
 /**
- * Нажатие «проседает» на пару процентов и пружинит обратно — тактильный
- * отклик без ряби, как у кнопок Spotify. Масштаб — в graphicsLayer, то есть
- * без перерасчёта раскладки.
+ * Нажатие «проседает» и пружинит обратно — тактильный отклик без ряби.
+ * Как капля: под пальцем кнопка чуть сплющивается (по высоте сильнее, чем
+ * по ширине), а отпущенная отыгрывает ширину и высоту на разных пружинах —
+ * не в такт, поэтому коротко «желейно» колышется. Масштаб — в graphicsLayer,
+ * то есть без перерасчёта раскладки.
  */
 fun Modifier.pressScale(interaction: MutableInteractionSource, pressed: Float = 0.95f): Modifier = composed {
     val isPressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (isPressed) pressed else 1f, SukifyMotion.standard(), label = "press")
+    val dent = 1f - pressed
+    val x by animateFloatAsState(
+        if (isPressed) 1f - dent * 0.6f else 1f,
+        if (isPressed) SukifyMotion.standard() else spring(dampingRatio = 0.42f, stiffness = 620f),
+        label = "pressX",
+    )
+    val y by animateFloatAsState(
+        if (isPressed) 1f - dent * 1.4f else 1f,
+        if (isPressed) SukifyMotion.standard() else spring(dampingRatio = 0.42f, stiffness = 380f),
+        label = "pressY",
+    )
     graphicsLayer {
-        scaleX = scale
-        scaleY = scale
+        scaleX = x
+        scaleY = y
     }
 }
 

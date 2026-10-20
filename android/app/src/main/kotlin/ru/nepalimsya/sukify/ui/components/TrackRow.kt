@@ -1,6 +1,8 @@
 package ru.nepalimsya.sukify.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -16,7 +18,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -30,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -44,6 +46,7 @@ import ru.nepalimsya.sukify.ui.downloads.LocalDownloads
 import ru.nepalimsya.sukify.ui.icons.SukifyIcons
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyType
+import ru.nepalimsya.sukify.ui.theme.drawLiquidPair
 
 /**
  * Строка трека (TrackRow.vue в мобильной раскладке): обложка, название
@@ -85,10 +88,31 @@ fun TrackRow(
 
     Box(modifier.fillMaxWidth()) {
         if (onSwipeQueue != null) {
-            // Под строкой: зелёный кружок «в очередь», растёт по мере свайпа.
+            // Под строкой: кружок «в очередь» вытягивается каплей из края экрана
+            // и растёт по мере свайпа; прошёл порог — капля отрывается от края
+            // и зеленеет.
+            val blob by animateColorAsState(if (armed) SukifyColors.Accent else SukifyColors.CardPressed, label = "queueBlob")
+            val edge by animateFloatAsState(
+                if (armed) 0f else 1f,
+                spring(dampingRatio = 0.55f, stiffness = 420f),
+                label = "queueEdge",
+            )
             Box(
                 Modifier
                     .matchParentSize()
+                    .graphicsLayer { alpha = (dragX / threshold).coerceIn(0f, 1f) }
+                    .drawBehind {
+                        val p = (dragX / threshold).coerceIn(0f, 1f)
+                        val y = size.height / 2f
+                        drawLiquidPair(
+                            c1 = Offset(-4.dp.toPx(), y),
+                            r1 = 16.dp.toPx() * (1f - 0.35f * p) * edge,
+                            c2 = Offset(38.dp.toPx(), y),
+                            r2 = 18.dp.toPx() * (0.6f + 0.4f * p),
+                            color = blob,
+                            stickiness = 3f,
+                        )
+                    }
                     .padding(start = 20.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
@@ -97,11 +121,9 @@ fun TrackRow(
                         .size(36.dp)
                         .graphicsLayer {
                             val p = (dragX / threshold).coerceIn(0f, 1f)
-                            alpha = p
                             scaleX = 0.6f + 0.4f * p
                             scaleY = 0.6f + 0.4f * p
-                        }
-                        .background(if (armed) SukifyColors.Accent else SukifyColors.CardPressed, CircleShape),
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(SukifyIcons.Queue, null, tint = if (armed) Color.Black else SukifyColors.Text, modifier = Modifier.size(18.dp))

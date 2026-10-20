@@ -1,11 +1,9 @@
 package ru.nepalimsya.sukify.ui.player
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,8 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -32,6 +34,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -88,16 +91,8 @@ fun MiniPlayer(
             modifier = Modifier.padding(horizontal = 8.dp).fillMaxWidth().height(MiniPlayerHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Обложка стоит на месте и меняется наплывом.
-            AnimatedContent(
-                targetState = track,
-                contentKey = { it.id },
-                transitionSpec = { fadeIn(tween(380)) togetherWith fadeOut(tween(380)) },
-                label = "miniCover",
-                modifier = coverModifier,
-            ) { t ->
-                CoverImage(t.cover, size = 40.dp)
-            }
+            // Обложка стоит на месте и меняется каплей.
+            CoverDrop(track, coverModifier)
             Spacer(Modifier.width(10.dp))
             SwipeStrip(
                 previous = previous,
@@ -125,6 +120,54 @@ fun MiniPlayer(
             }
         }
         ProgressLine(position, duration, Modifier.align(Alignment.BottomCenter).padding(horizontal = 8.dp, vertical = 2.dp))
+    }
+}
+
+/**
+ * Обложка мини-плеера при смене трека: старая стягивается в круглую каплю и
+ * тает, новая «распускается» из капли с упругим перелётом и расправляет углы.
+ * Обложки ключуются треком — уходящая доигрывает с уже загруженной
+ * картинкой, ничего не перезагружается.
+ */
+@Composable
+private fun CoverDrop(track: Track, modifier: Modifier) {
+    var shown by remember { mutableStateOf(track) }
+    var leaving by remember { mutableStateOf<Track?>(null) }
+    val grow = remember { Animatable(1f) }
+    LaunchedEffect(track.id) {
+        if (track.id == shown.id) return@LaunchedEffect
+        leaving = shown
+        shown = track
+        grow.snapTo(0f)
+        grow.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 380f))
+        leaving = null
+    }
+    // Тот же трек, но свежий объект (догрузился) — показываем его без анимации.
+    val current = if (track.id == shown.id) track else shown
+    val old = leaving?.takeIf { it.id != current.id }
+    Box(modifier.size(40.dp)) {
+        listOfNotNull(old, current).forEach { t ->
+            key(t.id) {
+                val outgoing = t.id != current.id
+                CoverImage(
+                    t.cover,
+                    size = 40.dp,
+                    modifier = Modifier.graphicsLayer {
+                        val g = grow.value
+                        // Видимая доля: уходящая тает вдвое быстрее, чем растёт новая.
+                        val k = if (outgoing) (1f - g * 1.8f).coerceIn(0f, 1f) else g
+                        val s = 0.35f + 0.65f * k
+                        scaleX = s
+                        scaleY = s
+                        alpha = if (outgoing) k else (g * 2.5f).coerceIn(0f, 1f)
+                        // 4 dp углы ↔ круг (половина стороны): чем меньше, тем круглее.
+                        val round = (1f - k).coerceIn(0f, 1f)
+                        shape = RoundedCornerShape(4.dp.toPx() + (size.minDimension / 2f - 4.dp.toPx()) * round)
+                        clip = true
+                    },
+                )
+            }
+        }
     }
 }
 
