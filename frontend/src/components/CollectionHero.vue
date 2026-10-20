@@ -11,6 +11,8 @@ const props = defineProps({
   round: { type: Boolean, default: false },
   bigTitle: { type: Boolean, default: true },
   zoomable: { type: Boolean, default: false },
+  /** Обложка сейчас открыта крупно — здесь её прячем, будто это она улетела. */
+  zoomed: { type: Boolean, default: false },
 })
 const emit = defineEmits(['zoom'])
 
@@ -29,13 +31,13 @@ const titleSize = computed(() => {
     <div class="hero__inner">
       <div
         class="hero__cover"
-        :class="{ 'hero__cover--round': round, 'hero__cover--zoom': zoomable }"
-        @click="zoomable && emit('zoom')"
+        :class="{ 'hero__cover--round': round, 'hero__cover--zoom': zoomable, 'hero__cover--away': zoomed }"
+        @click="zoomable && emit('zoom', $event.currentTarget.getBoundingClientRect())"
       >
         <slot name="cover">
           <CoverImage :cover="cover" :size="300" :rounded="round" :alt="title" />
         </slot>
-        <div v-if="zoomable" class="hero__zoom-hint">Click to enlarge</div>
+        <div v-if="zoomable" class="hero__zoom-hint">Нажми, чтобы увеличить</div>
       </div>
       <div class="hero__text">
         <span v-if="kind" class="hero__kind">{{ kind }}</span>
@@ -72,6 +74,9 @@ const titleSize = computed(() => {
 }
 .hero__cover--round {
   border-radius: 50%;
+}
+.hero__cover--away {
+  visibility: hidden;
 }
 .hero__cover--zoom {
   cursor: zoom-in;

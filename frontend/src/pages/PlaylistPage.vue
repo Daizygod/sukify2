@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import draggable from 'vuedraggable'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
+import CoverLightbox from '@/components/CoverLightbox.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import MixChip from '@/components/mix/MixChip.vue'
 import Icon from '@/components/Icon.vue'
@@ -27,6 +28,12 @@ const library = useLibraryStore()
 const playlist = ref(null)
 const items = ref([])
 const loading = ref(true)
+const lightboxOpen = ref(false)
+const lightboxFrom = ref(null)
+function openLightbox(rect) {
+  lightboxFrom.value = rect
+  lightboxOpen.value = true
+}
 
 const isOwner = computed(() => playlist.value?.is_owner)
 
@@ -169,6 +176,9 @@ async function removePlaylist() {
       :title="playlist.title"
       :cover="playlist.cover_url ? { 640: playlist.cover_url } : null"
       :bg="heroBg"
+      :zoomable="!!playlist.cover_url"
+      :zoomed="lightboxOpen"
+      @zoom="openLightbox"
     >
       <template #meta>
         <div v-if="playlist.description" class="playlist__desc">{{ playlist.description }}</div>
@@ -179,6 +189,13 @@ async function removePlaylist() {
         </div>
       </template>
     </CollectionHero>
+    <CoverLightbox
+      :open="lightboxOpen"
+      :src="playlist.cover_url || ''"
+      :from="lightboxFrom"
+      :alt="playlist.title"
+      @close="lightboxOpen = false"
+    />
 
     <PlaylistEditModal
       v-if="editOpen"

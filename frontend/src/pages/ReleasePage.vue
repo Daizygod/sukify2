@@ -43,6 +43,11 @@ async function download() {
 const release = ref(null)
 const loading = ref(true)
 const lightboxOpen = ref(false)
+const lightboxFrom = ref(null)
+function openLightbox(rect) {
+  lightboxFrom.value = rect
+  lightboxOpen.value = true
+}
 
 const kindLabel = computed(() => {
   const map = { album: 'Альбом', single: 'Сингл', ep: 'Мини-альбом', compilation: 'Сборник' }
@@ -54,6 +59,12 @@ const fullCover = computed(() => {
   const c = release.value?.cover
   if (Array.isArray(c) && c.length) return [...c].sort((a, b) => b.size - a.size)[0].url
   return null
+})
+// Пока грузится оригинал, видна копия, которую шапка уже показала.
+const previewCover = computed(() => {
+  const c = release.value?.cover
+  if (!Array.isArray(c) || !c.length) return ''
+  return ([...c].sort((a, b) => a.size - b.size).find((x) => x.size >= 300) || c[c.length - 1]).url
 })
 
 const totalMs = computed(() =>
@@ -92,14 +103,22 @@ async function toggleLike() {
 
 <template>
   <div v-if="release" class="release">
-    <CoverLightbox :open="lightboxOpen" :src="fullCover" :alt="release.title" @close="lightboxOpen = false" />
+    <CoverLightbox
+      :open="lightboxOpen"
+      :src="fullCover"
+      :preview="previewCover"
+      :from="lightboxFrom"
+      :alt="release.title"
+      @close="lightboxOpen = false"
+    />
     <CollectionHero
       :kind="kindLabel"
       :title="release.title"
       :cover="release.cover"
       :bg="release.colors?.background || '#333'"
       :zoomable="!!fullCover"
-      @zoom="lightboxOpen = true"
+      :zoomed="lightboxOpen"
+      @zoom="openLightbox"
     >
       <template #meta>
         <template v-for="(a, i) in (release.artists?.length ? release.artists : [release.artist]).filter(Boolean)" :key="a.id">
