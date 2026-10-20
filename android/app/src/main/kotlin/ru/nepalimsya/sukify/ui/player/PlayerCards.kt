@@ -54,7 +54,8 @@ import ru.nepalimsya.sukify.util.Format
 
 /**
  * Живая строка текста под обложкой: старая уезжает вверх и тает, новая
- * приходит снизу — как в приложении Spotify и в вебе.
+ * приходит снизу — как в приложении Spotify и в вебе. Прижата влево, к
+ * названию трека под ней.
  *
  * Место под строку занято всегда, даже без текста: при смене трека текст
  * приезжает с задержкой, и без запаса кнопки плеера подпрыгивали бы вверх
@@ -62,7 +63,7 @@ import ru.nepalimsya.sukify.util.Format
  */
 @Composable
 fun LiveLyricLine(lyrics: Lyrics?, position: () -> Long, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.CenterStart) {
         if (lyrics == null || lyrics.synced.isEmpty()) return@Box
         val index by remember(lyrics) { derivedStateOf { lyrics.activeIndex(position()) } }
         AnimatedContent(
@@ -71,6 +72,7 @@ fun LiveLyricLine(lyrics: Lyrics?, position: () -> Long, modifier: Modifier = Mo
                 (slideInVertically(tween(320)) { it / 2 } + fadeIn(tween(320))) togetherWith
                     (slideOutVertically(tween(320)) { -it / 2 } + fadeOut(tween(260)))
             },
+            contentAlignment = Alignment.CenterStart,
             label = "liveLine",
         ) { i ->
             val text = lyrics.synced.getOrNull(i)?.text?.ifBlank { "♪" }.orEmpty()
@@ -78,7 +80,7 @@ fun LiveLyricLine(lyrics: Lyrics?, position: () -> Long, modifier: Modifier = Mo
                 text,
                 style = SukifyType.BodyBold.copy(fontSize = SukifyType.Title.fontSize),
                 color = Color.White,
-                textAlign = TextAlign.Center,
+                textAlign = TextAlign.Start,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
