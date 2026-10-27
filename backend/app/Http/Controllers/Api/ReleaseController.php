@@ -33,7 +33,8 @@ class ReleaseController extends Controller
                 fn ($q) => $q->orderByDesc(Release::freshnessExpression())
             )
             ->orderByDesc('id')
-            ->paginate(48);
+            // per_page — для витрин, которым нужна пара обложек, а не страница.
+            ->paginate(min(max((int) $request->query('per_page', 48), 1), 48));
 
         $this->markLikedReleases($releases->getCollection(), $request->user());
 
@@ -50,6 +51,12 @@ class ReleaseController extends Controller
 
         $this->markLikedReleases([$release], $request->user());
         $this->markLikedTracks($release->tracks, $request->user());
+
+        // Каждому треку — лёгкая копия своего релиза (без треклиста). Трек
+        // уходит в очередь плеера как есть, и без релиза название в плеере
+        // никуда не вело, а текст и полный экран красились запасным цветом.
+        $light = $release->withoutRelations();
+        $release->tracks->each->setRelation('release', $light);
 
         return new ReleaseResource($release);
     }

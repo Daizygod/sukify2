@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\ProcessingStatus;
 use App\Http\Controllers\Concerns\ResolvesLikes;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ArtistResource;
@@ -24,7 +25,25 @@ class GenreController extends Controller
             ->orderByDesc('artists_count')
             ->get();
 
-        return response()->json(['data' => $genres]);
+        // Как в Spotify, в углу плитки — повёрнутая обложка: релиз самого
+        // слушаемого исполнителя жанра. Один запрос на все жанры (DISTINCT ON).
+        $covers = Release::query()
+            ->selectRaw('distinct on (artists.genre) releases.*, artists.genre as genre_key')
+            ->join('artists', 'artists.id', '=', 'releases.artist_id')
+            ->whereNotNull('artists.genre')
+            ->whereNotNull('releases.cover_path')
+            ->where('releases.cover_status', ProcessingStatus::Ready)
+            ->orderBy('artists.genre')
+            ->orderByRaw('artists.monthly_listeners desc nulls last')
+            ->orderByRaw('releases.release_date desc nulls last')
+            ->get()
+            ->keyBy('genre_key');
+
+        return response()->json(['data' => $genres->map(fn ($g) => [
+            'genre' => $g->genre,
+            'artists_count' => (int) $g->artists_count,
+            'cover' => $covers->get($g->genre)?->coverUrls(),
+        ])]);
     }
 
     /** Страница жанра: исполнители и их релизы. */
