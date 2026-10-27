@@ -4,7 +4,7 @@
 // Запуск из корня репозитория:
 //   docker run --rm -v "$PWD:/repo" -w /repo node:22-alpine node android/tools/gen_icons.mjs
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname } from 'node:path'
 
 const SRC = 'frontend/src/components/Icon.vue'
@@ -45,6 +45,16 @@ const body = entries
   .map(([name, { vb, d }]) => `    val ${kotlinName(name)}: ImageVector by lazy { svgIcon("${name}", "${vb}", "${esc(d)}") }`)
   .join('\n')
 
+// Иконки не из веба (Material Symbols) дописаны в конец файла руками —
+// переносим этот блок как есть, иначе перегенерация молча их стирает.
+const MARK = '    // Ниже — не из веба'
+let extra = ''
+if (existsSync(OUT)) {
+  const prev = readFileSync(OUT, 'utf8')
+  const at = prev.indexOf(MARK)
+  if (at >= 0) extra = '\n' + prev.slice(at, prev.lastIndexOf('}')).replace(/\s+$/, '') + '\n'
+}
+
 const kt = `// Сгенерировано android/tools/gen_icons.mjs из frontend/src/components/Icon.vue — руками не править.
 package ru.nepalimsya.sukify.ui.icons
 
@@ -53,7 +63,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 /** Иконки веба (${entries.length} шт.) как ImageVector: те же глифы, что в браузере. */
 object SukifyIcons {
 ${body}
-}
+${extra}}
 `
 
 mkdirSync(dirname(OUT), { recursive: true })
