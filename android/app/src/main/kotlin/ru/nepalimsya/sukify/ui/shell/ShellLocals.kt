@@ -31,6 +31,12 @@ class PlaybackUi(private val state: State<PlayerState>, val contexts: ContextPla
 val LocalPlayback = staticCompositionLocalOf<PlaybackUi> { error("PlaybackUi не предоставлен") }
 
 /**
+ * Звук идёт (не пауза) — эквалайзер у играющей строки пляшет только тогда.
+ * State, а не Boolean: читает его строка, а не вся оболочка.
+ */
+val LocalAudible = staticCompositionLocalOf<State<Boolean>> { mutableStateOf(false) }
+
+/**
  * Полноэкранные инструменты (редактор перехода, правка плейлиста) прячут
  * нижнюю панель и мини-плеер — им нужен весь экран.
  */

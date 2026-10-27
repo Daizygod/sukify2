@@ -37,7 +37,8 @@ object DeepLinks {
         }.toMap()
         val id = parts.getOrNull(1)
         return when (parts.firstOrNull()) {
-            "release" -> id?.let(::ReleaseRoute)
+            // ?t= — ссылка «Поделиться» на трек: на альбоме он подсветится.
+            "release" -> id?.let { ReleaseRoute(it, highlight = (query["t"] ?: query["highlight"])?.toLongOrNull()) }
             "artist" -> id?.let { slug ->
                 when (parts.getOrNull(2)) {
                     "discography" -> DiscographyRoute(slug)

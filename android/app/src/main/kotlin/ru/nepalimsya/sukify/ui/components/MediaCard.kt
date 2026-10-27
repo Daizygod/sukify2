@@ -37,6 +37,7 @@ import ru.nepalimsya.sukify.domain.MediaItem
 import ru.nepalimsya.sukify.domain.MediaKind
 import ru.nepalimsya.sukify.ui.icons.SukifyIcons
 import ru.nepalimsya.sukify.ui.shell.LocalPlayback
+import ru.nepalimsya.sukify.ui.theme.Depth
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyType
 import ru.nepalimsya.sukify.ui.theme.parseHexColor
@@ -120,7 +121,10 @@ private fun MixArt(item: MediaItem) {
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(6.dp))
-            .background(color),
+            .background(color)
+            .background(Depth.topLight)
+            .background(Depth.bottomShade)
+            .background(Depth.grain),
         contentAlignment = Alignment.Center,
     ) {
         Icon(SukifyIcons.Nowplaying, null, tint = SukifyColors.Text.copy(alpha = 0.9f), modifier = Modifier.size(40.dp))

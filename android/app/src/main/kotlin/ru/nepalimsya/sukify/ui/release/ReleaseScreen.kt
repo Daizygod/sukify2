@@ -9,10 +9,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,6 +30,7 @@ import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.nepalimsya.sukify.data.cache.Loadable
 import ru.nepalimsya.sukify.data.catalog.CatalogRepository
@@ -72,7 +78,11 @@ class ReleaseViewModel @Inject constructor(
     catalog: CatalogRepository,
     private val library: LibraryState,
 ) : ViewModel() {
-    val slug = savedState.toRoute<ReleaseRoute>().slug
+    private val route = savedState.toRoute<ReleaseRoute>()
+    val slug = route.slug
+
+    /** Трек, к которому пришли из плеера: его строку прокрутить и подсветить. */
+    val highlight = route.highlight
 
     private val data = ScreenData(viewModelScope, catalog.peek("release:$slug")) { catalog.release(slug) }
     val state: StateFlow<Loadable<ReleaseDto>> = data.state
@@ -92,16 +102,39 @@ fun ReleaseScreen(vm: ReleaseViewModel = hiltViewModel()) {
     val albums by vm.albums.collectAsStateWithLifecycle()
     val release = state.dataOrNull
     val color = parseHexColor(release?.colors?.background) ?: SukifyColors.CardPressed
+    val listState = rememberLazyListState()
+    var flashId by remember { mutableStateOf<Long?>(null) }
+
+    // Пришли по названию трека из плеера — как Spotify: строку к центру, вспышка.
+    LaunchedEffect(release?.id) {
+        val id = vm.highlight ?: return@LaunchedEffect
+        val index = release?.tracks.orEmpty().indexOfFirst { it.id == id }
+        if (index < 0) return@LaunchedEffect
+        // Ждём первую раскладку списка: до неё не знаем высоту окна.
+        snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > index + 1 }
+        val viewport = listState.layoutInfo.viewportSize.height
+        // Шапка — первый элемент списка, треки идут за ней.
+        listState.animateScrollToItem(1 + index, scrollOffset = -(viewport * 0.35f).toInt())
+        flashId = id
+    }
 
     CollectionScaffold(
         color = color,
         title = release?.title.orEmpty(),
+        state = listState,
         stickyPlay = release?.let { r ->
             { ContextPlayButton(ContextKeys.release(r.slug), r.title, null, size = 40.dp) }
         },
     ) { heroModifier ->
         when {
-            release != null -> releaseContent(release, color, heroModifier, liked = albums.any { it.id == release.id }, onLike = { vm.toggleLike(release) })
+            release != null -> releaseContent(
+                release,
+                color,
+                heroModifier,
+                liked = albums.any { it.id == release.id },
+                onLike = { vm.toggleLike(release) },
+                highlightId = flashId,
+            )
             state is Loadable.Failed -> item { ErrorBlock((state as Loadable.Failed).message, onRetry = vm::reload, modifier = Modifier.padding(top = 120.dp)) }
             else -> item { LoadingBlock(Modifier.padding(top = 160.dp)) }
         }
@@ -114,6 +147,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.releaseContent(
     heroModifier: Modifier,
     liked: Boolean,
     onLike: () -> Unit,
+    highlightId: Long? = null,
 ) {
     val key = ContextKeys.release(release.slug)
     val tracks = release.tracks.orEmpty().map { it.toDomain(release) }.toImmutableList()
@@ -157,6 +191,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.releaseContent(
             onClick = { playback.contexts.playFrom(tracks, track, release.title, key) },
             onMore = { menus.track(track) },
             onSwipeQueue = { playback.contexts.enqueueTracks(listOf(track)) },
+            highlight = track.id == highlightId,
         )
     }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -67,6 +68,8 @@ fun <T : Any> SwipeStrip(
     modifier: Modifier = Modifier,
     thresholdDp: Int = 60,
     liquid: StripLiquid<T>? = null,
+    /** Лента тронулась с места / вернулась в покой (жест вместе с доводкой). */
+    onMoving: ((Boolean) -> Unit)? = null,
     slide: @Composable (T) -> Unit,
 ) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
@@ -88,6 +91,10 @@ fun <T : Any> SwipeStrip(
 
         /** Сдвиг, который видно: после смены трека старый сдвиг уже не в счёт. */
         fun shown(): Float = if (anchor == liveKey.value) offset else 0f
+
+        val moving by remember { derivedStateOf { shown() != 0f } }
+        val movingCallback by rememberUpdatedState(onMoving)
+        LaunchedEffect(moving) { movingCallback?.invoke(moving) }
 
         // Трек сменился (доиграл, кнопка, свайп, другое устройство) — сдвиг в ноль.
         LaunchedEffect(currentKey) {

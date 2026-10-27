@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -48,6 +47,7 @@ import ru.nepalimsya.sukify.data.model.ArtistDto
 import ru.nepalimsya.sukify.domain.Lyrics
 import ru.nepalimsya.sukify.ui.components.bounceClick
 import ru.nepalimsya.sukify.ui.icons.SukifyIcons
+import ru.nepalimsya.sukify.ui.theme.Depth
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyType
 import ru.nepalimsya.sukify.util.Format
@@ -88,7 +88,10 @@ fun LiveLyricLine(lyrics: Lyrics?, position: () -> Long, modifier: Modifier = Mo
     }
 }
 
-/** Карточка «Текст» под плеером: активная строка подсвечена и держится по центру. */
+/**
+ * Карточка «Текст» под плеером: активная строка подсвечена и держится у верха.
+ * Листнул карточку пальцем — она не прыгает назад до «Синхронизации».
+ */
 @Composable
 fun LyricsCard(
     lyrics: Lyrics,
@@ -100,15 +103,16 @@ fun LyricsCard(
 ) {
     val active by remember(lyrics) { derivedStateOf { lyrics.activeIndex(position()) } }
     val listState = rememberLazyListState()
-    LaunchedEffect(active) {
-        if (active >= 0) listState.animateScrollToItem((active - 2).coerceAtLeast(0))
-    }
+    val follow = rememberLyricsFollow(listState, active, key = lyrics)
     val lines = lyrics.displayLines
+    val tint = remember(color) { lyricsTint(lyricsCardColor(color)) }
     Column(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(lyricsCardColor(color))
+            .background(Depth.topLight)
+            .background(Depth.grain)
             .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -121,23 +125,32 @@ fun LyricsCard(
             }
         }
         Spacer(Modifier.height(12.dp))
-        LazyColumn(
-            state = listState,
-            userScrollEnabled = true,
-            modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
-        ) {
-            itemsIndexed(lines, key = { i, _ -> i }) { i, line ->
-                LyricLineText(
-                    text = line,
-                    state = when {
-                        lyrics.synced.isEmpty() -> LineState.Plain
-                        i == active -> LineState.Active
-                        i < active -> LineState.Past
-                        else -> LineState.Upcoming
-                    },
-                    onClick = lyrics.synced.getOrNull(i)?.let { line -> { onSeek(line.ms) } },
-                )
+        Box(Modifier.fillMaxWidth()) {
+            LazyColumn(
+                state = listState,
+                userScrollEnabled = true,
+                modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
+            ) {
+                itemsIndexed(lines, key = { i, _ -> i }) { i, line ->
+                    LyricLineText(
+                        text = line,
+                        state = when {
+                            lyrics.synced.isEmpty() -> LineState.Plain
+                            i == active -> LineState.Active
+                            i < active -> LineState.Past
+                            else -> LineState.Upcoming
+                        },
+                        onClick = lyrics.synced.getOrNull(i)?.let { line -> { follow.resync(); onSeek(line.ms) } },
+                        tint = tint,
+                    )
+                }
             }
+            SyncPill(
+                visible = !follow.following && lyrics.synced.isNotEmpty(),
+                onClick = follow::resync,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                compact = true,
+            )
         }
     }
 }
@@ -145,14 +158,20 @@ fun LyricsCard(
 enum class LineState { Plain, Past, Active, Upcoming }
 
 @Composable
-fun LyricLineText(text: String, state: LineState, onClick: (() -> Unit)?, big: Boolean = false) {
+fun LyricLineText(
+    text: String,
+    state: LineState,
+    onClick: (() -> Unit)?,
+    big: Boolean = false,
+    tint: Color = Color.White.copy(alpha = 0.7f),
+) {
     val color by animateColorAsState(
         when (state) {
             LineState.Active, LineState.Plain -> Color.White
-            LineState.Past -> Color.Black.copy(alpha = 0.45f)
-            LineState.Upcoming -> Color.White.copy(alpha = 0.55f)
+            LineState.Past -> tint.copy(alpha = 0.5f)
+            LineState.Upcoming -> tint
         },
-        tween(250),
+        tween(300),
         label = "lyricLine",
     )
     Text(
@@ -173,7 +192,7 @@ fun AboutArtistCard(artist: ArtistDto, onOpen: () -> Unit, onToggleFollow: () ->
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF1F1F1F))
+            .background(Depth.card)
             .clickable(onClick = onOpen),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f)) {

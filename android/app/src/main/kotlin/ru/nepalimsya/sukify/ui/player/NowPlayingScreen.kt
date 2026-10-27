@@ -3,7 +3,10 @@ package ru.nepalimsya.sukify.ui.player
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -60,6 +63,7 @@ import ru.nepalimsya.sukify.ui.components.FillCover
 import ru.nepalimsya.sukify.ui.components.LikeButton
 import ru.nepalimsya.sukify.ui.components.bounceClick
 import ru.nepalimsya.sukify.ui.icons.SukifyIcons
+import ru.nepalimsya.sukify.ui.theme.Depth
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyMotion
 import ru.nepalimsya.sukify.ui.theme.SukifyType
@@ -82,6 +86,9 @@ interface NowPlayingActions {
     fun openSleepTimer() {}
     fun openLyrics()
     fun openArtist(slug: String)
+
+    /** Название трека ведёт на его альбом или сингл — как в Spotify. */
+    fun openRelease(slug: String, trackId: Long) {}
     fun toggleFollow(artist: ArtistDto)
     fun openMenu(track: Track)
 }
@@ -152,7 +159,8 @@ fun NowPlayingScreen(
                     0.38f to nowPlayingMid(color),
                     0.72f to SukifyColors.Elevated,
                 ),
-            ),
+            )
+            .background(Depth.grain),
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             // Шапка тянет экран вниз — как ручка шита.
@@ -219,6 +227,7 @@ fun NowPlayingScreen(
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
+                        var stripMoving by remember { mutableStateOf(false) }
                         SwipeStrip(
                             previous = state.queue.previous,
                             current = track,
@@ -236,8 +245,22 @@ fun NowPlayingScreen(
                                 layout(constraints.maxWidth, placeable.height) { placeable.place(-extra / 2, 0) }
                             },
                             liquid = StripLiquid(side) { it.coverColor(SukifyColors.NowPlayingFallback) },
+                            onMoving = { stripMoving = it },
                         ) { t ->
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            // Пауза — обложка чуть «отступает» назад, play — возвращается с пружинкой.
+                            // Пока ленту тянут — в полный размер: перемычка рисуется от её краёв.
+                            val coverScale by animateFloatAsState(
+                                if (state.playing || state.buffering || stripMoving || t.id != track.id) 1f else 0.9f,
+                                spring(dampingRatio = 0.62f, stiffness = 260f),
+                                label = "coverScale",
+                            )
+                            Box(
+                                Modifier.fillMaxWidth().graphicsLayer {
+                                    scaleX = coverScale
+                                    scaleY = coverScale
+                                },
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 FillCover(
                                     cover = t.cover,
                                     pxHint = px,
@@ -256,7 +279,21 @@ fun NowPlayingScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(track.title, style = SukifyType.PlayerTitle, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val release = track.release
+                        Text(
+                            track.title,
+                            style = SukifyType.PlayerTitle,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .then(
+                                    if (release != null) {
+                                        Modifier.bounceClick(pressed = 0.97f) { actions.openRelease(release.slug, track.id) }
+                                    } else Modifier,
+                                )
+                                .basicMarquee(iterations = 2, initialDelayMillis = 1600, repeatDelayMillis = 2400),
+                        )
                         Spacer(Modifier.height(2.dp))
                         Row {
                             track.artists.forEachIndexed { i, a ->

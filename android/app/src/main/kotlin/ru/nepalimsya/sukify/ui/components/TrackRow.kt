@@ -1,9 +1,11 @@
 package ru.nepalimsya.sukify.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
@@ -22,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -41,9 +44,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import ru.nepalimsya.sukify.domain.Track
 import ru.nepalimsya.sukify.ui.downloads.LocalDownloads
 import ru.nepalimsya.sukify.ui.icons.SukifyIcons
+import ru.nepalimsya.sukify.ui.shell.LocalAudible
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyType
 import ru.nepalimsya.sukify.ui.theme.drawLiquidPair
@@ -66,6 +71,8 @@ fun TrackRow(
     subtitle: String? = null,
     onSwipeQueue: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    /** Пришли по названию из плеера: строка вспыхивает и плавно гаснет. */
+    highlight: Boolean = false,
 ) {
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -84,6 +91,15 @@ fun TrackRow(
             armed = nowArmed
             if (nowArmed) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
         }
+    }
+
+    val flash = remember { Animatable(0f) }
+    LaunchedEffect(highlight) {
+        if (!highlight) return@LaunchedEffect
+        flash.snapTo(0.3f)
+        flash.animateTo(0.12f, tween(500))
+        delay(1600)
+        flash.animateTo(0f, tween(1400))
     }
 
     Box(modifier.fillMaxWidth()) {
@@ -134,7 +150,10 @@ fun TrackRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(dragX.roundToInt(), 0) }
-                .drawBehind { if (dragX > 0f) drawRect(SukifyColors.Elevated) }
+                .drawBehind {
+                    if (dragX > 0f) drawRect(SukifyColors.Elevated)
+                    if (flash.value > 0f) drawRect(Color.White.copy(alpha = flash.value))
+                }
                 .then(
                     if (onSwipeQueue != null && available) {
                         Modifier.draggable(
@@ -166,13 +185,19 @@ fun TrackRow(
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(
-                    track.title,
-                    style = SukifyType.Body,
-                    color = if (playing) SukifyColors.Accent else SukifyColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (playing) {
+                        PlayingBars(playing = LocalAudible.current.value, size = 12.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        track.title,
+                        style = SukifyType.Body,
+                        color = if (playing) SukifyColors.Accent else SukifyColors.Text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isDownloaded) {
                         Icon(SukifyIcons.DownloadCircle, "Скачан", tint = SukifyColors.Accent, modifier = Modifier.size(14.dp))

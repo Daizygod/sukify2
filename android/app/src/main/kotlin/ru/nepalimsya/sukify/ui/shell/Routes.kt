@@ -22,7 +22,8 @@ import ru.nepalimsya.sukify.ui.icons.SukifyIcons
 
 // --- Экраны внутри вкладок (как маршруты веба) ---------------------------------
 
-@Serializable data class ReleaseRoute(val slug: String)
+/** highlight — id трека: строку прокрутить к центру и подсветить (пришли из плеера). */
+@Serializable data class ReleaseRoute(val slug: String, val highlight: Long? = null)
 
 @Serializable data class PlaylistRoute(val id: Long, val join: String? = null)
 

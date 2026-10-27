@@ -82,6 +82,7 @@ import ru.nepalimsya.sukify.ui.shell.ReleasesRoute
 import ru.nepalimsya.sukify.ui.shell.SectionRoute
 import ru.nepalimsya.sukify.ui.shell.UserAvatar
 import ru.nepalimsya.sukify.ui.shell.bottomChromePadding
+import ru.nepalimsya.sukify.ui.theme.Depth
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyType
 import java.time.LocalTime
@@ -182,7 +183,8 @@ fun HomeContent(
                         0.55f to Color(0x732B2642),
                         1f to Color.Transparent,
                     ),
-                ),
+                )
+                .background(Depth.grain),
         )
         LazyColumn(
             modifier = Modifier.fillMaxSize().testTag("home_list"),

@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -135,6 +136,7 @@ fun MainShell() {
     val chromeController = remember { ChromeController() }
     val chromeHidden = chromeController.hidden
     val playback = remember(session) { PlaybackUi(playerState, session.contexts) }
+    val audible = remember(playerState) { derivedStateOf { playerState.value.playing } }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val drawer = remember { DrawerController { scope.launch { drawerState.open() } } }
@@ -174,6 +176,7 @@ fun MainShell() {
 
     CompositionLocalProvider(
         LocalPlayback provides playback,
+        LocalAudible provides audible,
         LocalMenus provides menus,
         LocalDrawer provides drawer,
         LocalDownloads provides downloads,
@@ -284,7 +287,10 @@ fun MainShell() {
                         expanded = playerExpanded,
                         onExpandedChange = { playerExpanded = it },
                         miniBottomPadding = BottomBarHeight + navInset + 4.dp,
-                        navigation = PlayerNavigation { slug -> openInTab(ArtistRoute(slug)) },
+                        navigation = object : PlayerNavigation {
+                            override fun openArtist(slug: String) = openInTab(ArtistRoute(slug))
+                            override fun openRelease(slug: String, trackId: Long) = openInTab(ReleaseRoute(slug, highlight = trackId))
+                        },
                     )
                 }
 

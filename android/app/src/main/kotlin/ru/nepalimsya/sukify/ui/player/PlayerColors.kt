@@ -2,6 +2,8 @@ package ru.nepalimsya.sukify.ui.player
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils
 import ru.nepalimsya.sukify.domain.Track
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.parseHexColor
@@ -18,6 +20,19 @@ fun nowPlayingMid(cover: Color): Color = lerp(SukifyColors.Elevated, cover, 0.35
 
 /** Карточка «Текст»: цвет обложки, чуть высветленный. */
 fun lyricsCardColor(cover: Color): Color = lerp(cover, Color.White, 0.06f)
+
+/**
+ * Ещё не спетые строки — светлый оттенок фона: тот же тон, светлота 84%.
+ * Так их красит нынешний Spotify (и веб): спетые — он же наполовину
+ * прозрачный, звучащая — белая.
+ */
+fun lyricsTint(bg: Color): Color {
+    val hsl = FloatArray(3)
+    ColorUtils.colorToHSL(bg.toArgb(), hsl)
+    hsl[1] = hsl[1].coerceAtMost(0.9f)
+    hsl[2] = 0.84f
+    return Color(ColorUtils.HSLToColor(hsl))
+}
 
 /** Пульт, пока не знаем цвета обложки трека на другом устройстве (как в вебе). */
 val RemoteColor = Color(0xFF503750)

@@ -29,9 +29,11 @@ import ru.nepalimsya.sukify.ui.shell.LocalMenus
 import ru.nepalimsya.sukify.ui.shell.TrackMenuOptions
 import ru.nepalimsya.sukify.ui.theme.SukifyMotion
 
-/** Куда вести из плеера (к исполнителю) — проставляет оболочка. */
-fun interface PlayerNavigation {
+/** Куда вести из плеера (к исполнителю, на альбом трека) — проставляет оболочка. */
+interface PlayerNavigation {
     fun openArtist(slug: String)
+
+    fun openRelease(slug: String, trackId: Long)
 }
 
 /**
@@ -83,6 +85,10 @@ fun PlayerLayer(
             override fun openArtist(slug: String) {
                 onExpandedChange(false)
                 navigation.openArtist(slug)
+            }
+            override fun openRelease(slug: String, trackId: Long) {
+                onExpandedChange(false)
+                navigation.openRelease(slug, trackId)
             }
             override fun toggleFollow(artist: ArtistDto) = vm.toggleFollow(artist)
             override fun openMenu(track: Track) = menus.track(track, TrackMenuOptions(nowPlaying = true))

@@ -76,6 +76,7 @@ import ru.nepalimsya.sukify.ui.icons.SukifyIcons
 import ru.nepalimsya.sukify.ui.shell.LocalNavigator
 import ru.nepalimsya.sukify.ui.shell.LocalPlayback
 import ru.nepalimsya.sukify.ui.shell.bottomChromePadding
+import ru.nepalimsya.sukify.ui.theme.Depth
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyMotion
 import ru.nepalimsya.sukify.ui.theme.SukifyTitleFamily
@@ -354,6 +355,9 @@ fun CollectionHero(
                     1f to SukifyColors.Elevated,
                 ),
             )
+            // Объём, как в вебе: свет сверху-слева и зерно поверх цвета.
+            .background(Depth.topLight)
+            .background(Depth.grain)
             .padding(top = statusTop + CollectionBarHeight),
     ) {
         Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 20.dp), contentAlignment = Alignment.Center) {
