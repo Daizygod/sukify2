@@ -1,6 +1,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useDeviceStore } from '@/stores/devices'
+import { releaseRoute } from '@/lib/links'
 
 /**
  * Единая точка «что сейчас играет и как этим управлять» с учётом Connect:
@@ -25,7 +26,10 @@ export function usePlaybackControls() {
   /** Локальный полный трек (null, когда играет другое устройство). */
   const localTrack = computed(() => player.currentTrack)
 
-  /** Что показывать: {title, artists (строка), coverUrl, cover (массив|null)}. */
+  /**
+   * Что показывать: {title, artists (строка), coverUrl, cover (массив|null),
+   * link — страница альбома/сингла, куда ведёт название}.
+   */
   const view = computed(() => {
     if (remote.value && rs.value?.track) {
       const t = rs.value.track
@@ -35,6 +39,7 @@ export function usePlaybackControls() {
         coverUrl: t.cover || null,
         coverBigUrl: t.coverBig || t.cover || null,
         cover: null,
+        link: releaseRoute(t, rs.value.ctxKey || ''),
       }
     }
     const t = player.currentTrack
@@ -44,6 +49,7 @@ export function usePlaybackControls() {
       artists: (t.artists || []).map((a) => a.name).join(', '),
       coverUrl: null,
       cover: t.cover,
+      link: releaseRoute(t, player.contextKey),
     }
   })
 

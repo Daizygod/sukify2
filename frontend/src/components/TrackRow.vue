@@ -12,7 +12,7 @@ import { useMenuStore } from '@/stores/menu'
 import { useDeviceStore } from '@/stores/devices'
 import { useIsMobile } from '@/composables/useIsMobile'
 import { useToastStore } from '@/stores/toasts'
-import { ref } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps({
   track: { type: Object, required: true },
@@ -23,6 +23,9 @@ const props = defineProps({
   contextName: { type: String, default: '' },
   // Ключ подборки, из которой играет строка, — чтобы её кнопка ▶ показала ⏸.
   contextKey: { type: String, default: '' },
+  // Пришли сюда по названию из плеера (?highlight=id): строку прокручиваем
+  // в центр и подсвечиваем, как Spotify.
+  highlight: { type: Boolean, default: false },
 })
 
 const player = usePlayerStore()
@@ -132,6 +135,21 @@ function toggleLike() {
   if (!auth.isAuthenticated) return
   library.toggleLike(props.track)
 }
+
+const rowEl = ref(null)
+const flash = ref(false)
+watch(
+  () => props.highlight,
+  async (on) => {
+    if (!on) return
+    flash.value = false
+    await nextTick()
+    rowEl.value?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    // Перезапускаем анимацию подсветки, даже если строка уже мигала.
+    requestAnimationFrame(() => (flash.value = true))
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -141,10 +159,11 @@ function toggleLike() {
       <Icon name="queue" :size="20" />
     </div>
   <div
+    ref="rowEl"
     class="row trackgrid"
     :class="[
       `trackgrid--${variant}`,
-      { 'row--active': isCurrent, 'row--drag': swipeDrag, 'row--noaudio': !track.stream_url },
+      { 'row--active': isCurrent, 'row--drag': swipeDrag, 'row--noaudio': !track.stream_url, 'row--flash': flash },
     ]"
     :title="track.stream_url ? null : 'Аудио ещё не залито — трек не играет'"
     :style="swipeX ? { transform: `translateX(${swipeX}px)` } : null"
@@ -159,7 +178,9 @@ function toggleLike() {
         <Icon v-if="isPlayingThis" name="pause" :size="14" />
         <Icon v-else name="play" :size="14" />
       </button>
-      <span class="row__num" :class="{ 'row__num--green': isCurrent }">
+      <!-- Играет — вместо номера пляшет эквалайзер, как в Spotify. -->
+      <span v-if="isPlayingThis" class="row__eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span v-else class="row__num" :class="{ 'row__num--green': isCurrent }">
         {{ index != null ? index + 1 : '' }}
       </span>
     </div>
@@ -283,8 +304,69 @@ function toggleLike() {
 .row:hover .row__play {
   display: block;
 }
-.row:hover .row__num {
+.row:hover .row__num,
+.row:hover .row__eq {
   display: none;
+}
+.row__eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 14px;
+  height: 14px;
+}
+.row__eq i {
+  flex: 1;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 1px;
+  transform-origin: bottom;
+  animation: row-eq 0.9s ease-in-out infinite;
+}
+.row__eq i:nth-child(2) {
+  animation-duration: 0.72s;
+  animation-delay: -0.35s;
+}
+.row__eq i:nth-child(3) {
+  animation-duration: 1.05s;
+  animation-delay: -0.6s;
+}
+.row__eq i:nth-child(4) {
+  animation-duration: 0.8s;
+  animation-delay: -0.15s;
+}
+@keyframes row-eq {
+  0%,
+  100% {
+    transform: scaleY(0.22);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+/* Пришли по названию из плеера: строка вспыхивает и плавно гаснет. */
+.row--flash {
+  animation: row-flash 4s ease-out;
+}
+@keyframes row-flash {
+  0% {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  14% {
+    background: rgba(255, 255, 255, 0.16);
+  }
+  70% {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  100% {
+    background: rgba(255, 255, 255, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row__eq i {
+    animation: none;
+    transform: scaleY(0.6);
+  }
 }
 .row__main {
   display: flex;

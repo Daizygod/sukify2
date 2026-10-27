@@ -1,29 +1,31 @@
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
+import LyricsSyncButton from './LyricsSyncButton.vue'
+import { tint } from '@/lib/color'
 import { usePlayerStore } from '@/stores/player'
 import { useUiStore } from '@/stores/ui'
 import { useLyrics } from '@/composables/useLyrics'
+import { useLyricsFollow } from '@/composables/useLyricsFollow'
 
 const player = usePlayerStore()
 const ui = useUiStore()
 
 const track = computed(() => player.currentTrack)
 const bg = computed(() => track.value?.release?.colors?.background || '#3b3054')
+const lineTint = computed(() => tint(bg.value))
 
 // Текст трека: если найден — обложка уезжает влево, справа появляются строки.
 const { lyrics, lines, activeIndex, hasLyrics } = useLyrics()
 const listEl = ref(null)
-
-watch(activeIndex, async (i) => {
-  if (i < 0) return
-  await nextTick()
-  const el = listEl.value?.querySelector(`[data-i="${i}"]`)
-  el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+// Увёл текст руками — он остаётся там, вернуться можно «Синхронизацией».
+const { following, resync } = useLyricsFollow(listEl, activeIndex, {
+  resetKey: () => player.currentTrack?.id,
 })
 
 function seekTo(line) {
+  following.value = true
   player.seek(line.ms)
 }
 
@@ -53,7 +55,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="fs" :style="{ '--fs-bg': bg }">
+  <div class="fs" :style="{ '--fs-bg': bg, '--fs-tint': lineTint }">
     <div class="fs__top">
       <span class="fs__context">{{ player.contextName || 'Сейчас играет' }}</span>
       <button class="fs__btn" title="Свернуть" @click="close">
@@ -61,34 +63,37 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <div v-if="track" class="fs__center" :class="{ 'fs__center--lyrics': hasLyrics }">
+    <div v-if="track" class="fs__center" :class="{ 'fs__center--lyrics': hasLyrics, 'fs__center--paused': !player.isPlaying }">
       <div class="fs__coverwrap">
         <Transition name="coverfade" mode="out-in">
           <CoverImage :key="track.id" :cover="track.cover" :size="1000" class="fs__cover" />
         </Transition>
       </div>
 
-      <Transition name="lyrfade">
-        <div v-if="hasLyrics" ref="listEl" class="fs__lyrics">
-          <template v-if="lines.length">
-            <p
-              v-for="(l, i) in lines"
-              :key="i"
-              class="fs__line"
-              :class="{ 'fs__line--past': i < activeIndex, 'fs__line--active': i === activeIndex }"
-              :data-i="i"
-              @click="seekTo(l)"
-            >
-              {{ l.text || '♪' }}
-            </p>
-          </template>
-          <template v-else>
-            <p v-for="(l, i) in lyrics.plain.split('\n')" :key="i" class="fs__line fs__line--static">
-              {{ l || ' ' }}
-            </p>
-          </template>
-        </div>
-      </Transition>
+      <div class="fs__lyricscol">
+        <Transition name="lyrfade">
+          <div v-if="hasLyrics" ref="listEl" class="fs__lyrics">
+            <template v-if="lines.length">
+              <p
+                v-for="(l, i) in lines"
+                :key="i"
+                class="fs__line"
+                :class="{ 'fs__line--past': i < activeIndex, 'fs__line--active': i === activeIndex }"
+                :data-i="i"
+                @click="seekTo(l)"
+              >
+                {{ l.text || '♪' }}
+              </p>
+            </template>
+            <template v-else>
+              <p v-for="(l, i) in lyrics.plain.split('\n')" :key="i" class="fs__line fs__line--static">
+                {{ l || ' ' }}
+              </p>
+            </template>
+          </div>
+        </Transition>
+        <LyricsSyncButton :show="!following && lines.length > 0" @sync="resync()" />
+      </div>
     </div>
     <div v-else class="fs__center">
       <p class="muted">Включи что-нибудь — здесь будет красиво.</p>
@@ -112,12 +117,24 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 60;
-  background: linear-gradient(180deg, var(--fs-bg) 0%, color-mix(in srgb, var(--fs-bg) 40%, #000) 100%);
+  /* Цвет обложки уходит в глубину к низу; поверх — зерно и мягкое
+     «свечение» из-за обложки, чтобы фон не был плоской заливкой. */
+  background-color: color-mix(in srgb, var(--fs-bg) 40%, #000);
+  background-image: var(--grain),
+    radial-gradient(120% 80% at 25% 40%, color-mix(in srgb, var(--fs-bg) 85%, #fff) 0%, transparent 60%),
+    linear-gradient(180deg, var(--fs-bg) 0%, color-mix(in srgb, var(--fs-bg) 40%, #000) 100%);
   display: flex;
   flex-direction: column;
   padding: 24px 32px;
   overflow: hidden;
   transition: --fs-bg 0.7s ease;
+  animation: fs-in 0.45s var(--ease-spotify);
+}
+@keyframes fs-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
 }
 .fs__top {
   display: flex;
@@ -139,6 +156,7 @@ onUnmounted(() => {
 .fs__btn:hover {
   color: #fff;
   background: rgba(0, 0, 0, 0.2);
+  transform: scale(1.06);
 }
 /* Сетка из двух колонок: обложка | текст. Ширины во фракциях — тогда переход
    «текст появился/исчез» плавно двигает обложку из центра влево и обратно. */
@@ -160,7 +178,12 @@ onUnmounted(() => {
   width: min(62vh, 640px);
   border-radius: 10px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
-  transition: width 0.6s ease;
+  transition: width 0.6s ease, transform 0.6s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.4s ease;
+}
+/* Пауза — обложка чуть «отступает» вглубь. */
+.fs__center--paused .fs__cover {
+  transform: scale(0.94);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 /* Есть текст: обложка съезжает влево, строки справа. */
 .fs__center--lyrics {
@@ -194,9 +217,16 @@ onUnmounted(() => {
 .lyrfade-leave-to {
   opacity: 0;
 }
-.fs__lyrics {
+/* Колонка текста — опора для кнопки «Синхронизация» по её центру. */
+.fs__lyricscol {
+  position: relative;
   align-self: stretch;
   min-width: 0;
+  min-height: 0;
+}
+.fs__lyrics {
+  position: absolute;
+  inset: 0;
   overflow-y: auto;
   /* Пустота сверху/снизу, чтобы активная строка держалась по центру. */
   padding: 34vh 8px 34vh 0;
@@ -207,24 +237,34 @@ onUnmounted(() => {
 .fs__lyrics::-webkit-scrollbar {
   display: none;
 }
+/* Цвета как в окне текста: впереди — светлый оттенок фона, позади — он же
+   бледнее, звучащая строка белая и слегка светится. */
 .fs__line {
   font-size: clamp(24px, 2.6vw, 40px);
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.3;
   margin-bottom: 20px;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--fs-tint);
   cursor: pointer;
-  transition: color 0.2s ease;
+  width: fit-content;
+  max-width: 100%;
+  text-decoration: underline transparent;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.12em;
+  transition: color 0.3s ease, opacity 0.3s ease, text-decoration-color 0.15s ease, text-shadow 0.4s ease;
 }
 .fs__line:hover {
   color: #fff;
+  opacity: 1;
+  text-decoration-color: currentColor;
 }
 .fs__line--past {
-  color: rgba(255, 255, 255, 0.55);
+  opacity: 0.5;
 }
 .fs__line--active {
   color: #fff;
+  text-shadow: 0 0 28px rgba(255, 255, 255, 0.28);
 }
 .fs__line--static {
   color: rgba(255, 255, 255, 0.85);

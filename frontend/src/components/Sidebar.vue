@@ -7,13 +7,21 @@ import { useAuthStore } from '@/stores/auth'
 import { useLibraryStore } from '@/stores/library'
 import { useMenuStore } from '@/stores/menu'
 import { useUiStore } from '@/stores/ui'
+import { usePlayerStore } from '@/stores/player'
 import { trackCount } from '@/lib/format'
 
 const auth = useAuthStore()
 const library = useLibraryStore()
 const menuStore = useMenuStore()
 const ui = useUiStore()
+const player = usePlayerStore()
 const route = useRoute()
+
+// Как в Spotify: зелёным горит то, что ИГРАЕТ (плюс динамик справа), а
+// открытая сейчас страница лишь подсвечена фоном.
+function isPlayingCtx(key) {
+  return !!key && player.contextKey === key
+}
 const filter = ref('')
 const searchOpen = ref(false)
 const filterEl = ref(null)
@@ -58,6 +66,7 @@ const items = computed(() => {
         cover: p.cover_url ? { 300: p.cover_url } : null,
         title: p.title,
         sub: `Плейлист • ${p.owner?.name || ''}`,
+        ctx: `playlist:${p.id}`,
         active: route.name === 'playlist' && String(route.params.id) === String(p.id),
       })
     }
@@ -72,6 +81,7 @@ const items = computed(() => {
         cover: r.cover,
         title: r.title,
         sub: `${releaseKind[r.type] || 'Альбом'} • ${r.artist?.name || ''}`,
+        ctx: `release:${r.slug}`,
         active: route.name === 'release' && route.params.slug === r.slug,
       })
     }
@@ -87,6 +97,7 @@ const items = computed(() => {
         round: true,
         title: a.name,
         sub: 'Исполнитель',
+        ctx: `artist:${a.slug}`,
         active: route.name === 'artist' && route.params.slug === a.slug,
       })
     }
@@ -207,7 +218,7 @@ function createPlaylist() {
         </div>
 
         <div v-osbar class="sidebar__list">
-          <RouterLink v-if="showLiked" to="/liked" class="libitem libitem--liked" :class="{ active: route.name === 'liked' }" @contextmenu.prevent="openLikedMenu">
+          <RouterLink v-if="showLiked" to="/liked" class="libitem libitem--liked" :class="{ active: route.name === 'liked', playing: isPlayingCtx('liked') }" @contextmenu.prevent="openLikedMenu">
             <div class="libitem__cover libitem__cover--liked">
               <Icon name="heartFill" :size="20" />
             </div>
@@ -218,6 +229,7 @@ function createPlaylist() {
                 <span>Плейлист • {{ trackCount(library.likedTrackIds.size) }}</span>
               </div>
             </div>
+            <Icon v-if="isPlayingCtx('liked') && player.isPlaying" name="volume" :size="16" class="libitem__speaker" />
           </RouterLink>
 
           <RouterLink
@@ -225,7 +237,7 @@ function createPlaylist() {
             :key="item.key"
             :to="item.to"
             class="libitem"
-            :class="{ active: item.active }"
+            :class="{ active: item.active, playing: isPlayingCtx(item.ctx) }"
             @contextmenu.prevent="openItemMenu($event, item)"
           >
             <CoverImage :cover="item.cover" :size="48" class="libitem__cover" :rounded="item.round" />
@@ -236,6 +248,7 @@ function createPlaylist() {
                 <span>{{ item.sub }}</span>
               </div>
             </div>
+            <Icon v-if="isPlayingCtx(item.ctx) && player.isPlaying" name="volume" :size="16" class="libitem__speaker" />
           </RouterLink>
 
           <p v-if="!items.length && filter" class="sidebar__nores">Ничего не найдено.</p>
@@ -259,7 +272,8 @@ function createPlaylist() {
   min-height: 0;
 }
 .sidebar__library {
-  background: var(--bg-elevated);
+  /* Серый объём: панель чуть светлее у верхнего края. */
+  background: linear-gradient(180deg, #191919 0%, var(--bg-elevated) 200px);
   border-radius: var(--radius);
   padding: 8px 4px 8px 12px;
   flex: 1;
@@ -464,6 +478,21 @@ function createPlaylist() {
 .libitem.active {
   background: rgba(255, 255, 255, 0.12);
 }
+.libitem:active {
+  transform: scale(0.99);
+}
+/* Динамик у играющей подборки — как в медиатеке Spotify. */
+.libitem__speaker {
+  margin-left: auto;
+  flex: 0 0 16px;
+  color: var(--accent);
+  animation: lib-speaker 1.6s ease-in-out infinite;
+}
+@keyframes lib-speaker {
+  50% {
+    opacity: 0.55;
+  }
+}
 .libitem__cover {
   width: 48px;
   flex: 0 0 48px;
@@ -488,8 +517,7 @@ function createPlaylist() {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.libitem--liked.active .libitem__title,
-.libitem.active .libitem__title {
+.libitem.playing .libitem__title {
   color: var(--accent);
 }
 .libitem__sub {

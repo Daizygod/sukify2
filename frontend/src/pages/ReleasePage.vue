@@ -1,8 +1,10 @@
 <script setup>
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import { ref, watch, computed } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
+import StickyHeader from '@/components/StickyHeader.vue'
 import CoverLightbox from '@/components/CoverLightbox.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import MixChip from '@/components/mix/MixChip.vue'
@@ -111,6 +113,7 @@ async function toggleLike() {
       :alt="release.title"
       @close="lightboxOpen = false"
     />
+    <StickyHeader :title="release.title" :color="release.colors?.background || '#333'" :context-key="ctxKey" :tracks="release.tracks" />
     <CollectionHero
       :kind="kindLabel"
       :title="release.title"
@@ -171,6 +174,7 @@ async function toggleLike() {
             :context-tracks="release.tracks"
             :context-name="release.title"
             :context-key="ctxKey"
+            :highlight="String(t.id) === (route.query.highlight || route.query.t)"
           />
           <MixChip
             v-if="i < release.tracks.length - 1"
@@ -182,6 +186,7 @@ async function toggleLike() {
       </div>
     </div>
   </div>
+  <PageSkeleton v-else-if="loading" />
 </template>
 
 <style scoped>

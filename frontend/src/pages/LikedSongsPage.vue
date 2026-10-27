@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
+import StickyHeader from '@/components/StickyHeader.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import MixChip from '@/components/mix/MixChip.vue'
 import Icon from '@/components/Icon.vue'
@@ -95,6 +96,7 @@ function playAll() {
 
 <template>
   <div class="liked">
+    <StickyHeader title="Любимые треки" color="#5039ab" context-key="liked" :tracks="tracks" />
     <CollectionHero kind="Плейлист" title="Любимые треки" bg="#5039ab">
       <template #cover>
         <div class="liked__cover"><Icon name="heartFill" :size="80" /></div>

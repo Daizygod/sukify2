@@ -54,6 +54,9 @@ router.afterEach((to, from) => {
     const ui = useUiStore()
     ui.lyricsOpen = false
     ui.mobileNowOpen = false
+    // Из полноэкранного режима уходят только ссылками плеера (название,
+    // исполнитель) — значит, человек хочет видеть страницу.
+    ui.fullscreenOpen = false
     // Панель «Добавить в плейлист» живёт только на странице своего плейлиста.
     if (ui.rightView === 'add-tracks' && to.name !== 'playlist') {
       ui.rightView = 'nowplaying'

@@ -35,13 +35,22 @@ const toasts = useToastStore()
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
 }
-.toast-enter-active,
+.toast-enter-active {
+  transition: opacity 0.22s ease, transform 0.38s var(--ease-spotify);
+}
 .toast-leave-active {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.toast-enter-from,
+.toast-enter-from {
+  opacity: 0;
+  transform: translateY(16px) scale(0.94);
+}
 .toast-leave-to {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(6px) scale(0.98);
+}
+/* Соседние тосты расходятся плавно, а не прыжком. */
+.toast-move {
+  transition: transform 0.3s var(--ease-spotify);
 }
 </style>

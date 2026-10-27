@@ -1,4 +1,6 @@
 <script setup>
+import PageSkeleton from '@/components/PageSkeleton.vue'
+import StickyHeader from '@/components/StickyHeader.vue'
 import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/lib/api'
@@ -122,6 +124,7 @@ function openLikedMenu(e) {
 
 <template>
   <div v-if="artist" class="artist">
+    <StickyHeader :title="artist.name" :color="artist.colors?.background || '#333'" :context-key="ctxKey" :tracks="topTracks" />
     <div
       class="artist__hero"
       :class="{ 'artist__hero--noban': !artist.banner_url && artist.avatar_url }"
@@ -241,6 +244,7 @@ function openLikedMenu(e) {
       </section>
     </div>
   </div>
+  <PageSkeleton v-else round :rows="5" />
 </template>
 
 <style scoped>
@@ -258,7 +262,7 @@ function openLikedMenu(e) {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.6));
+  background: var(--grain), linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.6));
 }
 /* Компактный hero без баннера: аватарка-круг слева, имя справа (референс Kanye). */
 .artist__hero--noban {
@@ -269,7 +273,8 @@ function openLikedMenu(e) {
   padding: 56px 24px 24px;
 }
 .artist__hero--noban::after {
-  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.35));
+  background: var(--grain), radial-gradient(90% 130% at 12% 0%, rgba(255, 255, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.35));
 }
 .artist__heroavatar {
   position: relative;
@@ -291,6 +296,22 @@ function openLikedMenu(e) {
   position: relative;
   z-index: 1;
   padding: 24px 24px 28px;
+  animation: artist-in 0.55s var(--ease-spotify) backwards;
+}
+.artist__heroavatar {
+  animation: artist-ava-in 0.55s var(--ease-spotify) backwards;
+}
+@keyframes artist-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes artist-ava-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
 }
 .artist__verified {
   display: flex;
@@ -357,7 +378,10 @@ function openLikedMenu(e) {
 }
 .artist__cols {
   /* Spotify: сетка из 8 равных колонок (как у полок с карточками).
-     Таблица — 5 колонок, «Вам нравится» — 3; без лайков таблица = 6. */
+     Таблица — 5 колонок, «Вам нравится» — 3; без лайков таблица = 6.
+     Ширину меряем по колонке, а не по окну: с двумя открытыми панелями
+     центр узкий, и бок о бок числа прослушиваний обрезались «4 975 …». */
+  container-type: inline-size;
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 24px;
@@ -374,9 +398,10 @@ function openLikedMenu(e) {
   grid-column: 6 / span 3;
   min-width: 0;
 }
-@media (max-width: 1100px) {
-  .artist__cols .artist__popular,
-  .artist__cols .artist__youliked {
+@container (max-width: 940px) {
+  .artist__popular,
+  .artist__youliked,
+  .artist__cols--single .artist__popular {
     grid-column: 1 / -1;
   }
 }

@@ -18,6 +18,12 @@
     'Apple Color Emoji', 'Segoe UI Emoji';
   --font-title: 'SpotifyMixUITitle', 'SpotifyMixUI', 'CircularSp-Cyrl', 'Manrope',
     sans-serif;
+  /* Зерно поверх цветных и серых градиентов — то самое, что Spotify кладёт на
+     шапку главной: шум fractalNoise с прозрачностью 5%, плитка 300×300.
+     С ним градиенты перестают быть «пластиковыми» и появляется объём. */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='0.75' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='300' filter='url(%23n)' opacity='0.05'/></svg>");
+  /* Фирменная кривая Spotify для всех микродвижений. */
+  --ease-spotify: cubic-bezier(0.3, 0, 0, 1);
 }
 
 * {
@@ -180,6 +186,26 @@ img {
   min-height: 0;
 }
 
+/* Новая страница не «щёлкает», а мягко всплывает. Только прозрачность и
+   сдвиг, и без fill-forwards — после анимации на корне не остаётся transform
+   (иначе он ломал бы position: fixed у модалок внутри страницы). */
+.app__scroll > *,
+.appm__main > * {
+  animation: page-in 0.34s var(--ease-spotify) backwards;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app__scroll > *,
+  .appm__main > * {
+    animation: none;
+  }
+}
+
 .app__right {
   grid-row: 2;
   grid-column: 3;
@@ -235,6 +261,9 @@ img {
   background: var(--accent-hover);
   transform: scale(1.04);
 }
+.btn-primary:active {
+  transform: scale(0.97);
+}
 
 .play-btn {
   display: grid;
@@ -250,6 +279,20 @@ img {
 .play-btn:hover {
   transform: scale(1.06);
   background: var(--accent-hover);
+}
+.play-btn:active {
+  transform: scale(0.95);
+  transition-duration: 0.06s;
+}
+/* Включилось: кнопка «вздыхает» — иконка ⏸ приходит с лёгкой пружиной. */
+.play-btn--on svg {
+  animation: play-swap 0.32s var(--ease-spotify);
+}
+@keyframes play-swap {
+  from {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
 }
 .play-btn svg {
   width: 22px;

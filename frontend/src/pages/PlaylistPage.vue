@@ -1,9 +1,11 @@
 <script setup>
+import PageSkeleton from '@/components/PageSkeleton.vue'
 import { ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import draggable from 'vuedraggable'
 import api from '@/lib/api'
 import CollectionHero from '@/components/CollectionHero.vue'
+import StickyHeader from '@/components/StickyHeader.vue'
 import CoverLightbox from '@/components/CoverLightbox.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import MixChip from '@/components/mix/MixChip.vue'
@@ -171,6 +173,7 @@ async function removePlaylist() {
 
 <template>
   <div v-if="playlist" class="playlist">
+    <StickyHeader :title="playlist.title" :color="heroBg" :context-key="ctxKey" :tracks="items" />
     <CollectionHero
       :kind="playlist.is_collaborative ? 'Совместный плейлист' : playlist.is_public ? 'Открытый плейлист' : 'Закрытый плейлист'"
       :title="playlist.title"
@@ -309,6 +312,7 @@ async function removePlaylist() {
       </section>
     </div>
   </div>
+  <PageSkeleton v-else-if="loading" />
 </template>
 
 <style scoped>

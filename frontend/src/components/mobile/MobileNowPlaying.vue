@@ -7,13 +7,16 @@ import CoverImage from '../CoverImage.vue'
 import DragBar from '../DragBar.vue'
 import MobileQueueSheet from './MobileQueueSheet.vue'
 import MobileDevicesSheet from './MobileDevicesSheet.vue'
+import LyricsSyncButton from '../LyricsSyncButton.vue'
 import { formatDuration, formatListeners } from '@/lib/format'
 import { coverUrl } from '@/lib/cover'
+import { tint } from '@/lib/color'
 import { useLibraryStore } from '@/stores/library'
 import { useUiStore } from '@/stores/ui'
 import { useMenuStore } from '@/stores/menu'
 import { useAuthStore } from '@/stores/auth'
 import { useLyrics } from '@/composables/useLyrics'
+import { useLyricsFollow } from '@/composables/useLyricsFollow'
 import { usePlaybackControls } from '@/composables/usePlaybackControls'
 
 const library = useLibraryStore()
@@ -110,15 +113,17 @@ function goPrev(force = false) {
   prev(force)
 }
 
-// Карточка «Текст» следует за перемоткой: активная строка держится по центру.
+// Карточка «Текст» следует за песней, пока её не листают пальцем. Увёл
+// текст вперёд — он остаётся там; вернуться — «Синхронизация» или тап по строке.
 const lyBox = ref(null)
-watch(activeIndex, (i) => {
-  if (i < 0 || !lyBox.value) return
-  const line = lyBox.value.querySelector(`[data-i="${i}"]`)
-  if (!line) return
-  // Скроллим только контейнер карточки, не всю страницу.
-  lyBox.value.scrollTo({ top: line.offsetTop - lyBox.value.clientHeight / 2 + line.clientHeight / 2, behavior: 'smooth' })
+const { following: lyFollowing, resync: lyResync } = useLyricsFollow(lyBox, activeIndex, {
+  resetKey: () => localTrack.value?.id,
 })
+function seekLine(i) {
+  if (!lines.value.length) return
+  lyFollowing.value = true
+  player.seek(lines.value[i].ms)
+}
 
 // Карточка «Об исполнителе».
 const aboutArtist = ref(null)
@@ -276,6 +281,13 @@ function goArtist(slug) {
   close()
   router.push({ name: 'artist', params: { slug } })
 }
+// Название трека — на страницу его альбома или сингла (как в Spotify).
+function goRelease() {
+  const to = view.value?.link
+  if (!to) return
+  close()
+  router.push(to)
+}
 function openMenu(e) {
   if (localTrack.value) menu.openMenu(e, localTrack.value)
 }
@@ -293,7 +305,7 @@ const previewLines = computed(() => {
 </script>
 
 <template>
-  <div v-if="hasPlayback" class="mnp" :style="{ '--mnp-bg': bg }">
+  <div v-if="hasPlayback" class="mnp" :style="{ '--mnp-bg': bg, '--mnp-tint': tint(bg) }">
     <div class="mnp__head">
       <button class="mnp__hbtn" @click="close"><Icon name="caretDown" :size="20" /></button>
       <span class="mnp__context">{{ remote ? devices.activeDevice?.name || 'Другое устройство' : player.contextName || 'Трек' }}</span>
@@ -304,6 +316,7 @@ const previewLines = computed(() => {
       <div
         ref="stripEl"
         class="mnp__coverwrap"
+        :class="{ 'mnp__coverwrap--paused': !shownPlaying }"
         @touchstart.passive="onTouchStart"
         @touchmove.passive="onTouchMove"
         @touchend.passive="onTouchEnd"
@@ -335,7 +348,7 @@ const previewLines = computed(() => {
 
       <div class="mnp__titlerow">
         <div class="mnp__titles">
-          <div class="mnp__title">{{ view.title }}</div>
+          <div class="mnp__title" :class="{ 'mnp__title--link': view.link }" @click="goRelease">{{ view.title }}</div>
           <div class="mnp__artists">
             <template v-if="localTrack">
               <template v-for="(a, i) in localTrack.artists" :key="a.id">
@@ -397,21 +410,23 @@ const previewLines = computed(() => {
             class="mnp__line"
             :class="{ on: lines.length && i === activeIndex, past: lines.length && i < activeIndex }"
             :data-i="i"
-            @click="lines.length && player.seek(lines[i].ms)"
+            @click="seekLine(i)"
           >
             {{ l || ' ' }}
           </p>
         </div>
+        <LyricsSyncButton class="mnp__sync" :show="!lyFollowing && lines.length > 0" @sync="lyResync()" />
       </section>
 
       <!-- Карточка «Об исполнителе» -->
       <section v-if="showCards && aboutArtist" class="mnp__card mnp__card--artist" @click="goArtist(aboutArtist.slug)">
-        <div class="mnp__artimg">
-          <img v-if="aboutImage" :src="aboutImage" alt="" />
-          <div v-else class="mnp__artimg-ph"><Icon name="person" :size="48" /></div>
+        <div v-if="aboutImage" class="mnp__artimg">
+          <img :src="aboutImage" alt="" />
           <span class="mnp__abouttag">Об исполнителе</span>
         </div>
         <div class="mnp__artmeta">
+          <!-- Фото нет — без пустой серой плашки, просто заголовок. -->
+          <h3 v-if="!aboutImage" class="mnp__abouthead">Об исполнителе</h3>
           <div class="mnp__artname">{{ aboutArtist.name }}</div>
           <div class="mnp__artlisteners">{{ formatListeners(aboutArtist.monthly_listeners) }}</div>
           <button v-if="auth.isAuthenticated" class="mnp__follow" @click.stop="toggleFollow">
@@ -503,6 +518,12 @@ const previewLines = computed(() => {
   object-fit: cover;
   border-radius: 8px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  /* Пауза — обложка «отступает», play — возвращается с пружинкой. */
+  transition: transform 0.55s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.4s ease;
+}
+.mnp__coverwrap--paused .mnp__cover {
+  transform: scale(0.9);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 /* Текущая строка текста под обложкой */
 /* Окно под одну строку: внутри неё старая и новая строки разъезжаются. */
@@ -550,6 +571,12 @@ const previewLines = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.mnp__title--link {
+  cursor: pointer;
+}
+.mnp__title--link:active {
+  opacity: 0.7;
 }
 .mnp__artists {
   color: var(--text-subdued);
@@ -658,8 +685,16 @@ const previewLines = computed(() => {
   overflow: hidden;
 }
 .mnp__card--lyrics {
+  position: relative;
   background: color-mix(in srgb, var(--mnp-bg) 80%, #fff 6%);
   padding: 16px;
+}
+/* Внутри карточки «Синхронизация» поменьше, чем в окне текста. */
+.mnp__sync {
+  bottom: 14px;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
 }
 .mnp__cardhead {
   display: flex;
@@ -690,18 +725,26 @@ const previewLines = computed(() => {
 .mnp__lyrics::-webkit-scrollbar {
   display: none;
 }
+/* Цвета как в окне текста Spotify: впереди — светлый оттенок обложки,
+   спетое — он же бледнее, звучащая строка — белая. */
 .mnp__line {
   font-size: 20px;
   font-weight: 700;
   line-height: 1.4;
   margin-bottom: 8px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--mnp-tint);
+  transition: color 0.3s ease, opacity 0.3s ease;
 }
 .mnp__line.on {
   color: #fff;
 }
 .mnp__line.past {
-  color: rgba(0, 0, 0, 0.45);
+  opacity: 0.5;
+}
+.mnp__abouthead {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
 }
 .mnp__card--artist {
   background: #1f1f1f;
@@ -715,14 +758,6 @@ const previewLines = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-.mnp__artimg-ph {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  background: #333;
-  color: var(--text-subdued);
 }
 .mnp__abouttag {
   position: absolute;

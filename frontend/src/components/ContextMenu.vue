@@ -232,7 +232,10 @@ function goArtist() {
 
 function goAlbum() {
   menu.close()
-  if (track.value.release) router.push({ name: 'release', params: { slug: track.value.release.slug } })
+  // Как у названия в плеере: на альбоме строка трека подсветится.
+  if (track.value.release) {
+    router.push({ name: 'release', params: { slug: track.value.release.slug }, query: { highlight: String(track.value.id) } })
+  }
 }
 
 async function copyLink() {
@@ -370,16 +373,26 @@ async function copyLink() {
   position: fixed;
   min-width: 260px;
   max-width: 320px;
-  background: #282828;
+  /* Чуть светлее сверху — меню «парит» над страницей, а не лежит плашкой. */
+  background: linear-gradient(180deg, #2e2e2e 0%, #262626 100%);
   border-radius: 4px;
-  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.4), 0 6px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 24px rgba(0, 0, 0, 0.4), 0 6px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   padding: 4px;
   z-index: 95;
+  transform-origin: top left;
+  animation: cm-in 0.16s var(--ease-spotify);
+}
+@keyframes cm-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
 }
 .cm--sub {
   position: absolute;
   left: calc(100% - 4px);
   top: -4px;
+  animation: cm-sub-in 0.16s var(--ease-spotify);
   max-height: 420px;
   display: flex;
   flex-direction: column;
@@ -387,6 +400,12 @@ async function copyLink() {
 .cm--subleft {
   left: auto;
   right: calc(100% - 4px);
+}
+@keyframes cm-sub-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
 }
 
 .cm__item {

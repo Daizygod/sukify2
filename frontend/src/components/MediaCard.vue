@@ -83,18 +83,37 @@ function onPlay(e) {
 
 <style scoped>
 .card {
+  position: relative;
+  isolation: isolate;
   display: block;
   background: transparent;
   border-radius: 6px;
   padding: 12px;
-  transition: background 0.25s ease;
 }
-.card:hover {
-  background: rgba(255, 255, 255, 0.07);
+/* Подложка при наведении — не плоская: светлее сверху, к низу гаснет.
+   Отдельным слоем, чтобы градиент проявлялся плавно (opacity). */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.045) 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.card:hover::before {
+  opacity: 1;
 }
 .card__art {
   position: relative;
   margin-bottom: 10px;
+}
+.card__art :deep(.cover) {
+  transition: box-shadow 0.3s ease;
+}
+.card:hover .card__art :deep(.cover) {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
 }
 .card__play {
   position: absolute;
@@ -102,12 +121,18 @@ function onPlay(e) {
   bottom: 8px;
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity 0.25s ease, transform 0.3s var(--ease-spotify), background 0.2s ease;
 }
 .card:hover .card__play,
 .card__play--visible {
   opacity: 1;
   transform: translateY(0);
+}
+.card:hover .card__play:hover {
+  transform: scale(1.06);
+}
+.card .card__play:active {
+  transform: scale(0.95);
 }
 .card__title {
   font-weight: 700;

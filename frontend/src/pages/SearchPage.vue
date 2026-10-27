@@ -7,6 +7,8 @@ import MediaCard from '@/components/MediaCard.vue'
 import TrackRow from '@/components/TrackRow.vue'
 import PlayButton from '@/components/PlayButton.vue'
 import ReleaseGrid from '@/components/ReleaseGrid.vue'
+import CoverImage from '@/components/CoverImage.vue'
+import { useLibraryStore } from '@/stores/library'
 import { usePlayerStore } from '@/stores/player'
 
 const route = useRoute()
@@ -156,6 +158,17 @@ async function releaseTracks(r) {
 function tileColor(i) {
   return TILE_COLORS[i % TILE_COLORS.length]
 }
+
+// Обложки для плиток «Новые релизы» и «Для тебя» (у жанров — свои с сервера).
+const library = useLibraryStore()
+const newestCover = ref(null)
+const forYouCover = computed(() => library.likedAlbums[0]?.cover || null)
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/releases', { params: { sort: 'date', per_page: 1 } })
+    newestCover.value = data.data?.[0]?.cover || null
+  } catch {}
+})
 </script>
 
 <template>
@@ -178,18 +191,21 @@ function tileColor(i) {
           :key="g.genre"
           :to="{ name: 'genre', params: { name: g.genre } }"
           class="tile"
-          :style="{ background: tileColor(i) }"
+          :style="{ backgroundColor: tileColor(i) }"
         >
           <span class="tile__name">{{ g.genre }}</span>
-          <Icon name="album" :size="72" class="tile__art" />
+          <CoverImage v-if="g.cover" :cover="g.cover" :size="160" class="tile__cover" />
+          <Icon v-else name="album" :size="72" class="tile__art" />
         </RouterLink>
-        <RouterLink :to="{ name: 'section', params: { key: 'new' } }" class="tile" :style="{ background: tileColor(genres.length) }">
+        <RouterLink :to="{ name: 'section', params: { key: 'new' } }" class="tile" :style="{ backgroundColor: tileColor(genres.length) }">
           <span class="tile__name">Новые релизы</span>
-          <Icon name="nowplaying" :size="72" class="tile__art" />
+          <CoverImage v-if="newestCover" :cover="newestCover" :size="160" class="tile__cover" />
+          <Icon v-else name="nowplaying" :size="72" class="tile__art" />
         </RouterLink>
-        <RouterLink :to="{ name: 'section', params: { key: 'popular' } }" class="tile" :style="{ background: tileColor(genres.length + 1) }">
+        <RouterLink :to="{ name: 'section', params: { key: 'popular' } }" class="tile" :style="{ backgroundColor: tileColor(genres.length + 1) }">
           <span class="tile__name">Для тебя</span>
-          <Icon name="heartFill" :size="72" class="tile__art" />
+          <CoverImage v-if="forYouCover" :cover="forYouCover" :size="160" class="tile__cover" />
+          <Icon v-else name="heartFill" :size="72" class="tile__art" />
         </RouterLink>
       </div>
 
@@ -434,10 +450,34 @@ function tileColor(i) {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  transition: transform 0.12s ease;
+  /* Свет сверху-слева и зерно — плитка «выпуклая», а не плоская заливка. */
+  background-image: var(--grain), linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, transparent 55%, rgba(0, 0, 0, 0.18) 100%);
+  transition: transform 0.2s var(--ease-spotify), box-shadow 0.2s ease;
 }
 .tile:hover {
   transform: scale(1.02);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.tile:active {
+  transform: scale(0.99);
+}
+.tile__name {
+  position: relative;
+  z-index: 1;
+}
+/* Повёрнутая обложка в углу — фирменная плитка обзора Spotify. */
+.tile__cover {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 42%;
+  max-width: 128px;
+  transform: rotate(25deg) translate(18%, -2%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: transform 0.35s var(--ease-spotify);
+}
+.tile:hover .tile__cover {
+  transform: rotate(28deg) translate(16%, -6%) scale(1.05);
 }
 .tile__art {
   position: absolute;

@@ -1,4 +1,6 @@
 <script setup>
+import PageSkeleton from '@/components/PageSkeleton.vue'
+import StickyHeader from '@/components/StickyHeader.vue'
 import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/lib/api'
@@ -32,6 +34,7 @@ function playAll() {
 
 <template>
   <div v-if="mix" class="mix">
+    <StickyHeader :title="mix.title" :color="mix.color" :context-key="ctxKey" :tracks="mix.tracks" />
     <div class="mix__hero" :style="{ '--mix-bg': mix.color }">
       <div class="mix__cover">
         <Icon name="nowplaying" :size="72" />
@@ -71,11 +74,14 @@ function playAll() {
       </div>
     </div>
   </div>
+  <PageSkeleton v-else />
 </template>
 
 <style scoped>
 .mix__hero {
-  background: linear-gradient(180deg, var(--mix-bg) 0%, rgba(0, 0, 0, 0.55) 100%);
+  background-color: var(--mix-bg);
+  background-image: var(--grain), radial-gradient(90% 130% at 12% 0%, rgba(255, 255, 255, 0.13), transparent 60%),
+    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.55) 100%);
   display: flex;
   align-items: flex-end;
   gap: 24px;
@@ -86,11 +92,28 @@ function playAll() {
   height: 232px;
   flex: 0 0 232px;
   border-radius: 4px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(0, 0, 0, 0.25)), var(--mix-bg);
+  background: var(--grain), linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(0, 0, 0, 0.25)), var(--mix-bg);
   display: grid;
   place-items: center;
   color: #fff;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: mix-cover-in 0.55s var(--ease-spotify) backwards;
+}
+.mix__text {
+  min-width: 0;
+  animation: mix-text-in 0.55s var(--ease-spotify) 0.06s backwards;
+}
+@keyframes mix-cover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes mix-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }
 .mix__kind {
   font-size: 14px;
@@ -119,5 +142,35 @@ function playAll() {
 .play-btn--lg {
   width: 56px;
   height: 56px;
+}
+/* Телефон: обложка по центру, текст под ней — как у альбомов и плейлистов
+   (раньше название уезжало за правый край экрана). */
+@media (max-width: 768px) {
+  .mix__hero {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 16px 12px;
+  }
+  .mix__cover {
+    width: min(62vw, 260px);
+    height: auto;
+    aspect-ratio: 1;
+    flex: none;
+  }
+  .mix__text {
+    width: 100%;
+  }
+  .mix__kind {
+    display: none;
+  }
+  .mix__title {
+    font-size: 26px;
+    margin: 6px 0;
+    letter-spacing: -0.02em;
+  }
+  .mix__meta {
+    flex-wrap: wrap;
+  }
 }
 </style>

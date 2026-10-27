@@ -4,7 +4,10 @@ import { RouterLink } from 'vue-router'
 import Icon from './Icon.vue'
 import CoverImage from './CoverImage.vue'
 import DragBar from './DragBar.vue'
+import Marquee from './Marquee.vue'
+import SaveButton from './SaveButton.vue'
 import { formatDuration } from '@/lib/format'
+import { releaseRoute } from '@/lib/links'
 import { usePlayerStore } from '@/stores/player'
 import { useLibraryStore } from '@/stores/library'
 import { useAuthStore } from '@/stores/auth'
@@ -27,10 +30,12 @@ async function onMiniplayer() {
 
 const track = computed(() => player.currentTrack)
 const liked = computed(() => track.value && library.isLiked(track.value.id))
+const trackLink = computed(() => releaseRoute(track.value, player.contextKey))
 
 // --- Connect: when another device plays, the bar becomes a remote control ---
 const remote = computed(() => devices.isRemote)
 const rs = computed(() => devices.remoteState)
+const remoteLink = computed(() => releaseRoute(rs.value?.track, rs.value?.ctxKey || ''))
 
 // Interpolate the remote position between state broadcasts.
 const nowTick = ref(Date.now())
@@ -55,6 +60,14 @@ const shownProgress = computed(() =>
 const shownVolume = computed(() =>
   remote.value ? rs.value?.vol ?? 0.8 : player.muted ? 0 : player.volume
 )
+// Как у Spotify, динамик показывает уровень: выкл / тихо / средне / громко.
+const volumeIcon = computed(() => {
+  const v = shownVolume.value
+  if (v <= 0) return 'volumeOff'
+  if (v < 1 / 3) return 'volumeLow'
+  if (v < 2 / 3) return 'volumeMedium'
+  return 'volume'
+})
 
 // Шафл/повтор активного устройства (store сам маршрутизирует команды).
 const shownShuffle = computed(() => (remote.value ? !!rs.value?.shuffle : player.shuffle))
@@ -84,31 +97,36 @@ function onVol(frac) {
       <!-- Left: now playing -->
       <div class="player__now">
         <template v-if="remote && rs?.track">
-          <img v-if="rs.track.cover" :src="rs.track.cover" class="player__cover player__cover--img" alt="" />
-          <div class="player__meta">
-            <div class="player__title">{{ rs.track.title }}</div>
+          <button :key="rs.track.id" class="player__coverbtn" title="Экран «Сейчас играет»" @click="ui.openRight('nowplaying')">
+            <img v-if="rs.track.cover" :src="rs.track.cover" class="player__cover player__cover--img" alt="" />
+          </button>
+          <div :key="`m${rs.track.id}`" class="player__meta">
+            <Marquee :watch-key="rs.track.id" class="player__title">
+              <RouterLink v-if="remoteLink" :to="remoteLink" class="player__titlelink">{{ rs.track.title }}</RouterLink>
+              <span v-else>{{ rs.track.title }}</span>
+            </Marquee>
             <div class="player__artists">{{ rs.track.artists }}</div>
           </div>
         </template>
         <template v-else-if="track">
-          <CoverImage :cover="track.cover" :size="56" class="player__cover" />
-          <div class="player__meta">
-            <div class="player__title">{{ track.title }}</div>
+          <!-- Как в Spotify: обложка открывает «Сейчас играет», название —
+               страницу альбома или сингла с подсвеченной строкой трека. -->
+          <button :key="track.id" class="player__coverbtn" title="Экран «Сейчас играет»" @click="ui.openRight('nowplaying')">
+            <CoverImage :cover="track.cover" :size="56" class="player__cover" />
+            <span class="player__coverhint"><Icon name="chevronRight" :size="12" /></span>
+          </button>
+          <div :key="`m${track.id}`" class="player__meta">
+            <Marquee :watch-key="track.id" class="player__title">
+              <RouterLink v-if="trackLink" :to="trackLink" class="player__titlelink">{{ track.title }}</RouterLink>
+              <span v-else>{{ track.title }}</span>
+            </Marquee>
             <div class="player__artists">
               <template v-for="(a, i) in track.artists" :key="a.id">
                 <RouterLink :to="{ name: 'artist', params: { slug: a.slug } }">{{ a.name }}</RouterLink><span v-if="i < track.artists.length - 1">, </span>
               </template>
             </div>
           </div>
-          <button
-            v-if="auth.isAuthenticated"
-            class="ctl player__add"
-            :class="{ on: liked }"
-            :title="liked ? 'Добавлено в медиатеку' : 'Добавить в медиатеку'"
-            @click="library.toggleLike(track)"
-          >
-            <Icon :name="liked ? 'checkCircle' : 'plusCircle'" :size="16" />
-          </button>
+          <SaveButton v-if="auth.isAuthenticated" class="player__add" :on="!!liked" @toggle="library.toggleLike(track)" />
         </template>
       </div>
 
@@ -117,8 +135,9 @@ function onVol(frac) {
         <div class="player__controls">
           <button class="ctl ctl--dot" :class="{ on: shownShuffle }" title="В случайном порядке" @click="player.setShuffle(!shownShuffle)"><Icon name="shuffle" :size="16" /></button>
           <button class="ctl" title="Назад" @click="onPrev"><Icon name="prev" :size="16" /></button>
-          <button class="player__play" @click="onTogglePlay">
-            <Icon :name="shownPlaying ? 'pause' : 'play'" :size="16" />
+          <button class="player__play" :title="shownPlaying ? 'Пауза' : 'Слушать'" @click="onTogglePlay">
+            <!-- Ключ — чтобы смена ▶/⏸ проигрывала мягкую «пружинку». -->
+            <Icon :key="shownPlaying ? 'pause' : 'play'" class="player__playicon" :name="shownPlaying ? 'pause' : 'play'" :size="16" />
           </button>
           <button class="ctl" title="Далее" @click="onNext"><Icon name="next" :size="16" /></button>
           <button class="ctl ctl--dot" :class="{ on: shownRepeat !== 'off' }" title="Повторять" @click="player.cycleRepeat()">
@@ -139,7 +158,7 @@ function onVol(frac) {
         <button class="ctl ctl--dot" :class="{ on: ui.lyricsOpen }" title="Текст" @click="ui.toggleLyrics()"><Icon name="lyrics" :size="16" /></button>
         <button class="ctl ctl--dot" :class="{ on: ui.rightOpen && ui.rightView === 'queue' }" title="Очередь" @click="ui.openRight('queue')"><Icon name="queue" :size="16" /></button>
         <button class="ctl ctl--dot" :class="{ on: (ui.rightOpen && ui.rightView === 'connect') || remote }" title="Подключение к устройству" @click="ui.openRight('connect')"><Icon name="devices" :size="16" /></button>
-        <button class="ctl" title="Громкость" @click="remote ? null : player.toggleMute()"><Icon name="volume" :size="16" /></button>
+        <button class="ctl" :title="shownVolume > 0 ? 'Выключить звук' : 'Включить звук'" @click="remote ? null : player.toggleMute()"><Icon :name="volumeIcon" :size="16" /></button>
         <div class="player__vol"><DragBar :value="shownVolume" @input="onVol" /></div>
         <button class="ctl" title="Мини-плеер" @click="onMiniplayer"><Icon name="miniplayer" :size="16" /></button>
         <button class="ctl" :class="{ on: ui.fullscreenOpen }" title="Полноэкранный режим" @click="ui.toggleFullscreen()"><Icon name="fullscreen" :size="16" /></button>
@@ -189,6 +208,16 @@ function onVol(frac) {
   gap: 14px;
   min-width: 0;
 }
+.player__coverbtn {
+  position: relative;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border-radius: 4px;
+  /* Смена трека: новая обложка «проявляется» из лёгкого размытия. */
+  animation: np-cover-in 0.42s cubic-bezier(0.3, 0, 0, 1);
+}
 .player__cover {
   width: 56px;
   flex: 0 0 56px;
@@ -198,15 +227,52 @@ function onVol(frac) {
   height: 56px;
   object-fit: cover;
 }
+/* Стрелка «развернуть» в углу обложки — подсказка, что она кликается. */
+.player__coverhint {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.player__coverhint svg {
+  transform: rotate(-90deg);
+}
+.player__coverbtn:hover .player__coverhint {
+  opacity: 1;
+  transform: none;
+}
 .player__meta {
   min-width: 0;
+  animation: np-meta-in 0.38s cubic-bezier(0.3, 0, 0, 1);
 }
 .player__title {
   color: #fff;
   font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.player__titlelink:hover {
+  text-decoration: underline;
+}
+@keyframes np-cover-in {
+  from {
+    opacity: 0.2;
+    transform: scale(0.92);
+    filter: blur(6px);
+  }
+}
+@keyframes np-meta-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 .player__artists {
   font-size: 12px;
@@ -272,6 +338,22 @@ function onVol(frac) {
 }
 .player__play:hover {
   transform: scale(1.06);
+}
+.player__play:active {
+  transform: scale(0.94);
+  transition-duration: 0.05s;
+}
+.player__playicon {
+  animation: np-icon-swap 0.28s var(--ease-spotify);
+}
+@keyframes np-icon-swap {
+  from {
+    transform: scale(0.5);
+    opacity: 0.3;
+  }
+}
+.ctl:active {
+  transform: scale(0.9);
 }
 .player__progress {
   display: flex;

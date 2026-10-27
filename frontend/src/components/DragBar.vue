@@ -70,12 +70,17 @@ function onUp(e) {
   height: 12px;
   border-radius: 50%;
   background: #fff;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.4);
   opacity: 0;
-  transition: opacity 0.12s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.12s ease, transform 0.18s var(--ease-spotify);
 }
 .dragbar:hover .dragbar__knob,
 .dragbar--active .dragbar__knob {
   opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.dragbar--active .dragbar__knob {
+  transform: translate(-50%, -50%) scale(1.15);
 }
 </style>

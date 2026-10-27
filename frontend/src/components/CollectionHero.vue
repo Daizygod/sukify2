@@ -55,8 +55,13 @@ const titleSize = computed(() => {
   /* Как у Spotify: сплошной цвет обложки + лёгкое затемнение к низу.
      Блок ниже продолжает тот же цвет (60% чёрного → #121212) — шва нет. */
   background-color: var(--hero-bg);
-  background-image: linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.5) 100%);
+  /* Объём: мягкий «свет» сверху-слева, затемнение к низу и зерно поверх —
+     так цвет обложки выглядит как у Spotify, а не плоской плашкой. */
+  background-image: var(--grain),
+    radial-gradient(90% 130% at 12% 0%, rgba(255, 255, 255, 0.13), transparent 60%),
+    linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.5) 100%);
   padding: 0;
+  transition: background-color 0.6s ease;
 }
 .hero__inner {
   display: flex;
@@ -71,6 +76,27 @@ const titleSize = computed(() => {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   border-radius: 4px;
   overflow: hidden;
+  animation: hero-cover-in 0.55s var(--ease-spotify) backwards;
+  transition: transform 0.3s var(--ease-spotify), box-shadow 0.3s ease;
+}
+.hero__cover--zoom:hover {
+  transform: scale(1.015);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.6);
+}
+.hero__text {
+  animation: hero-text-in 0.55s var(--ease-spotify) 0.06s backwards;
+}
+@keyframes hero-cover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes hero-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }
 .hero__cover--round {
   border-radius: 50%;
