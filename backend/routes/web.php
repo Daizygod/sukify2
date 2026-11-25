@@ -48,6 +48,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('tracks/{track}/lyrics/flag', [\App\Http\Controllers\Admin\TrackLyricsController::class, 'flag'])->name('tracks.lyrics.flag');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
+        // Аккаунты только по приглашению: админ вводит почту и ник, пароль
+        // придумываем сами и показываем один раз.
+        Route::post('users', [UserController::class, 'store'])->name('users.store');
+        Route::put('users/{user}/password', [UserController::class, 'resetPassword'])->name('users.password');
         Route::put('users/{user}/ban', [UserController::class, 'toggleBan'])->name('users.ban');
         Route::put('users/{user}/admin', [UserController::class, 'toggleAdmin'])->name('users.admin');
 

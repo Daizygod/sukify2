@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -45,28 +44,6 @@ class MobileAuthController extends Controller
         }
 
         return $this->issueToken($request, $user, $data['device_name'] ?? null);
-    }
-
-    public function register(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'username' => ['nullable', 'string', 'alpha_dash', 'max:30', 'unique:users,username'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'confirmed', Password::defaults()],
-            'device_name' => ['nullable', 'string', 'max:80'],
-        ]);
-
-        $user = User::create([
-            'name' => $data['name'],
-            'username' => $data['username'] ?? User::generateUsername($data['name'], $data['email']),
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
-
-        $user->settings(); // настройки воспроизведения по умолчанию
-
-        return $this->issueToken($request, $user, $data['device_name'] ?? null)->setStatusCode(201);
     }
 
     /** Выход с этого телефона: гасим его токен и убираем из списка устройств. */

@@ -4,39 +4,19 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request): JsonResponse
+    /** Аккаунты заводит админ: {@see \App\Http\Controllers\Admin\UserController::store}. */
+    public function registrationClosed(): JsonResponse
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'username' => ['nullable', 'string', 'alpha_dash', 'max:30', 'unique:users,username'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'confirmed', Password::defaults()],
-        ]);
-
-        $user = User::create([
-            'name' => $data['name'],
-            // @handle нужен для ссылки на профиль — если не указали, делаем сами.
-            'username' => $data['username'] ?? User::generateUsername($data['name'], $data['email']),
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
-
-        $user->settings(); // seed default playback settings
-
-        Auth::guard('web')->login($user);
-        $request->session()->regenerate();
-
-        return (new UserResource($user))->response()->setStatusCode(201);
+        return response()->json([
+            'message' => 'Регистрация только по приглашению — попроси аккаунт у администратора.',
+        ], 403);
     }
 
     public function login(Request $request): JsonResponse

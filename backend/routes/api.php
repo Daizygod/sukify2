@@ -24,22 +24,26 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Public endpoints — ТОЛЬКО вход и регистрация
+| Public endpoints — ТОЛЬКО вход
 |--------------------------------------------------------------------------
 | Каталог полностью закрыт от гостей: без сессии не видно ни треков,
-| ни артистов, ни поиска.
+| ни артистов, ни поиска. Регистрации нет — аккаунты заводит админ
+| (/admin/users).
 */
 
 // Auth (SPA cookie flow — hit /sanctum/csrf-cookie first).
-Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 // Приложение для Android: тот же вход, но в ответ — токен Sanctum.
 Route::post('/mobile/login', [MobileAuthController::class, 'login'])->middleware('throttle:10,1');
-Route::post('/mobile/register', [MobileAuthController::class, 'register'])->middleware('throttle:10,1');
 // Без not.banned: выйти должен суметь и заблокированный.
 Route::post('/mobile/logout', [MobileAuthController::class, 'logout'])->middleware('auth:sanctum');
+
+// Старые версии сайта и приложения ещё зовут регистрацию — им нужен понятный
+// ответ, а не 404.
+Route::post('/register', [AuthController::class, 'registrationClosed']);
+Route::post('/mobile/register', [AuthController::class, 'registrationClosed']);
 
 // Колбэк Discord: обычный переход браузера, сессии SPA здесь нет —
 // пользователь опознаётся по state из кэша.

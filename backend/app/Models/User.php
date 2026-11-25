@@ -56,6 +56,28 @@ class User extends Authenticatable
         return $candidate;
     }
 
+    /**
+     * Пароль аккаунту, который заводит админ.
+     *
+     * Его перепечатывают с экрана на телефон и диктуют, поэтому группами и без
+     * похожих знаков (0/o, 1/i/l). 12 знаков из 31 — это почти 60 бит.
+     */
+    public static function generatePassword(): string
+    {
+        $alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+        $groups = [];
+        for ($i = 0; $i < 3; $i++) {
+            $group = '';
+            for ($j = 0; $j < 4; $j++) {
+                $group .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+            $groups[] = $group;
+        }
+
+        return implode('-', $groups);
+    }
+
     /** Профиль по @handle или по числовому id (старые ссылки). */
     public static function findByHandle(string $handle): ?self
     {

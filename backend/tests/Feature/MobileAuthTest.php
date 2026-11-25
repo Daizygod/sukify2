@@ -63,21 +63,6 @@ class MobileAuthTest extends TestCase
         $this->assertSame(0, PersonalAccessToken::count());
     }
 
-    public function test_register_returns_token(): void
-    {
-        $this->postJson('/api/mobile/register', [
-            'name' => 'Новый слушатель',
-            'email' => 'new@sukify.test',
-            'password' => 'secret-password',
-            'password_confirmation' => 'secret-password',
-            'device_name' => 'Galaxy',
-        ])
-            ->assertCreated()
-            ->assertJsonStructure(['token', 'device_id', 'user' => ['id', 'username']]);
-
-        $this->assertDatabaseHas('users', ['email' => 'new@sukify.test']);
-    }
-
     public function test_logout_revokes_only_this_phone(): void
     {
         $user = User::factory()->create(['email' => 'c@sukify.test', 'username' => 'c']);

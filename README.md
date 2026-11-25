@@ -76,6 +76,9 @@ under `backend/resources/js`, rebuild:
 docker run --rm -v "$PWD/backend:/app" -w /app node:22-alpine npm run build
 ```
 
+Sign-up is invite-only: create accounts at `/admin/users` (email + nickname). The
+password is generated and shown once; "New password" issues a fresh one.
+
 ## Discord Rich Presence
 
 Статус «Слушает Sukify» с обложкой и полосой прогресса ставит отдельное
