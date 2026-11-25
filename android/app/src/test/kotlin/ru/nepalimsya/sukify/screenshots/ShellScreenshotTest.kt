@@ -13,23 +13,17 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import ru.nepalimsya.sukify.ui.auth.AuthContent
 import ru.nepalimsya.sukify.ui.auth.AuthForm
-import ru.nepalimsya.sukify.ui.auth.AuthMode
 import ru.nepalimsya.sukify.ui.theme.SukifyTheme
 
 /** Форма входа без ViewModel — для скриншотов. */
 private class FakeAuthForm(
-    override val mode: AuthMode = AuthMode.Login,
     override val error: String? = null,
     override val fieldErrors: Map<String, String> = emptyMap(),
     override val busy: Boolean = false,
 ) : AuthForm {
-    override var name by mutableStateOf("")
     override var email by mutableStateOf("")
     override var password by mutableStateOf("")
-    override var confirmation by mutableStateOf("")
     override var server by mutableStateOf("https://sukify.nepalimsya.ru")
-
-    override fun toggleMode() = Unit
 
     override fun submit() = Unit
 }
@@ -53,18 +47,14 @@ class ShellScreenshotTest {
     }
 
     @Test
-    fun authRegisterWithError() {
-        captureRoboImage("screenshots/auth_register_error.png") {
+    fun authLoginWithError() {
+        captureRoboImage("screenshots/auth_login_error.png") {
             SukifyTheme {
                 AuthContent(
                     FakeAuthForm(
-                        mode = AuthMode.Register,
-                        error = "Эта почта уже зарегистрирована",
-                        fieldErrors = mapOf("email" to "Эта почта уже зарегистрирована"),
-                    ).apply {
-                        name = "Руслан"
-                        email = "demo@sukify.test"
-                    },
+                        error = "Неверная почта или пароль.",
+                        fieldErrors = mapOf("email" to "Неверная почта или пароль."),
+                    ).apply { email = "demo@sukify.test" },
                 )
             }
         }

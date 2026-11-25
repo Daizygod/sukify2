@@ -10,7 +10,6 @@ import ru.nepalimsya.sukify.core.network.apiCall
 import ru.nepalimsya.sukify.data.cache.ApiCache
 import ru.nepalimsya.sukify.data.library.LibraryState
 import ru.nepalimsya.sukify.data.model.LoginRequest
-import ru.nepalimsya.sukify.data.model.RegisterRequest
 import ru.nepalimsya.sukify.data.model.TokenResponse
 import ru.nepalimsya.sukify.data.offline.OfflineCoordinator
 import ru.nepalimsya.sukify.data.prefs.UiPrefs
@@ -39,13 +38,6 @@ class AuthRepository @Inject constructor(
         apiHost.update(server)
         return apiCall {
             api.login(LoginRequest(email.trim(), password, deviceName()))
-        }.mapCatching { store(it) }
-    }
-
-    suspend fun register(server: String, name: String, email: String, password: String, confirmation: String): Result<Unit> {
-        apiHost.update(server)
-        return apiCall {
-            api.register(RegisterRequest(name.trim(), email.trim(), password, confirmation, deviceName()))
         }.mapCatching { store(it) }
     }
 

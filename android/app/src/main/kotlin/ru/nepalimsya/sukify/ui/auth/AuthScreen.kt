@@ -1,17 +1,11 @@
 package ru.nepalimsya.sukify.ui.auth
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,7 +51,7 @@ import ru.nepalimsya.sukify.ui.components.PrimaryButton
 import ru.nepalimsya.sukify.ui.theme.SukifyColors
 import ru.nepalimsya.sukify.ui.theme.SukifyType
 
-/** Вход и регистрация — как LoginPage.vue веба, в мобильной раскладке. */
+/** Вход — как LoginPage.vue веба, в мобильной раскладке. Регистрации нет: аккаунты заводит админ. */
 @Composable
 fun AuthScreen(defaultServer: String, vm: AuthViewModel = hiltViewModel()) {
     LaunchedEffect(defaultServer) {
@@ -69,7 +63,6 @@ fun AuthScreen(defaultServer: String, vm: AuthViewModel = hiltViewModel()) {
 @Composable
 fun AuthContent(vm: AuthForm) {
     val focus = LocalFocusManager.current
-    val register = vm.mode == AuthMode.Register
     var editServer by rememberSaveable { mutableStateOf(false) }
 
     Box(
@@ -94,7 +87,7 @@ fun AuthContent(vm: AuthForm) {
             // Текстовое начертание, а не заголовочное: у того латиница весом 900,
             // а кириллица только 700 — слова в одной строке выходили разной жирности.
             Text(
-                if (register) "Регистрация в Sukify" else "Войти в Sukify",
+                "Войти в Sukify",
                 style = SukifyType.PageTitle.copy(fontSize = SukifyType.PageTitle.fontSize * 1.2f),
                 color = SukifyColors.Text,
                 textAlign = TextAlign.Center,
@@ -105,16 +98,6 @@ fun AuthContent(vm: AuthForm) {
                 modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                AnimatedVisibility(register, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                    AuthField(
-                        label = "Имя",
-                        value = vm.name,
-                        onChange = { vm.name = it },
-                        error = vm.fieldErrors["name"],
-                        onNext = { focus.moveFocus(FocusDirection.Down) },
-                        contentType = ContentType.PersonFullName,
-                    )
-                }
                 AuthField(
                     label = "Электронная почта",
                     value = vm.email,
@@ -131,22 +114,10 @@ fun AuthContent(vm: AuthForm) {
                     keyboard = KeyboardType.Password,
                     secret = true,
                     error = vm.fieldErrors["password"],
-                    last = !register,
-                    onNext = { if (register) focus.moveFocus(FocusDirection.Down) else vm.submit() },
-                    contentType = if (register) ContentType.NewPassword else ContentType.Password,
+                    last = true,
+                    onNext = { vm.submit() },
+                    contentType = ContentType.Password,
                 )
-                AnimatedVisibility(register, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                    AuthField(
-                        label = "Подтверждение пароля",
-                        value = vm.confirmation,
-                        onChange = { vm.confirmation = it },
-                        keyboard = KeyboardType.Password,
-                        secret = true,
-                        last = true,
-                        onNext = { vm.submit() },
-                        contentType = ContentType.NewPassword,
-                    )
-                }
 
                 // Ошибка, уже показанная под своим полем, второй раз не нужна.
                 vm.error?.takeIf { it !in vm.fieldErrors.values }?.let {
@@ -154,7 +125,7 @@ fun AuthContent(vm: AuthForm) {
                 }
 
                 PrimaryButton(
-                    text = if (register) "Зарегистрироваться" else "Войти",
+                    text = "Войти",
                     onClick = {
                         focus.clearFocus()
                         vm.submit()
@@ -168,19 +139,12 @@ fun AuthContent(vm: AuthForm) {
             HorizontalDivider(Modifier.widthIn(max = 420.dp), color = SukifyColors.Divider)
             Spacer(Modifier.height(20.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (register) "Уже есть аккаунт? " else "Нет аккаунта? ",
-                    style = SukifyType.BodySmall,
-                    color = SukifyColors.TextSubdued,
-                )
-                Text(
-                    if (register) "Войти" else "Зарегистрироваться",
-                    style = SukifyType.BodySmallBold,
-                    color = SukifyColors.Text,
-                    modifier = Modifier.clickable { vm.toggleMode() }.padding(vertical = 8.dp),
-                )
-            }
+            Text(
+                "Регистрации нет: аккаунт выдаёт администратор.",
+                style = SukifyType.BodySmall,
+                color = SukifyColors.TextSubdued,
+                textAlign = TextAlign.Center,
+            )
 
             Spacer(Modifier.height(24.dp))
 

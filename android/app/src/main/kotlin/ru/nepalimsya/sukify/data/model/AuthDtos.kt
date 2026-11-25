@@ -25,15 +25,6 @@ data class LoginRequest(
 )
 
 @Serializable
-data class RegisterRequest(
-    val name: String,
-    val email: String,
-    val password: String,
-    @SerialName("password_confirmation") val passwordConfirmation: String,
-    @SerialName("device_name") val deviceName: String,
-)
-
-@Serializable
 data class TokenResponse(
     val token: String,
     @SerialName("device_id") val deviceId: Long? = null,

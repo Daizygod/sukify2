@@ -49,7 +49,6 @@ import ru.nepalimsya.sukify.data.model.PlaybackSettingsDto
 import ru.nepalimsya.sukify.data.model.PlaylistDto
 import ru.nepalimsya.sukify.data.model.PlaylistRequest
 import ru.nepalimsya.sukify.data.model.ProfileDto
-import ru.nepalimsya.sukify.data.model.RegisterRequest
 import ru.nepalimsya.sukify.data.model.ReleaseDto
 import ru.nepalimsya.sukify.data.model.SearchDto
 import ru.nepalimsya.sukify.data.model.SpotifyStatsDto
@@ -70,9 +69,6 @@ interface SukifyApi {
 
     @POST("mobile/login")
     suspend fun login(@Body body: LoginRequest): TokenResponse
-
-    @POST("mobile/register")
-    suspend fun register(@Body body: RegisterRequest): TokenResponse
 
     @POST("mobile/logout")
     suspend fun logout()
