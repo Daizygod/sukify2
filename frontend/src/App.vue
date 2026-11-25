@@ -134,7 +134,7 @@ function startRight(e) {
 </script>
 
 <template>
-  <!-- Гость видит только форму входа/регистрации — без сайдбаров и плеера. -->
+  <!-- Гость видит только форму входа — без сайдбаров и плеера. -->
   <div v-if="!auth.isAuthenticated" class="app--guest">
     <RouterView />
     <ToastHost />

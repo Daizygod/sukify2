@@ -11,8 +11,7 @@ const player = usePlayerStore()
 const router = useRouter()
 const route = useRoute()
 
-const mode = ref('login') // login | register
-const form = ref({ name: '', email: '', password: '', password_confirmation: '' })
+const form = ref({ email: '', password: '' })
 const error = ref('')
 const busy = ref(false)
 
@@ -20,11 +19,7 @@ async function submit() {
   error.value = ''
   busy.value = true
   try {
-    if (mode.value === 'login') {
-      await auth.login({ email: form.value.email, password: form.value.password })
-    } else {
-      await auth.register(form.value)
-    }
+    await auth.login(form.value)
     await Promise.all([library.load().catch(() => {}), player.loadSettings()])
     router.push(route.query.redirect || '/')
   } catch (e) {
@@ -39,13 +34,9 @@ async function submit() {
   <div class="auth">
     <div class="auth__card">
       <div class="auth__logo">🎧 Sukify</div>
-      <h1 class="auth__title">{{ mode === 'login' ? 'Войти в Sukify' : 'Регистрация в Sukify' }}</h1>
+      <h1 class="auth__title">Войти в Sukify</h1>
 
       <form @submit.prevent="submit" class="auth__form">
-        <label v-if="mode === 'register'">
-          <span>Имя</span>
-          <input v-model="form.name" required />
-        </label>
         <label>
           <span>Электронная почта</span>
           <input v-model="form.email" type="email" required />
@@ -54,32 +45,15 @@ async function submit() {
           <span>Пароль</span>
           <input v-model="form.password" type="password" required />
         </label>
-        <label v-if="mode === 'register'">
-          <span>Подтверждение пароля</span>
-          <input v-model="form.password_confirmation" type="password" required />
-        </label>
 
         <p v-if="error" class="auth__error">{{ error }}</p>
 
         <button class="btn-primary auth__submit" :disabled="busy">
-          {{ busy ? '…' : mode === 'login' ? 'Войти' : 'Зарегистрироваться' }}
+          {{ busy ? '…' : 'Войти' }}
         </button>
       </form>
 
-      <p class="auth__hint" v-if="mode === 'login'">
-        Демо: <code>demo@sukify.test</code> / <code>password</code>
-      </p>
-
-      <div class="auth__switch">
-        <template v-if="mode === 'login'">
-          Нет аккаунта?
-          <button @click="mode = 'register'">Зарегистрироваться</button>
-        </template>
-        <template v-else>
-          Уже есть аккаунт?
-          <button @click="mode = 'login'">Войти</button>
-        </template>
-      </div>
+      <p class="auth__note">Регистрации нет: аккаунт выдаёт администратор.</p>
     </div>
   </div>
 </template>
@@ -144,21 +118,11 @@ async function submit() {
   margin-top: 8px;
   width: 100%;
 }
-.auth__hint {
-  margin-top: 16px;
-  font-size: 12px;
-  color: var(--text-subdued);
-}
-.auth__switch {
+.auth__note {
   margin-top: 24px;
   color: var(--text-subdued);
   font-size: 14px;
   border-top: 1px solid #292929;
   padding-top: 24px;
-}
-.auth__switch button {
-  color: #fff;
-  text-decoration: underline;
-  font-weight: 600;
 }
 </style>

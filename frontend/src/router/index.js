@@ -38,7 +38,7 @@ router.beforeEach(async (to) => {
   // vue-router starts the initial navigation on install, before main.js has
   // finished awaiting the session — wait for it here so guards see the user.
   if (!auth.ready) await auth.fetchUser()
-  // Гостям доступна только страница входа/регистрации — весь каталог закрыт.
+  // Гостям доступна только страница входа — весь каталог закрыт.
   if (!auth.isAuthenticated && !to.meta.guest) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
