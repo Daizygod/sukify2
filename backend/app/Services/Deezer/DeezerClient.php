@@ -164,6 +164,84 @@ class DeezerClient
         return null;
     }
 
+    /** Карточка трека: превью, альбом, ISRC. */
+    public function track(int $id): ?array
+    {
+        $response = $this->http()->get($this->base.'/track/'.$id);
+        $data = $response->successful() ? $response->json() : null;
+
+        return is_array($data) && ! isset($data['error']) && ! empty($data['id']) ? $data : null;
+    }
+
+    /**
+     * Все издания песни с превью: сингл, альбом, переиздания.
+     *
+     * Одна и та же запись лежит у Deezer по нескольку раз, и цензура могла
+     * задеть только часть изданий — сверять файл нужно с каждым.
+     *
+     * @return list<array{id:int, title:string, album:string, duration:int, preview:string}>
+     */
+    public function editions(string $artist, string $title, ?int $durationMs, ?int $knownId = null, int $limit = 4): array
+    {
+        $wantCore = $this->norm($this->core($title));
+        $wantArtist = $this->norm($artist);
+        if ($wantCore === '' || $wantArtist === '') {
+            return [];
+        }
+
+        $found = [];
+        $queries = [
+            // Кавычки внутри имени сломали бы синтаксис поиска Deezer.
+            sprintf('artist:"%s" track:"%s"', str_replace('"', '', $artist), str_replace('"', '', $this->core($title))),
+            trim($artist.' '.$this->core($title)),
+        ];
+        foreach ($queries as $q) {
+            $response = $this->http()->get($this->base.'/search', ['q' => $q, 'limit' => 25]);
+            if (! $response->successful() || isset($response->json()['error'])) {
+                continue;
+            }
+            foreach ($response->json('data') ?? [] as $c) {
+                if (! is_array($c) || empty($c['id']) || empty($c['preview'])) {
+                    continue;
+                }
+                $name = $this->norm((string) ($c['artist']['name'] ?? ''));
+                $artistOk = $name !== '' && ($name === $wantArtist
+                    || str_contains($name, $wantArtist) || str_contains($wantArtist, $name));
+                if (! $artistOk || $this->norm($this->core((string) ($c['title'] ?? ''))) !== $wantCore) {
+                    continue;
+                }
+                // Другая длина — другая версия (ремикс, радио-эдит), не издание.
+                if ($durationMs && ! empty($c['duration']) && abs((int) $c['duration'] * 1000 - $durationMs) > 8000) {
+                    continue;
+                }
+                $found[(int) $c['id']] = $c;
+            }
+            if (count($found) >= $limit) {
+                break;
+            }
+        }
+
+        if ($knownId && ! isset($found[$knownId]) && ($own = $this->track($knownId)) && ! empty($own['preview'])) {
+            $found[$knownId] = $own;
+        }
+
+        $list = array_values($found);
+        usort($list, function ($a, $b) use ($durationMs) {
+            $da = $durationMs ? abs((int) ($a['duration'] ?? 0) * 1000 - $durationMs) : 0;
+            $db = $durationMs ? abs((int) ($b['duration'] ?? 0) * 1000 - $durationMs) : 0;
+
+            return $da <=> $db ?: ((int) ($b['rank'] ?? 0) <=> (int) ($a['rank'] ?? 0));
+        });
+
+        return array_map(fn ($c) => [
+            'id' => (int) $c['id'],
+            'title' => (string) ($c['title'] ?? ''),
+            'album' => (string) ($c['album']['title'] ?? ''),
+            'duration' => (int) ($c['duration'] ?? 0),
+            'preview' => (string) $c['preview'],
+        ], array_slice($list, 0, $limit));
+    }
+
     /** Карточка альбома: дата выхода, тип релиза, число треков. */
     public function album(int $id): ?array
     {

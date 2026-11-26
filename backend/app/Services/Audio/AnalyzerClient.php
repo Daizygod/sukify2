@@ -61,4 +61,50 @@ class AnalyzerClient
 
         return $data;
     }
+
+    /**
+     * Сверить трек с превью: не вырезаны ли в нём слова.
+     *
+     * @param  array<string,string>  $previews  ключ => путь к превью
+     * @return array<string,array{aligned:bool, score:float, offset_ms?:int, missing?:list<array{0:int,1:int}>,
+     *   extra?:list<array{0:int,1:int}>, differs?:list<array{0:int,1:int}>}>  по тем же ключам
+     */
+    public function compare(string $trackPath, array $previews): array
+    {
+        if (! $previews) {
+            return [];
+        }
+
+        $handles = [];
+        $request = Http::timeout(300);
+        $handles[] = $full = fopen($trackPath, 'r');
+        $request = $request->attach('full', $full, 'full.'.pathinfo($trackPath, PATHINFO_EXTENSION));
+        foreach ($previews as $key => $path) {
+            $handles[] = $h = fopen($path, 'r');
+            $request = $request->attach('previews', $h, $key.'.mp3');
+        }
+
+        try {
+            $response = $request->post($this->url().'/compare');
+        } finally {
+            foreach ($handles as $h) {
+                if (is_resource($h)) {
+                    fclose($h);
+                }
+            }
+        }
+
+        if (! $response->successful()) {
+            throw new RuntimeException('Сверка не удалась ('.$response->status().'): '.mb_substr($response->body(), 0, 300));
+        }
+
+        $out = [];
+        foreach ($response->json('results') ?? [] as $row) {
+            if (is_array($row) && isset($row['name'])) {
+                $out[(string) $row['name']] = $row;
+            }
+        }
+
+        return $out;
+    }
 }
