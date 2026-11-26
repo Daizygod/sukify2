@@ -70,7 +70,11 @@ class ProcessTrackAudio implements ShouldQueue
 
             // 5. Upload only the stream rendition.
             $streamKey = "audio/{$track->id}/stream.mp3";
-            $disk->writeStream($streamKey, fopen($localStream, 'r'));
+            // Диск S3 не бросает исключений (throw => false): без проверки трек
+            // стал бы «готов» без файла, когда в бакете кончится место.
+            if (! $disk->writeStream($streamKey, fopen($localStream, 'r'))) {
+                throw new \RuntimeException('Хранилище не приняло файл — возможно, в бакете кончилось место.');
+            }
 
             // Если у трека остался старый оригинал (до перехода на «без
             // оригиналов») — подчищаем его.
