@@ -36,7 +36,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn () => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Загрузчик архивов в админке ходит fetch-ем и ждёт JSON — ему ошибки
+        // тоже JSON-ом, а не редиректом, как Inertia-формам.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*')
+                || ($request->is('admin/uploads*') && $request->wantsJson() && ! $request->header('X-Inertia')),
         );
     })->create();

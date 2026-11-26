@@ -10,6 +10,7 @@ const nav = [
   { label: 'Dashboard', href: '/admin', icon: '▦' },
   { label: 'Artists', href: '/admin/artists', icon: '🎤' },
   { label: 'Releases', href: '/admin/releases', icon: '💿' },
+  { label: 'Bulk upload', href: '/admin/uploads', icon: '📦' },
   { label: 'Users', href: '/admin/users', icon: '👥' },
   { label: 'My profile', href: '/admin/profile', icon: '🔐' },
 ]

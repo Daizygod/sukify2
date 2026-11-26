@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ArtistController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\BulkUploadController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ReleaseController;
 use App\Http\Controllers\Admin\TrackController;
@@ -46,6 +47,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('tracks/{track}/lyrics', [\App\Http\Controllers\Admin\TrackLyricsController::class, 'update'])->name('tracks.lyrics.update');
         Route::post('tracks/{track}/lyrics/publish', [\App\Http\Controllers\Admin\TrackLyricsController::class, 'publish'])->name('tracks.lyrics.publish');
         Route::post('tracks/{track}/lyrics/flag', [\App\Http\Controllers\Admin\TrackLyricsController::class, 'flag'])->name('tracks.lyrics.flag');
+
+        // Массовая загрузка: архив или папка с музыкой целиком.
+        Route::get('uploads', [BulkUploadController::class, 'index'])->name('uploads.index');
+        Route::post('uploads', [BulkUploadController::class, 'store'])->name('uploads.store');
+        Route::get('uploads/tracks', [BulkUploadController::class, 'tracks'])->name('uploads.tracks');
+        Route::get('uploads/{upload}', [BulkUploadController::class, 'show'])->whereNumber('upload')->name('uploads.show');
+        Route::post('uploads/{upload}/chunk', [BulkUploadController::class, 'chunk'])->whereNumber('upload')->name('uploads.chunk');
+        Route::post('uploads/{upload}/files', [BulkUploadController::class, 'file'])->whereNumber('upload')->name('uploads.files');
+        Route::post('uploads/{upload}/finish', [BulkUploadController::class, 'finish'])->whereNumber('upload')->name('uploads.finish');
+        Route::post('uploads/{upload}/retry', [BulkUploadController::class, 'retry'])->whereNumber('upload')->name('uploads.retry');
+        Route::post('uploads/{upload}/resolve-all', [BulkUploadController::class, 'resolveAll'])->whereNumber('upload')->name('uploads.resolveAll');
+        Route::post('uploads/{upload}/items/{item}', [BulkUploadController::class, 'resolve'])->whereNumber(['upload', 'item'])->name('uploads.resolve');
+        Route::delete('uploads/{upload}', [BulkUploadController::class, 'destroy'])->whereNumber('upload')->name('uploads.destroy');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         // Аккаунты только по приглашению: админ вводит почту и ник, пароль

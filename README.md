@@ -79,6 +79,20 @@ docker run --rm -v "$PWD/backend:/app" -w /app node:22-alpine npm run build
 Sign-up is invite-only: create accounts at `/admin/users` (email + nickname). The
 password is generated and shown once; "New password" issues a fresh one.
 
+### Bulk upload
+
+`/admin/uploads` takes a whole archive (ZIP, RAR, 7z, TAR — any nesting, any audio
+format) or a folder. The archive goes up in 32 MB chunks and resumes after a break
+(drop the same file again); files land on the server's disk (`storage/app/bulk`), not
+in S3. The `bulk` queue then unpacks it (ZIP natively, the rest via `bsdtar`), reads
+tags with ffprobe (falling back to `Artist/Album/01 - Title` paths), and matches every
+file to the catalog: a full version replaces the 30-second preview (in every edition
+of the song), music that isn't in the catalog becomes new artists/releases/tracks,
+the best copy wins among duplicates, and doubtful files wait for a decision in the
+admin. Each file is also compared with the Deezer previews of the song (analyzer
+`/compare`, voice band 700–4500 Hz) to flag cut words. Workers must listen to
+`--queue=default,bulk`; `bulk:cleanup` frees the disk from abandoned uploads.
+
 ## Discord Rich Presence
 
 Статус «Слушает Sukify» с обложкой и полосой прогресса ставит отдельное
