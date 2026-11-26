@@ -49,5 +49,10 @@ ARG GID=1000
 RUN groupmod -g ${GID} www-data 2>/dev/null || true \
     && usermod -u ${UID} www-data 2>/dev/null || true
 
+# bsdtar (libarchive) — распаковка RAR, 7z и TAR в массовой загрузке. Отдельным
+# слоем в конце, чтобы не пересобирать ffmpeg и расширения PHP.
+RUN apt-get update && apt-get install -y --no-install-recommends libarchive-tools \
+    && rm -rf /var/lib/apt/lists/*
+
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["php-fpm"]

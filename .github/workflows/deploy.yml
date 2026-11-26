@@ -31,6 +31,13 @@ jobs:
             docker run --rm -v /home/deploy/sukify/backend:/app -w /app node:22-alpine sh -c "npm ci --no-audit --no-fund && npm run build"
             echo "🎛 Build analyzer (BPM, тональность, волна)..."
             docker compose -f docker-compose.prod.yml build analyzer
+            # Образ PHP тоже: в нём ffmpeg и bsdtar. Без изменений Dockerfile —
+            # всё из кэша за секунды; новый образ подхватит «up -d» ниже. Код к
+            # этому моменту уже на диске, поэтому сбой сборки не роняет деплой:
+            # останется старый образ (ZIP распакуется, RAR и 7z — нет).
+            echo "🐘 Build app image..."
+            docker compose -f docker-compose.prod.yml build app \
+              || echo "⚠️ App image build failed — keeping the old image (no bsdtar: RAR/7z unpacking unavailable)"
             echo "🎼 Composer install..."
             docker compose -f docker-compose.prod.yml exec -T app composer install --no-dev --optimize-autoloader --no-interaction
             echo "🩻 Apply migrations..."
@@ -43,11 +50,15 @@ jobs:
             docker compose -f docker-compose.prod.yml exec -T app php artisan tracks:audio-rev
             echo "🚀 Restart workers..."
             docker compose -f docker-compose.prod.yml restart queue-worker scheduler
+            APP_BEFORE=$(docker compose -f docker-compose.prod.yml ps -q app)
             docker compose -f docker-compose.prod.yml up -d
-            # Конфиг nginx примонтирован файлом: после git reset контейнер видит
-            # старую версию, пока его не перезапустить.
-            if ! git diff --quiet "$OLD" HEAD -- docker/nginx/prod.conf; then
-              echo "🧭 Nginx config changed — restart nginx..."
+            APP_AFTER=$(docker compose -f docker-compose.prod.yml ps -q app)
+            # Nginx перезапускаем, если: (1) новый образ пересоздал app — у
+            # контейнера новый IP, а nginx резолвит fastcgi_pass один раз на старте
+            # и без рестарта отдаёт 502; (2) поменялся его конфиг — он примонтирован
+            # файлом, и после git reset контейнер видит старую версию.
+            if [ "$APP_BEFORE" != "$APP_AFTER" ] || ! git diff --quiet "$OLD" HEAD -- docker/nginx/prod.conf; then
+              echo "🧭 App container or nginx config changed — restart nginx..."
               docker compose -f docker-compose.prod.yml restart nginx
             fi
             echo "🎉 Completed"

@@ -167,7 +167,9 @@ services:
     deploy:
       replicas: ${QUEUE_WORKERS:-2}
     working_dir: /var/www/html
-    command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--max-time=3600", "--timeout=600"]
+    # Сначала обычные задачи, потом массовая загрузка (bulk): тысячи файлов
+    # архива не должны держать в очереди одиночную загрузку трека.
+    command: ["php", "artisan", "queue:work", "--queue=default,bulk", "--sleep=1", "--tries=3", "--max-time=3600", "--timeout=600"]
     volumes:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
